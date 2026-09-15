@@ -1,5 +1,8 @@
 # Lumavora — kooperativní multiplayer bez backendu a databáze
 
+> ⚠️ **Čti spolu s [sladěním multiplayeru a nových etap](2026-09-15-reconciliation-multiplayer-vs-eras.md).** Tenhle dokument vznikl vedle druhého návrhu a v několika bodech si s ním sahá na totéž (verze uložené hry, jméno `Command`, signatura `step`, determinismus). Při rozporu platí sladění.
+
+
 **Datum:** 2026-09-15
 **Stav:** návrh k implementaci
 **Rozsah:** 2–4 hráči ve sdíleném světě, deterministický lockstep, WebRTC bez signalizačního serveru

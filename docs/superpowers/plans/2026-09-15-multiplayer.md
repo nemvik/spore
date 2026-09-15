@@ -1,5 +1,8 @@
 # Lumavora co-op multiplayer — implementační plán
 
+> ⚠️ **Čti spolu s [sladěním multiplayeru a nových etap](../specs/2026-09-15-reconciliation-multiplayer-vs-eras.md).** Tenhle dokument vznikl vedle druhého návrhu a v několika bodech si s ním sahá na totéž (verze uložené hry, jméno `Command`, signatura `step`, determinismus). Při rozporu platí sladění.
+
+
 > **Pro agentní workery:** POVINNÝ SUB-SKILL: použij `superpowers:subagent-driven-development` (doporučeno) nebo `superpowers:executing-plans` a jeď úkol po úkolu. Kroky používají checkbox (`- [ ]`) syntax.
 
 **Cíl:** Umožnit 2–4 hráčům hrát Lumavoru ve sdíleném světě přes deterministický lockstep a WebRTC, bez serveru a bez databáze.

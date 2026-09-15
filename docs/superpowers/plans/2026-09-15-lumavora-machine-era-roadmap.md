@@ -1,5 +1,8 @@
 # LUMAVORA — Éra kmene, strojů a planety: souhrnný implementační plán
 
+> ⚠️ **Čti spolu s [sladěním multiplayeru a nových etap](../specs/2026-09-15-reconciliation-multiplayer-vs-eras.md).** Tenhle dokument vznikl vedle druhého návrhu a v několika bodech si s ním sahá na totéž (verze uložené hry, jméno `Command`, signatura `step`, determinismus). Při rozporu platí sladění.
+
+
 > **Pro agenty:** Tohle je **rozcestník přes čtyři části, ne prováděcí plán.** Neprovádí se přímo. Před zahájením každé části (P0–P3) napiš pro tu část detailní plán skillem `superpowers:writing-plans` a teprve ten prováděj skillem `superpowers:subagent-driven-development` nebo `superpowers:executing-plans`.
 
 **Cíl:** Rozšířit kampaň za její současný pobřežní konec o tři etapy — Kmen, Stroje, Terraformace — po vzoru hry Spore.

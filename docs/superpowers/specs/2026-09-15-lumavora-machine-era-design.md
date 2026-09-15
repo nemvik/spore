@@ -1,5 +1,8 @@
 # LUMAVORA — Éra kmene, strojů a planety
 
+> ⚠️ **Čti spolu s [sladěním multiplayeru a nových etap](2026-09-15-reconciliation-multiplayer-vs-eras.md).** Tenhle dokument vznikl vedle druhého návrhu a v několika bodech si s ním sahá na totéž (verze uložené hry, jméno `Command`, signatura `step`, determinismus). Při rozporu platí sladění.
+
+
 Návrh rozšíření kampaně o tři etapy po vzoru hry Spore: **Kmen → Stroje → Terraformace**.
 
 - **Stav:** návrh ke schválení, nic z toho není implementováno
