@@ -113,6 +113,8 @@ Tohle je nejdůležitější a zároveň nejnevděčnější část. Vzniká tu 
 
 > Body 13 a 14 nejsou ústupky multiplayeru — dávají smysl samy o sobě a teď jsou zadarmo. Viz sladění §4.3.
 
+**Detailní plán:** [`2026-09-15-machine-era-p0-foundations.md`](2026-09-15-machine-era-p0-foundations.md) — 11 úkolů, krok po kroku.
+
 ### Hotovo, když
 
 - `pnpm typecheck && pnpm test && pnpm build` projde
