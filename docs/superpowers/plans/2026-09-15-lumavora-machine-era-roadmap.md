@@ -11,7 +11,9 @@
 
 **Tech stack:** TypeScript 5.9.2, Vite 7.1.5, Three.js 0.180.0, Vitest 3.2.4, Playwright 1.55.0, pnpm 11.24.0. Žádné nové závislosti.
 
-**Spec:** [`docs/superpowers/specs/2026-09-15-lumavora-machine-era-design.md`](../specs/2026-09-15-lumavora-machine-era-design.md) — **přečti celý, než začneš.** Tenhle plán z něj argumentuje a nenahrazuje ho.
+**Spec:** [`2026-09-15-lumavora-machine-era-design.md`](../specs/2026-09-15-lumavora-machine-era-design.md) — **přečti celý, než začneš.** Tenhle plán z něj argumentuje a nenahrazuje ho.
+
+**Pořadí prací:** etapy P0–P3 se dělají **první a jednohráčsky**. Multiplayer je odložená a volitelná nadstavba — viz [sladění §4](../specs/2026-09-15-reconciliation-multiplayer-vs-eras.md). Verzi 3 uložené hry si berou etapy.
 
 ### Číslování etap
 
@@ -35,6 +37,7 @@ Platí pro **každý** úkol ve všech čtyřech částech:
 - **Seedovaná simulace.** Veškerá náhodnost přes `random(world)` z `src/game/random.ts`. Nikdy `Math.random()` v simulaci.
 - **Časování nezávislé na snímkové frekvenci.** Vždy přes `dt`, nikdy per-frame konstanty.
 - **Testovací seedy:** `481516`, `20260913`, `8675309`.
+- **Stabilní pořadí iterace.** Přes jednotky a sedadla se iteruje podle stabilního klíče (id, index), nikdy podle pořadí vložení do `Map`/`Set`. Seedovaná reprodukovatelnost je požadavek `GAME_BRIEF.md`.
 - **Uložené hry verze 2 se musí načíst a dohrát** po každé části. Je to regresní test, ne jednorázová kontrola.
 - **Významná informace se nesmí přenášet pouze barvou.**
 - **Ověřovací příkazy** (musí projít před každým commitem):
@@ -67,7 +70,7 @@ Platí pro **každý** úkol ve všech čtyřech částech:
 
 ```
 src/game/stage.ts            P0  predikáty etap, jediný zdroj pravdy o tom, co která etapa je
-src/game/command.ts          P1  fronta rozkazů, sdílí ji etapa 3 i 4
+src/game/unit-order.ts       P1  fronta rozkazů jednotkám, sdílí ji etapa 3 i 4
 src/game/tribe.ts            P1  stav kmene, ekonomika jídla, dílny
 src/game/tribe-neighbours.ts P1  cizí kmeny, vztahy, dobytí i spřátelení
 src/game/blueprint.ts        P2  sdílený tvar konstrukce, katalogy, validace
@@ -105,6 +108,10 @@ Tohle je nejdůležitější a zároveň nejnevděčnější část. Vzniká tu 
 10. **Vstupní mapy po etapách.** Dnes levé tlačítko vybírá cíl krmení (`FeedSelection`); v RTS etapách bude vybírat jednotky. Zavést mapu podle etapy místo přibývajících podmínek v obsluze ukazatele. Totéž pro `T`, `E`, `G`.
 11. **Režim kamery nad krajinou** v `camera.ts`. Přidat, ne forkovat.
 12. **Prázdná etapa 3**, do které se dá vstoupit a vrátit se z ní.
+13. **Rozdělit `step()` na hráčskou a světovou část.** Simulace RTS jednotek a planety patří do světové části tak jako tak; bez rozdělení by se pletla s hráčskou. Signatura se zatím nemění.
+14. **Hrdlo pro akce měnící stav.** Každá akce má jedno volatelné místo v `src/game/`, ne obsluhu kliknutí v `main.ts` — jak to hra dnes dělá u `evolve` a `tryTransition`. Kvůli testovatelnosti a checkpointům; shodou okolností to nechává otevřené dveře případnému multiplayeru.
+
+> Body 13 a 14 nejsou ústupky multiplayeru — dávají smysl samy o sobě a teď jsou zadarmo. Viz sladění §4.3.
 
 ### Hotovo, když
 
@@ -122,7 +129,7 @@ Tohle je nejdůležitější a zároveň nejnevděčnější část. Vzniká tu 
 
 ### Úkoly
 
-1. **Fronta rozkazů** (`command.ts`): `Command { unit, kind: 'move'|'gather'|'attack'|'socialize'|'build', target }`.
+1. **Fronta rozkazů** (`unit-order.ts`): `UnitOrder { unit, kind: 'move'|'gather'|'attack'|'socialize'|'build', target }`. **Ne `Command`** — to jméno si drží síťová vrstva, viz sladění K2.
 2. **Výběr jednotek myší.** Rozšířit picking rendereru z dílů editoru (`graphics.pickPart`) na jednotky ve světě. Klik i tažení rámečkem.
 3. **Skupinový pohyb.** **Steering a separace, ne A\*.** Terén je otevřená plocha s roztroušenými překážkami a geometrie vyhýbání už existuje a je otestovaná (`tests/obstacle-contact-regression.test.ts`, `tests/finite-obstacles.test.ts`). A\* by byl nový podsystém řešící problém, který hra nemá.
 4. **Členové tlupy** jako tvorové s vlastníkem a rozkazem; chování staví na `encounter-ai.ts`.

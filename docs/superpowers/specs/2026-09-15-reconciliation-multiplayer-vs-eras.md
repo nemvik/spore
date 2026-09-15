@@ -14,7 +14,7 @@ Návrhy **nejsou v rozporu o cíli.** Oba jsou čistě aditivní a oba staví na
 
 Sedm kolizí je mechanických a rozhodnutých v §1. Osmá byla skutečná herní otázka — **co je „sedadlo" v RTS etapách** — a zadavatel ji rozhodl: **každé sedadlo má vlastní kmen a vlastní flotilu** (§3). Z toho plyne rozdělení `Campaign`, které v žádném z původních návrhů není.
 
-Zásadní rozhodnutí: **jeden společný základ, jedna verze uložené hry, žádné dva skoky.** Viz §4.
+Zásadní rozhodnutí zadavatele: **nejdřív se dodělají celé etapy, multiplayer přijde až potom jako nadstavba** — a to jen pokud se pro něj zadavatel rozhodne. Důvod je řízení rizika: nesahat velkým refaktorem do fungující vydané hry dřív, než vůbec existuje nový obsah. Viz §4, kde je i cena, kterou to stojí.
 
 ---
 
@@ -31,21 +31,31 @@ Zásadní rozhodnutí: **jeden společný základ, jedna verze uložené hry, ž
 
 Uložená hra zapsaná jedním by byla pro druhý poškozený soubor — a validátor v `persistence.ts` kontroluje **přesný počet klíčů**, takže by to selhalo hlasitě, ne tiše. To je jediná dobrá zpráva.
 
-**Rozhodnutí:** verze 3 se zvedne **jednou a obsahuje obojí**:
+**Rozhodnutí:** protože se etapy dělají první a multiplayer je odložená nadstavba (§4), **rozdělí se to na dva skoky:**
 
 ```ts
+// verze 3 — etapy, dělá se teď
 export interface GameState {
   version: 3;
-  players: Player[];   // z multiplayeru
-  tribe?: TribeState;      // z etap
+  player: Player;          // beze změny
+  tribe?: TribeState;
   machines?: MachineState;
   planet?: PlanetState;
 }
+
+// verze 4 — multiplayer, až a pokud se bude dělat
+export interface GameState {
+  version: 4;
+  players: Player[];       // player → players
+  tribe?: TribeState[];    // řezy se rozpadnou po sedadlech
+  machines?: MachineState[];
+  planet?: PlanetState;    // planeta zůstává jedna
+}
 ```
 
-Jedna migrace z v2, jeden přepis validátoru, jeden formát. **Dva oddělené skoky verze se nedělají** — zdvojily by práci na perzistenci, zdvojily migrační cesty a vyrobily by savy, které jdou načíst jen jednou z půlek repa.
+**Verzi 3 si tedy berou etapy a `players[]` se nedělá vůbec.** Multiplayer, pokud na něj dojde, bude verze 4 a bude muset umět migraci z v2 i z v3.
 
-Důsledek: sekce §8 multiplayerového specu a §5.4 specu etap se čtou **společně**, ne každá zvlášť.
+Cena tohoto rozdělení je pojmenovaná v §4.2 a zadavatel ji přijal vědomě.
 
 ### K2 — Dvě různé věci se jmenují `Command`
 
@@ -69,7 +79,7 @@ Dnes: `step(s: GameState, input: Input, dt)` (`simulation.ts:246`).
 
 Multiplayer to mění na `step(s, inputs: Input[], dt)` a **rozděluje na `stepPlayer` a `stepWorld`**, kde světová část běží **právě jednou za tick**, ne jednou za hráče. Nové etapy do světové části přidávají tři nové simulace: RTS jednotky, regiony a strojovou výrobu, planetární klima.
 
-**Rozhodnutí:** rozdělení `step` je **předpokladem obojího** a udělá se ve společném základu, dřív než kterýkoli z návrhů přidá vlastní obsah. Veškerá nová simulace z etap 3–5 patří do `stepWorld` a krokuje se jednou za tick.
+**Rozhodnutí:** rozdělení `step` na hráčskou a světovou část se udělá **v P0**, i když se multiplayer odkládá. Nová simulace z etap 3–5 do světové části patří tak jako tak a bez rozdělení by se pletla s hráčskou. Signatura `inputs: Input[]` se zatím nemění — mění se jen vnitřní struktura.
 
 **Past, kterou je potřeba pojmenovat:** tlupa v etapě 3 a flotila v etapě 4 jsou *jednotky*, ale nejsou *hráči*. Nesmí se krokovat ve smyčce přes sedadla, jinak se svět se čtyřmi hráči krokuje čtyřikrát rychleji. Patří do `stepWorld`.
 
@@ -79,15 +89,15 @@ Multiplayer to mění na `step(s, inputs: Input[], dt)` a **rozděluje na `stepP
 
 Kdo jde druhý, platí víc — a kdyby šly souběžně, je z toho merge peklo.
 
-**Rozhodnutí:** **nikdy souběžně.** Refaktor na `players[]` proběhne ve společném základu nad dnešním kódem, tedy v okamžiku, kdy je **nejmenší, jaký kdy bude.** Každý řádek nové etapy napsaný před ním přidává práci.
+**Rozhodnutí:** **nikdy souběžně.** Protože etapy jdou první (§4), refaktor na `players[]` se nedělá vůbec, dokud nebude kampaň hotová — a v té chvíli bude větší. Cena je vyčíslená v §4.2 a zadavatel ji přijal.
 
 ### K5 — Nové etapy musí dodržet pravidla determinismu, o kterých neví
 
-Roadmapa etap o lockstepu nemluví, protože vznikla vedle. Tři pravidla pro ni platí, jakmile multiplayer existuje:
+Roadmapa etap o lockstepu nemluví, protože vznikla vedle. Tři pravidla pro ni platí — a **první dvě platí i bez multiplayeru**, protože seedovaná reprodukovatelnost je požadavek `GAME_BRIEF.md`:
 
 1. **Žádné iterace v nedeterministickém pořadí.** V `src/game/` je dnes 22 míst s `Map`/`Set`. Nová RTS vrstva bude chtít další. Iterovat se smí jen podle stabilního klíče — id jednotky, číslo sedadla — nikdy podle pořadí vložení do `Map`.
-2. **Rozkaz měnící stav musí projít tikovým proudem jako `TickCommand`.** Výběr jednotky myší je lokální UI a po síti nejde. Vydaný rozkaz je změna stavu a jít musí.
-3. **Pozor na transcendentní funkce.** `src/game/` jich má dnes **119** (`sin`, `cos`, `atan2`, `exp`) a multiplayerový spec je v §3.2 označuje za hlavní riziko rozejití napříč enginy. Steering se separací, na kterém stojí RTS vrstva, je jich přidá řádově víc než kterákoli existující část hry. **Riziko rozejití tím měřitelně roste** a rozhodnutí o vlastní deterministické aproximaci `sin`/`cos`/`atan2` se tím posouvá z „až podle měření" blíž k „nejspíš ano".
+2. **Akce měnící stav má mít jedno volatelné místo v `src/game/`**, ne se dít přímo v obsluze kliknutí. Teď kvůli testovatelnosti a checkpointům; až s multiplayerem se z takového místa stane `TickCommand` bez přepisování volajících.
+3. **Pozor na transcendentní funkce.** `src/game/` jich má dnes **119** (`sin`, `cos`, `atan2`, `exp`) a multiplayerový spec je v §3.2 označuje za hlavní riziko rozejití napříč enginy. Steering se separací, na kterém stojí RTS vrstva, je jich přidá řádově víc než kterákoli existující část hry. **Riziko rozejití tím měřitelně roste.** Teď to nic neblokuje, ale až se bude rozhodovat o multiplayeru, bude vlastní deterministická aproximace `sin`/`cos`/`atan2` spíš nutnost než volba — a je to jeden z důvodů, proč se multiplayer odkládá jako *volitelná* nadstavba, ne jistota.
 
 ### K6 — Kontrolní součet nevidí nové řezy stavu
 
@@ -95,7 +105,7 @@ Roadmapa etap o lockstepu nemluví, protože vznikla vedle. Tři pravidla pro ni
 
 Rozejití v kmenové ekonomice nebo v planetárním T-skóre by tedy **zůstalo neviditelné** až do chvíle, kdy se projeví někde jinde — tedy v nejhorší možnou dobu a bez stopy k příčině.
 
-**Rozhodnutí:** každá část etap, která přidá řez stavu, **ve stejném úkolu rozšíří `checksum()`** o jeho citlivá pole: `tribe[].food`, počty členů, `machines[].resource`, vlastnictví regionů, `planet.temperature`, `planet.atmosphere`, `tScore` — a v etapách 3–4 **přes všechna sedadla**, ne jen lokální. Není to úklid na konec, je to součást definice hotového.
+**Rozhodnutí:** `checksum()` dnes neexistuje a s odloženým multiplayerem se **teď nezavádí** — neměl by zákazníka. Až se multiplayer bude stavět, je jeho součástí rozšířit součet o citlivá pole všech řezů: `tribe[].food`, počty členů, `machines[].resource`, vlastnictví regionů, `planet.temperature`, `planet.atmosphere`, `tScore`, a v etapách 3–4 **přes všechna sedadla**. Zapsáno tady, aby se na to při stavbě multiplayeru nezapomnělo. Není to úklid na konec, je to součást definice hotového.
 
 ### K7 — Opt-in po vítězství je skupinové rozhodnutí, ne lokální
 
@@ -103,7 +113,7 @@ Roadmapa etap (P0, úkol 9) popisuje pokračování do kmenové éry jako volbu 
 
 Lokální volba by v co-opu okamžitě rozešla stavy: jeden klient by pokračoval do etapy 3, druhý zůstal.
 
-**Rozhodnutí:** opt-in je `TickCommand`, ne lokální UI. V jednohráčské hře se chová přesně jak roadmapa popisuje; v co-opu je to skupinové rozhodnutí se stejnou obrazovkou, jakou multiplayerový spec navrhuje pro ostatní přechody.
+**Rozhodnutí:** teď zůstává tak, jak roadmapa popisuje — lokální volba hráče po `campaign.won`. Podmínka je jen ta z K5: ať vede přes volatelnou funkci v `src/game/`, ne přímo z obsluhy kliknutí. Až s multiplayerem se z ní stane skupinový `TickCommand`, a díky tomu hrdlu to bude změna na jednom místě.
 
 ---
 
@@ -119,11 +129,13 @@ Pro pořádek, ať se nehledají problémy tam, kde nejsou:
 
 ---
 
-## 3. Sedadlo v RTS etapách — rozhodnuto
+## 3. Sedadlo v RTS etapách — rozhodnuto, uplatní se až s multiplayerem
 
 **Otázka:** multiplayer staví na tom, že sedadlo = jedno tělo ve světě: má `Player` s pozicí a genomem, kamera ho sleduje, renderer mu drží organismus. V etapách 3 a 4 žádné jedno tělo není — hráč velí tlupě, pak flotile.
 
 **Rozhodnutí zadavatele: varianta B — každé sedadlo má vlastní kmen a vlastní flotilu ve sdílené krajině.**
+
+> **Platnost:** rozhodnutí je zaznamenané, ale **uplatní se až ve chvíli, kdy se multiplayer bude stavět** (§4). Etapy se teď dělají jednohráčsky a `TribeState` i `MachineState` jsou jednotlivé struktury, ne pole. Tahle sekce je zadání pro budoucí nadstavbu, ne pro P1 a P2.
 
 Zvažovány byly i varianta A (sdílená tlupa, kdokoli velí komukoli) a C (jedna tlupa s vlastníkem u každé jednotky). Zvolena je B; níže jsou její důsledky, aby je nikdo neobjevoval až v kódu.
 
@@ -147,7 +159,7 @@ Archetyp v etapě 4 (zahradníci / regulátoři / symbionti) se odvozuje ze záv
 |---|---|
 | `drought`, `won`, `sandbox`, `journals`, `discoveries` | `finale`, `stageMeals`, `stageKills`, `stageBonds`, `stageReproductions` |
 
-Sdílené zůstává to, co popisuje **svět**; po sedadlech jde to, co popisuje **linii**. Tohle je důsledek varianty B, který v žádném z původních návrhů není, a je potřeba ho podchytit už ve společném základu — ne až v P2, kdy se archetyp poprvé použije.
+Sdílené zůstává to, co popisuje **svět**; po sedadlech jde to, co popisuje **linii**. Tohle je důsledek varianty B, který v žádném z původních návrhů není. **Dokud je multiplayer odložený, `Campaign` se nedělí a zůstává jak je** — ale kdo bude multiplayer stavět, musí s tímhle dělením počítat, protože se dotkne i dat uložených her z etap.
 
 ### 3.3 Hráčské kmeny jsou trvale spojenecké
 
@@ -165,47 +177,58 @@ Kamera sleduje v etapách 3–4 **vybranou vlastní jednotku**, ne tělo. Cizí 
 
 ### 3.6 Co to zdražuje
 
-Pro pořádek, ať je cena vidět: B byla nejdražší ze tří variant. Násobí stav etap 3–4 počtem hráčů, rozděluje `Campaign`, vyžaduje vlastnictví u jednotek i staveb a rozšiřuje kontrolní součet o řezy všech sedadel. Roadmapa etap s tím ve svém odhadu P1 a P2 nepočítala a je potřeba ji podle toho číst.
+Pro pořádek, ať je cena vidět: B byla nejdražší ze tří variant. Násobí stav etap 3–4 počtem hráčů, rozděluje `Campaign`, vyžaduje vlastnictví u jednotek i staveb a rozšiřuje kontrolní součet o řezy všech sedadel. Roadmapa etap s tím ve svém odhadu P1 a P2 nepočítala — což teď nevadí, protože se etapy dělají jednohráčsky a odhad platí. Zdraží se to až ve chvíli, kdy na multiplayer dojde.
 
 ## 4. Závazné pořadí prací
 
+**Rozhodnutí zadavatele: nejdřív celé etapy, multiplayer až potom — a jen pokud se pro něj rozhodne.**
+
 ```
-┌─ SPOLEČNÝ ZÁKLAD ────────────────────────────────┐
-│  MP fáze 0   lockstep smyčka nasucho             │
-│  MP fáze 1   players[], rozdělení step,          │
-│  + etapy P0  Stage 0–5, tři řezy, vstupní mapy   │
-│              → JEDNA verze 3, JEDNA migrace      │
+┌─ TEĎ ────────────────────────────────────────────┐
+│  etapy P0 → P1 → P2 → P3                         │
+│  jednohráčsky, verze 3                           │
+│  hra zůstává po celou dobu hratelná a vydatelná  │
 └──────────────────┬───────────────────────────────┘
-                   │
-        ┌──────────┴──────────┐
-        ▼                     ▼
-   MP fáze 2–5           etapy P1 → P2 → P3
-   (BroadcastChannel,    (Kmen, Stroje,
-    WebRTC, odolnost)     Terraformace)
-        │                     │
-        └──────────┬──────────┘
-              obojí nezávisle
+                   │  až je kampaň hotová a odehraná
+                   ▼
+┌─ POTOM, VOLITELNĚ ───────────────────────────────┐
+│  multiplayer fáze 0 → 5                          │
+│  players[], verze 4, migrace z v2 i v3           │
+└──────────────────────────────────────────────────┘
 ```
 
-### Proč základ první a proč právě v tomhle pořadí
+### 4.1 Proč tak
 
-**Refaktor `players[]` nikdy nebude levnější než dnes.** Je to 83 výskytů ve 13 souborech nad kódem, který se od vydání hry nezměnil. Každá nová etapa přidá další soubory a další sáhnutí na hráče. Multiplayerový spec sám svou fázi 1 popisuje jako *„největší a nejméně zábavná, zabere zhruba tolik co všechny ostatní dohromady"* — a to platí o dnešním rozsahu, ne o rozsahu po třech nových etapách.
+Argument pro opačné pořadí byl **celková cena**: refaktor `s.player` je dnes 83 výskytů ve 13 souborech a každá nová etapa ho zvětší.
 
-**Opačné pořadí se vyplatí jen zdánlivě.** Nové etapy by šly napsat jednohráčsky rychleji, ale pak by se musely celé retrofitovat: tři nové subsystémy převést na `players[]`, všechny rozkazy dodatečně protáhnout tikovým proudem a veškerou novou náhodu a iteraci prověřit na determinismus zpětně. To je dražší než psát je rovnou správně.
+Argument, který zvítězil, je **riziko**: multiplayer je velký zásah do fungující, vydané hry, a dělat ho dřív, než vůbec existuje nový obsah, znamená destabilizovat to jediné, co dnes prokazatelně funguje. Etapy se navíc v návrhu ještě můžou hýbat — multiplayer postavený nad nehotovým tvarem by se přizpůsoboval něčemu, co se pod ním mění.
 
-**Po základu jsou obě větve nezávislé.** Multiplayer pokračuje k transportu a odolnosti, etapy ke Kmeni. Nesahají si na stejné soubory a můžou běžet souběžně — ideálně ve vlastních `git worktree`, ne přepínáním větví v jednom adresáři.
+Riziko je bezprostřední, cena je odložená. Proto etapy první.
 
-### Co musí platit na konci společného základu
+### 4.2 Co to stojí
 
-- `pnpm typecheck && pnpm test && pnpm build` prochází
-- **všech 72 existujících testů prochází beze změny**
-- jednohráčská hra je **nerozeznatelná od dneška**
-- uložená hra verze 2 se načte a dohraje
-- verze 3 obsahuje `players[]` **i** tři volitelné řezy a existuje jen jedna migrační cesta
-- `checksum()` už zahrnuje řezy, i když jsou zatím prázdné
-- `Campaign` je rozdělená na sdílenou a sedadlovou část (§3.2)
+Ať je cena vidět a nikdo ji později neobjevuje jako překvapení:
 
----
+- **Refaktor `players[]` bude výrazně větší.** Dnes 13 souborů; po třech nových etapách k nim přibudou `tribe.ts`, `machines.ts`, `planet.ts`, `unit-order.ts`, `tribe-neighbours.ts` a tři renderovací moduly. Multiplayerový spec svou fázi 1 odhaduje na „zhruba tolik co všechny ostatní dohromady" — ten odhad platí pro dnešní rozsah, ne pro rozsah po P3.
+- **Dvě migrace uložených her místo jedné.** Multiplayer bude muset umět v2 → v4 i v3 → v4.
+- **`Campaign` se bude dělit dodatečně** (§3.2), tedy v kódu, který už bude stát, ne na zelené louce.
+- **Tři nové subsystémy se budou převádět na sedadla zpětně**, ne psát rovnou správně.
+
+### 4.3 Co přesto udělat teď, protože je to zadarmo
+
+Tohle **nejsou** ústupky multiplayeru. Jsou to věci, které dávají smysl samy o sobě, a shodou okolností nechávají dveře otevřené. Patří do etap P0 a P1:
+
+| Co | Proč to dává smysl i bez multiplayeru | Cena teď | Cena potom |
+|---|---|---|---|
+| **Rozdělit `step()` na hráčskou a světovou část** | RTS vrstva a planetární simulace patří do světové části tak jako tak; bez rozdělení se budou plést s hráčskou | malá | velká |
+| **`UnitOrder` místo `Command`** (K2) | jednoznačné pojmenování; `Command` je v herním kódu příliš obecné | nulová | otravné přejmenování napříč |
+| **Stabilní pořadí iterace přes jednotky** | seedovaná reprodukovatelnost je **požadavek `GAME_BRIEF.md`**, ne přání multiplayeru | nulová | těžko dohledatelné chyby |
+| **Žádné `Math.random()` ani `performance.now()` v `src/game/`** | totéž — repo to dnes dodržuje a nemá důvod přestat | nulová | rozbitý determinismus |
+| **Mutace stavu přes úzké hrdlo, ne rozsypané po UI** | snazší testování a checkpointy | malá | přepis všech akcí na příkazy |
+
+Poslední řádek je nejdůležitější a stojí za doslovné znění: **akce, která mění `GameState`, má mít jedno volatelné místo v `src/game/`, ne se dít přímo v obsluze kliknutí v `main.ts`.** Dnes to hra většinou dodržuje (`evolve`, `tryTransition`, `recoverGeneration`) a P1 i P2 to mají dodržet taky.
+
+Co se naopak **teď dělat nemá**: `players[]`, sedadla, dělení `Campaign`, pole `TribeState[]`, kontrolní součty, transport. Nic z toho zatím nemá zákazníka.
 
 ## 5. Co dělat s původními dokumenty
 
@@ -217,12 +240,12 @@ Platí ale, že **při rozporu vyhrává tenhle dokument**, a to konkrétně v t
 |---|---|
 | multiplayer §5.4 `Command` | → `TickCommand` (K2) |
 | multiplayer §6.1 `checksum()` | → rozšířený o řezy stavu (K6) |
-| multiplayer §8 verze 3 | → společná verze 3 s řezy (K1) |
-| multiplayer §12 fáze 0–1 | → součást společného základu (§4) |
-| etapy §5.4 persistence | → společná verze 3 s `players[]` (K1) |
-| etapy P0 úkol 9 opt-in | → `TickCommand`, skupinové (K7) |
+| multiplayer §8 verze 3 | → multiplayer bude **verze 4**, migrace z v2 i v3 (K1) |
+| multiplayer §12 fáze 0–1 | → odloženo až za celou kampaň, volitelné (§4) |
+| etapy §5.4 persistence | → verze 3 patří etapám, bez `players[]` (K1) |
+| etapy P0 úkol 9 opt-in | → beze změny, jen přes volatelnou funkci (K7) |
 | etapy P1 `src/game/command.ts` | → `UnitOrder` v `unit-order.ts` (K2) |
-| etapy — determinismus | → doplněna pravidla K5 |
-| etapy §5.3 řezy stavu | → `tribe[]` a `machines[]` po sedadlech (§3.1) |
-| etapy — `Campaign` | → rozdělená na sdílenou a sedadlovou část (§3.2) |
-| etapy P1/P2 odhad rozsahu | → podhodnocený, varianta B násobí stav počtem hráčů (§3.6) |
+| etapy P0 | → doplněno rozdělení `step()` a hrdlo pro akce (K3, K5, §4.3) |
+| etapy §5.3 řezy stavu | → beze změny; pole po sedadlech až s multiplayerem (§3.1) |
+| etapy — `Campaign` | → beze změny; dělení až s multiplayerem (§3.2) |
+| etapy P1/P2 odhad rozsahu | → platí; varianta B je zdraží až s multiplayerem (§3.6) |
