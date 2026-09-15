@@ -1,0 +1,8 @@
+.git
+.gitignore
+.playwright-mcp
+.pnpm-store
+dist
+evidence
+node_modules
+*.md

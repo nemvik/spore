@@ -1,0 +1,30 @@
+{
+  "name": "lumavora",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:browser": "node scripts/browser-test.mjs",
+    "test:soak": "node scripts/soak.mjs",
+    "test:fixtures": "node scripts/fixtures-test.mjs",
+    "test:climate": "node scripts/climate-browser.mjs",
+    "test:performance": "node scripts/performance.mjs",
+    "test:production": "node scripts/production-test.mjs"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.180.0",
+    "typescript": "5.9.2",
+    "vite": "7.1.5",
+    "vitest": "3.2.4",
+    "playwright": "1.55.0"
+  },
+  "packageManager": "pnpm@11.24.0"
+}
