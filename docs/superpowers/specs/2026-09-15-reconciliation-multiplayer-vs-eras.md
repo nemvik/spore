@@ -12,7 +12,7 @@ Dva návrhy v tomhle repu si na několika místech sahají na totéž. Tenhle do
 
 Návrhy **nejsou v rozporu o cíli.** Oba jsou čistě aditivní a oba staví na tom, co hra už má. Kolidují o **pořadí, jména a jedno číslo verze**.
 
-Sedm kolizí je mechanických a rozhodnutých níže. **Jedna je skutečná herní otázka, kterou musí rozhodnout zadavatel: co je „sedadlo" v RTS etapách** (§3).
+Sedm kolizí je mechanických a rozhodnutých v §1. Osmá byla skutečná herní otázka — **co je „sedadlo" v RTS etapách** — a zadavatel ji rozhodl: **každé sedadlo má vlastní kmen a vlastní flotilu** (§3). Z toho plyne rozdělení `Campaign`, které v žádném z původních návrhů není.
 
 Zásadní rozhodnutí: **jeden společný základ, jedna verze uložené hry, žádné dva skoky.** Viz §4.
 
@@ -95,7 +95,7 @@ Roadmapa etap o lockstepu nemluví, protože vznikla vedle. Tři pravidla pro ni
 
 Rozejití v kmenové ekonomice nebo v planetárním T-skóre by tedy **zůstalo neviditelné** až do chvíle, kdy se projeví někde jinde — tedy v nejhorší možnou dobu a bez stopy k příčině.
 
-**Rozhodnutí:** každá část etap, která přidá řez stavu, **ve stejném úkolu rozšíří `checksum()`** o jeho citlivá pole: `tribe.food`, počet členů, `machines.resource`, vlastnictví regionů, `planet.temperature`, `planet.atmosphere`, `tScore`. Není to úklid na konec, je to součást definice hotového.
+**Rozhodnutí:** každá část etap, která přidá řez stavu, **ve stejném úkolu rozšíří `checksum()`** o jeho citlivá pole: `tribe[].food`, počty členů, `machines[].resource`, vlastnictví regionů, `planet.temperature`, `planet.atmosphere`, `tScore` — a v etapách 3–4 **přes všechna sedadla**, ne jen lokální. Není to úklid na konec, je to součást definice hotového.
 
 ### K7 — Opt-in po vítězství je skupinové rozhodnutí, ne lokální
 
@@ -119,25 +119,53 @@ Pro pořádek, ať se nehledají problémy tam, kde nejsou:
 
 ---
 
-## 3. Otevřená otázka pro zadavatele
+## 3. Sedadlo v RTS etapách — rozhodnuto
 
-**Co je „sedadlo" v etapách 3 až 5?**
+**Otázka:** multiplayer staví na tom, že sedadlo = jedno tělo ve světě: má `Player` s pozicí a genomem, kamera ho sleduje, renderer mu drží organismus. V etapách 3 a 4 žádné jedno tělo není — hráč velí tlupě, pak flotile.
 
-Tohle je jediná skutečná kolize v *herním designu*, ne v kódu, a ani jeden dokument na ni neodpovídá. Multiplayer staví na tom, že sedadlo = jedno tělo ve světě: má `Player` s pozicí a genomem, kamera ho sleduje, renderer mu drží organismus. **V etapě 3 a 4 ale žádné jedno tělo není** — hráč velí tlupě, pak flotile.
+**Rozhodnutí zadavatele: varianta B — každé sedadlo má vlastní kmen a vlastní flotilu ve sdílené krajině.**
 
-Tři možnosti, každá vede k jiné práci:
+Zvažovány byly i varianta A (sdílená tlupa, kdokoli velí komukoli) a C (jedna tlupa s vlastníkem u každé jednotky). Zvolena je B; níže jsou její důsledky, aby je nikdo neobjevoval až v kódu.
 
-| Varianta | Co to znamená | Cena |
-|---|---|---|
-| **A — sdílená tlupa** | všechna sedadla velí téže tlupě, každé může vydat rozkaz kterékoli jednotce | nejlevnější; nejblíž kooperativnímu duchu; hrozí, že si hráči přebíjejí rozkazy |
-| **B — vlastní tlupa** | každé sedadlo má vlastní kmen a vlastní flotilu ve sdílené krajině | nejvíc práce; mění to co-op v soupeření, což jde proti zadání sdíleného světa |
-| **C — dělba jednotek** | jedna tlupa, ale každá jednotka patří jednomu sedadlu; rozkazovat smí jen vlastník | střední cena; nejčitelnější u stolu; vyžaduje pole vlastníka na jednotce a UI, které ho ukazuje |
+### 3.1 Řezy stavu jsou po sedadlech, planeta ne
 
-Souvisí s tím i to, **co sleduje kamera** a **co se v RTS etapách vykresluje jako „druhý hráč"**, když nemá tělo.
+```ts
+tribe?:    TribeState[];     // index = sedadlo
+machines?: MachineState[];   // index = sedadlo
+planet?:   PlanetState;      // jedna planeta, sdílená
+```
 
-**Bez odpovědi nelze začít společný základ**, protože tvar `Player` v etapách 3–5 na ní přímo závisí.
+Etapy 3 a 4 tedy **násobí svůj stav počtem hráčů**; etapa 5 ne, protože planeta je jedna. Uložená hra ve čtyřech hráčích poroste v etapách 3–4 zhruba čtyřnásobně proti jednomu hráči.
 
----
+### 3.2 Zpětný dopad na `campaign` — nečekaný, ale nutný
+
+Archetyp v etapě 4 (zahradníci / regulátoři / symbionti) se odvozuje ze závěrečné cesty etapy 2. Když má každé sedadlo vlastní kmen a flotilu, **má i vlastní archetyp** — a ten pochází z pole `campaign.finale`, které je dnes jedno sdílené.
+
+`Campaign` se proto musí rozdělit na dvě části:
+
+| Zůstává sdílené | Přechází na sedadla |
+|---|---|
+| `drought`, `won`, `sandbox`, `journals`, `discoveries` | `finale`, `stageMeals`, `stageKills`, `stageBonds`, `stageReproductions` |
+
+Sdílené zůstává to, co popisuje **svět**; po sedadlech jde to, co popisuje **linii**. Tohle je důsledek varianty B, který v žádném z původních návrhů není, a je potřeba ho podchytit už ve společném základu — ne až v P2, kdy se archetyp poprvé použije.
+
+### 3.3 Hráčské kmeny jsou trvale spojenecké
+
+Varianta B strukturálně umožňuje, aby hráči napadli jeden druhého. To by popřelo kooperativní zadání, proto **výchozí pravidlo: kmeny a flotily hráčů se navzájem napadnout nemohou.** Soupeření je o zdroje v krajině, ne o válku mezi sedadly. Nepřátelské jsou jen NPC kmeny a invazní druhy.
+
+Pokud by se při hraní ukázalo, že by PvP dávalo smysl, je to samostatné rozhodnutí a samostatná práce — nikoli výchozí chování.
+
+### 3.4 Přechody etap ve variantě B
+
+Multiplayer §10 rozhoduje, že přechody jsou skupinové. S variantou B to znamená, že podmínku postupu musí splnit **kmen každého sedadla zvlášť**, ne skupina dohromady. Obrazovka přechodu ukazuje po sedadlech, komu co chybí — stejný princip, jaký multiplayerový spec navrhuje pro etapy 0–2.
+
+### 3.5 Kamera a co je vidět z cizího hráče
+
+Kamera sleduje v etapách 3–4 **vybranou vlastní jednotku**, ne tělo. Cizí sedadlo je ve světě vidět jako jeho jednotky a stavby s odlišeným nádechem a jmenovkou u chýše — nikoli jako jeden organismus, protože žádný nemá. Renderer tedy v těchto etapách nemapuje sedadlo na organismus, ale **sedadlo na skupinu jednotek**.
+
+### 3.6 Co to zdražuje
+
+Pro pořádek, ať je cena vidět: B byla nejdražší ze tří variant. Násobí stav etap 3–4 počtem hráčů, rozděluje `Campaign`, vyžaduje vlastnictví u jednotek i staveb a rozšiřuje kontrolní součet o řezy všech sedadel. Roadmapa etap s tím ve svém odhadu P1 a P2 nepočítala a je potřeba ji podle toho číst.
 
 ## 4. Závazné pořadí prací
 
@@ -175,6 +203,7 @@ Souvisí s tím i to, **co sleduje kamera** a **co se v RTS etapách vykresluje 
 - uložená hra verze 2 se načte a dohraje
 - verze 3 obsahuje `players[]` **i** tři volitelné řezy a existuje jen jedna migrační cesta
 - `checksum()` už zahrnuje řezy, i když jsou zatím prázdné
+- `Campaign` je rozdělená na sdílenou a sedadlovou část (§3.2)
 
 ---
 
@@ -194,3 +223,6 @@ Platí ale, že **při rozporu vyhrává tenhle dokument**, a to konkrétně v t
 | etapy P0 úkol 9 opt-in | → `TickCommand`, skupinové (K7) |
 | etapy P1 `src/game/command.ts` | → `UnitOrder` v `unit-order.ts` (K2) |
 | etapy — determinismus | → doplněna pravidla K5 |
+| etapy §5.3 řezy stavu | → `tribe[]` a `machines[]` po sedadlech (§3.1) |
+| etapy — `Campaign` | → rozdělená na sdílenou a sedadlovou část (§3.2) |
+| etapy P1/P2 odhad rozsahu | → podhodnocený, varianta B násobí stav počtem hráčů (§3.6) |
