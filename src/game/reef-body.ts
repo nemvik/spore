@@ -1,3 +1,4 @@
+import { bodyWidth } from './body-shape';
 import { attachmentAngles, attachmentPoint } from './anatomy';
 import { computeStats, functionalProfile } from './genome';
 import { reefConditions } from './reef-layout';
@@ -36,7 +37,7 @@ export function reefBodyProfile(genome: Genome, pumping = 0): ReefBodyProfile {
   const base = locomotionProfile(genome, 1, false), stats = computeStats(genome);
   let filterArea = 0, filterLever = 0, finArea = 0, stabilization = 0;
   let gillArea = 0, air = 0, bladder = 0, shell = 0;
-  let halfSpan = .68 * genome.width;
+  let halfSpan = .68 * bodyWidth(genome);
   for (const part of genome.parts) {
     const pair = part.mirrored ? 1.6 : 1;
     const tissue = part.scale * pair, area = part.scale * part.scale * pair;
@@ -58,7 +59,7 @@ export function reefBodyProfile(genome: Genome, pumping = 0): ReefBodyProfile {
     if (part.kind === 'shell') shell += tissue;
     if (part.kind === 'filter' || part.kind === 'fins') {
       for (const angle of attachmentAngles(part)) {
-        const point = attachmentPoint(part.axial, angle, genome.length, genome.width);
+        const point = attachmentPoint(part.axial, angle, genome.length, genome.width, genome.spine);
         const extension = part.kind === 'filter' ? part.scale * (.18 + .7 * opening) : .85 * part.scale * Math.abs(Math.sin(angle));
         halfSpan = Math.max(halfSpan, Math.abs(point.x) + extension);
       }

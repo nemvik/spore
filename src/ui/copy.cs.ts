@@ -132,7 +132,7 @@ export const COPY = {
   redo: "Znovu",
   cancelEdits: "Zrušit úpravy",
   editorOrbit: "PRAVÁ MYŠ · OTOČIT &nbsp; / &nbsp; KOLEČKO · PŘIBLÍŽIT",
-  editorDrag: "VYBER ČÁST NA TĚLE A TAŽENÍM ZMĚŇ JEJÍ UMÍSTĚNÍ",
+  editorDrag: "KLIK NA TĚLO · VYBRAT ČLÁNEK &nbsp; / &nbsp; TAŽENÍ ORGÁNU · PŘEMÍSTIT",
   adaptations: "Adaptace",
   pairPrice: "Cena páru",
   organPrice: "Cena orgánu",

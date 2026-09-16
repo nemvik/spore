@@ -1,3 +1,4 @@
+import { bodyCollisionRadius } from './body-shape';
 import type { GameState, Resource, Species, Vec3 } from './types';
 import type { EcologySite } from './journey-types';
 import { speciesById } from './content';
@@ -46,7 +47,7 @@ function nurseryPosition(s: GameState, site: EcologySite, species: Species): Vec
     if (s.stage === 0) p.y = 1.1;
     else if (s.stage === 2) p.y = groundHeight(p.x, p.z, 2) + speciesGroundClearance(species);
     else if (p.y < groundHeight(p.x, p.z, 1) + 1.3 || p.y > 12) continue;
-    if (s.player.health > 0 && distance(s.player.pos, p) < radius + Math.max(.6, s.player.genome.width * .8) + .1) continue;
+    if (s.player.health > 0 && distance(s.player.pos, p) < radius + bodyCollisionRadius(s.player.genome,s.stage) + .1) continue;
     if (s.world.creatures.some(c => c.health > 0 && distance(c.pos, p) < radius + speciesById(c.species).size * .6 + .1)) continue;
     if (s.world.obstacles.some(o => horizontalDistance(p, o.pos) < o.radius + radius
       && (s.stage === 0 || p.y > o.pos.y - radius && p.y < o.pos.y + o.height + radius))) continue;

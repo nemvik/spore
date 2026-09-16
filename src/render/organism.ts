@@ -1,6 +1,7 @@
+import { bodySection } from '../game/body-shape';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { AdaptationId, Genome, Part, Species, Stage } from '../game/types';
+import type { AdaptationId, Genome, Part, Species, Stage, SpineNode } from '../game/types';
 import { attachmentAngles, attachmentPoint, LEG_SOLE_REACH, organismGroundClearance } from '../game/anatomy';
 export { organismGroundClearance } from '../game/anatomy';
 
@@ -52,20 +53,21 @@ function beadGeometry(x: number, y: number, z: number, sx: number, sy = sx, sz =
 }
 
 /** Continuous asymmetric spindle: its broad, slightly lifted end is the head (+Z). */
-function bodyGeometry(length: number, width: number, color: THREE.Color, rings = 32, sides = 24): THREE.BufferGeometry {
+function bodyGeometry(length: number, width: number, color: THREE.Color, rings = 32, sides = 24, spine?: readonly SpineNode[]): THREE.BufferGeometry {
   const positions: number[] = [], colors: number[] = [], uv: number[] = [], indices: number[] = [];
   for (let i = 0; i <= rings; i++) {
     // Cosine spacing concentrates rings where the spindle closes. Exact poles
     // avoid an open micro-ring and all copies share one normal and one color.
     const latitude = i / rings * Math.PI, axial = -Math.cos(latitude), t = (axial + 1) / 2;
+    const section = bodySection(axial, spine);
     const pole = i === 0 || i === rings;
     const profile = pole ? 0 : Math.pow(Math.sin(latitude), .96) * (1 + .15 * axial);
     const poleBlend = Math.min(1, Math.sin(latitude) * 2.8);
     for (let j = 0; j <= sides; j++) {
       const a = j / sides * Math.PI * 2;
       const rib = 1 + .035 * Math.sin(t * 7 * Math.PI) * Math.pow(Math.cos(a), 2);
-      const x = Math.sin(a) * .69 * width * profile * rib;
-      const y = Math.cos(a) * .62 * width * profile * rib + .13 * axial * axial;
+      const x = Math.sin(a) * .69 * width * profile * rib * section.width;
+      const y = Math.cos(a) * .62 * width * profile * rib * section.height + .13 * axial * axial + section.bend * width;
       const z = axial * 1.76 * length;
       positions.push(x, y, z);
       const shade = .86 + .14 * Math.cos(a) * poleBlend;
@@ -92,8 +94,8 @@ function bodyGeometry(length: number, width: number, color: THREE.Color, rings =
   }
   return g;
 }
-function surface(axial: number, angle: number, length: number, width: number): THREE.Vector3 {
-  const point = attachmentPoint(axial, angle, length, width);
+function surface(axial: number, angle: number, length: number, width: number, spine?: readonly SpineNode[]): THREE.Vector3 {
+  const point = attachmentPoint(axial, angle, length, width, spine);
   return v(point.x, point.y, point.z);
 }
 
@@ -135,9 +137,19 @@ function horn(parent: THREE.Object3D, points: THREE.Vector3[], radius: number, m
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); g.setIndex(indices); g.computeVertexNormals();
   return mesh(g, mat, parent);
 }
-function eyes(parent: THREE.Object3D, p: Palette, spread: number, height: number, forward: number, size: number, motions: Motion[]): void {
+function eyes(parent: THREE.Object3D, p: Palette, spread: number, height: number, forward: number, size: number, motions: Motion[], shape?: { length: number; width: number; spine: readonly SpineNode[] }): void {
   for (const side of [-1, 1]) {
     const eyelid = new THREE.Group(); eyelid.position.set(side * spread, height, forward); parent.add(eyelid);
+    if (shape) {
+      // Sculpted faces can slope either way. Seat each eye on that actual surface
+      // and turn it outward so a raised neck cannot swallow the fixed old eyes.
+      const { length, width, spine } = shape, axial = .76, angle = side * .68;
+      const around = surface(axial, angle + .01, length, width, spine).sub(surface(axial, angle - .01, length, width, spine));
+      const along = surface(axial + .01, angle, length, width, spine).sub(surface(axial - .01, angle, length, width, spine));
+      const normal = along.cross(around).normalize();
+      eyelid.position.copy(surface(axial, angle, length, width, spine)).addScaledVector(normal, .06 * width);
+      eyelid.quaternion.setFromUnitVectors(v(0, 0, 1), normal);
+    }
     ball(eyelid, p.dark, 0, 0, -.035, size * 1.19, size * 1.1, size * .7);
     ball(eyelid, p.pearl, 0, .015, 0, size, size, size * .65);
     ball(eyelid, p.glow, side * .025, .015, size * .56, size * .58, size * .62, size * .17);
@@ -147,25 +159,26 @@ function eyes(parent: THREE.Object3D, p: Palette, spread: number, height: number
   }
 }
 
-function addBody(parent: THREE.Group, length: number, width: number, p: Palette, hue: number, pattern: number, motions: Motion[], elaborate = true): THREE.Mesh {
+function addBody(parent: THREE.Group, length: number, width: number, p: Palette, hue: number, pattern: number, motions: Motion[], elaborate = true, spine?: readonly SpineNode[]): THREE.Mesh {
   const mat = p.skin.clone(); mat.color.set(0xffffff); mat.vertexColors = true;
-  const body = mesh(bodyGeometry(length, width, p.skin.color), mat, parent);
+  const body = mesh(bodyGeometry(length, width, p.skin.color, spine ? 64 : 32, 24, spine), mat, parent);
   body.name = 'organism-surface';
   const spots: THREE.BufferGeometry[] = [], ribs: THREE.BufferGeometry[] = [];
   for (const side of [-1, 1]) {
     for (let i = 0; i < (elaborate ? 8 : 5); i++) {
-      const a = -.75 + i * (elaborate ? .195 : .32), point = surface(a, side * .83, length, width);
+      const a = -.75 + i * (elaborate ? .195 : .32), point = surface(a, side * .83, length, width, spine);
       const size = (.052 + .017 * Math.sin(i * 2 + pattern)) * width;
       spots.push(beadGeometry(point.x * 1.03, point.y * 1.025, point.z, size, size * .65, size * (1.2 + pattern * .14)));
       if (elaborate && i > 0 && i < 7) {
-        const points = Array.from({ length: 12 }, (_, j) => surface(a, side * (.12 + j * .085), length, width).multiplyScalar(1.006));
+        const points = Array.from({ length: 12 }, (_, j) => surface(a, side * (.12 + j * .085), length, width, spine).multiplyScalar(1.006));
         ribs.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 12, .012 * width, 3));
       }
     }
   }
   combined(parent, spots, p.glow); combined(parent, ribs, p.light);
-  eyes(parent, p, .30 * width, .32 * width + .03, 1.30 * length, .165 * width, motions);
-  const mouth = new THREE.Group(); mouth.position.set(0, -.15 * width, 1.60 * length); parent.add(mouth);
+  const lipSection = bodySection(.91, spine);
+  eyes(parent, p, .30 * width, .32 * width + .03, 1.30 * length, .165 * width, motions, spine ? { length, width, spine } : undefined);
+  const mouth = new THREE.Group(); mouth.position.set(0, -.15 * width * lipSection.height + lipSection.bend * width, 1.60 * length); parent.add(mouth);
   const lip = mesh(new THREE.TorusGeometry(.115 * width, .032 * width, 6, 18), p.dark, mouth);
   lip.scale.y = .55;
   motion(motions, mouth, 'jaw');
@@ -174,7 +187,7 @@ function addBody(parent: THREE.Group, length: number, width: number, p: Palette,
 function createPart(part: Part, angle: number, genome: Genome, p: Palette, motions: Motion[], copy: number): THREE.Group {
   const root = new THREE.Group();
   root.userData.partId = part.id; root.userData.kind = part.kind;
-  root.position.copy(surface(part.axial, angle, genome.length, genome.width));
+  root.position.copy(surface(part.axial, angle, genome.length, genome.width, genome.spine));
   root.rotation.z = -angle;
   root.scale.setScalar(part.scale);
   const phase = part.axial * 4 + copy * Math.PI;
@@ -392,7 +405,7 @@ export function createOrganism(genome: Genome): THREE.Group {
   const group = new THREE.Group(), visual = new THREE.Group(); group.add(visual);
   group.name = genome.name || 'Lumavora';
   const motions: Motion[] = [], p = palette(genome.hue);
-  group.userData.attachmentSurface = addBody(visual, genome.length, genome.width, p, genome.hue, genome.pattern, motions);
+  group.userData.attachmentSurface = addBody(visual, genome.length, genome.width, p, genome.hue, genome.pattern, motions, true, genome.spine);
   for (const part of genome.parts) {
     attachmentAngles(part).forEach((angle, copy) => visual.add(createPart(part, angle, genome, p, motions, copy)));
   }
@@ -702,7 +715,7 @@ export function animateSpeciesModel(group: THREE.Group, time: number, speed: num
 export function disposeObject(group: THREE.Object3D): void {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>();
   group.traverse(node => {
-    if ((node as THREE.Mesh).isMesh) {
+    if ((node as THREE.Mesh).isMesh || (node as THREE.Line).isLine) {
       const m = node as THREE.Mesh;
       geometries.add(m.geometry);
       (Array.isArray(m.material) ? m.material : [m.material]).forEach(material => materials.add(material));

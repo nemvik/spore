@@ -45,6 +45,7 @@ V nové útesové linii drž **Mezerník** nebo tlačítko krmení pro otevřen�
 
 V baldachýnu může jedlou vazbu spást vhodný orgán, nebo divoký štítojem přivedený detritem či minerály. Po otevření zachytíš stoupající mateřskou řasu. Novou pastvu musí skutečně ochutnat plachtovec v bezpečí; samotná výsadba ji nedokončí.
 
+
 Na terase stromy oddělují krytou západní cestu od otevřené východní strany. Detrit přesměruje žrouty; nektar přiláká i původní zvonkonoše. Korunoplaz si pamatuje místo, kde osobně snědl maso, a vrací se k němu. Pozdější průvod může využít vodu a kryt, které jsi zachoval, nebo obejít vzniklé loviště.
 
 Na souši existují tři řešení:
@@ -112,6 +113,10 @@ Pauza zpřístupňuje nastavení kvality, citlivosti kamery, omezení pohybu, ce
 
 Začni sběrem řas či detritu, vrať se do centrální kolébky a stiskni **Tab**. Kliknutí na adaptaci v levé paletě přidá část do náhledu. Část vybereš přímo na 3D těle nebo jejím štítkem. Posuvníky mění délku a šířku těla, polohu části podél osy, úhel a velikost; symetrie přidává odpovídající protějšek. Část lze odstranit a úpravy vracet i opakovat pomocí Zpět/Znovu.
 
+[Srovnání pěti těl a ověření](docs/body-editor/README.md).
+
+**Vlastní silueta** nabízí sedm článků od ocasu k hlavě. Klikni přímo na povrch 3D těla nebo na číslo článku. Zlatý pás a číslo označí právě upravovanou oblast i během animace; pravým tažením model otočíš. Samostatně uprav jeho šířku, výšku a ohyb nahoru či dolů. Předvolby Hruška, Ploché a Oblouk jsou výchozí tvary pro další ruční úpravy; Původní obnoví základní profil. Orgány a oči sledují povrch, proporce ovlivňují hmotnost, spotřebu, pohyb a průchodnost. Funguje Zpět/Znovu, zrušení, potvrzení i export/import. Staré uložené linie zachovávají původní tělo, dokud je neupravíš.
+
 Před potvrzením uvidíš výsledné parametry, dostupnou potravu, cenu a případné konstrukční chyby. **Naučená DNA tvoří rozpočet celého těla, který můžeš v kolébce volně přerozdělovat.** Odstranění části uvolní její místo v tomto rozpočtu, nepřidá nové poznání. Velikost a symetrie ovlivňují cenu i výkon. Barva, vzor a jméno jsou kosmetické.
 
 Katalog obsahuje 21 adaptací v šesti oblastech. Filtr a dravá čelist se vzájemně vylučují; nektar vyžaduje sosnu. Těžší obrana mění obratnost, sprint stojí energii a souš vyžaduje vlastní oporu i dýchání. Editor nedovolí potvrdit neplatné tělo nebo odstranit obývané partnerské lůžko. Potvrzený genom se použije přímo ve hře a založí novou generaci i bod obnovy.
@@ -138,6 +143,7 @@ pnpm test:era
 pnpm test:tribe
 pnpm test:machines
 pnpm test:machine-editor
+pnpm test:body-editor
 pnpm test:planet
 pnpm test:fixtures
 pnpm test:climate
@@ -149,7 +155,7 @@ Produkční kontrolu spusť po `pnpm build` při běžícím `pnpm preview`: `pn
 
 Nutné uložené testovací vstupy jsou verzované v `tests/fixtures/saves/`; jejich původ a SHA256 uvádí přiložený manifest. Čistý checkout nepotřebuje lokální archiv `evidence/`.
 
-`pnpm test:tribe` ověřuje oba způsoby dokončení kmene přes běžné UI z připraveného pobřeží, rozestavěné save/load a skutečný nábor 12 členů. `pnpm test:era` ověřuje historický v1 náhled ze skutečných exportů, včetně jeho zmrazení a návratu na pobřeží. `pnpm test:editor` charakterizuje současný i historický editor organismu; `test:machine-editor` ověřuje skutečné úpravy a přesně zaplacený návrh stroje. `test:machines` projde všechny tři strategie, `test:planet` obnovu tří biomů, regresi klimatu, stabilní finále a save/reload. Jde o cílené připravené scénáře s DEV krokováním, nikoli úplný průchod kampaní. Rozšířené skripty používají `LUMAVORA_URL` (výchozí port 5180); nastav ji na adresu svého serveru. `pnpm test:planet-soak` přehrává uložený stabilní planetární sandbox nejméně 600 sekund skutečného času; vstup určuje `PLANET_SOAK_SOURCE`, výstup `PLANET_SOAK_OUTPUT`.
+`pnpm test:tribe` ověřuje oba způsoby dokončení kmene přes běžné UI z připraveného pobřeží, rozestavěné save/load a skutečný nábor 12 členů. `pnpm test:era` ověřuje historický v1 náhled ze skutečných exportů, včetně jeho zmrazení a návratu na pobřeží. `pnpm test:body-editor` vytvoří běžnými posuvníky pět výrazně odlišných těl se shodným filtrem a bičíkem, ověří přímý výběr, historii a save/load a uloží porovnání do `evidence/body-editor/browser/comparison.png` (výchozí server 5183). `pnpm test:editor` charakterizuje současný i historický editor organismu; `test:machine-editor` ověřuje skutečné úpravy a přesně zaplacený návrh stroje. `test:machines` projde všechny tři strategie, `test:planet` obnovu tří biomů, regresi klimatu, stabilní finále a save/reload. Jde o cílené připravené scénáře s DEV krokováním, nikoli úplný průchod kampaní. Rozšířené skripty používají `LUMAVORA_URL` (výchozí port 5180); nastav ji na adresu svého serveru. `pnpm test:planet-soak` přehrává uložený stabilní planetární sandbox nejméně 600 sekund skutečného času; vstup určuje `PLANET_SOAK_SOURCE`, výstup `PLANET_SOAK_OUTPUT`.
 
 `pnpm test:browser` je nyní **zrychlená regrese starých pravidel kampaně**. Přes běžný import načte neupravený stav `createGame(481516, true)` v kroku 0; neověřuje novou kampaň spouštěnou tlačítkem Nová linie ani délku prvního hraní. Také připravené scénáře fixtures, climate a performance používají stará pravidla. Produkční smoke a soak začínají současnou novou linií, ale nenahrazují dokončený běžný průchod.
 

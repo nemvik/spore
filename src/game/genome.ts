@@ -1,3 +1,4 @@
+import { bodyVolume, bodyWidth, neutralSpine, SPINE_COUNT, spineInvestment } from './body-shape';
 import { GENOME_ERRORS } from './errors.cs';
 import { attachmentAngles, attachmentPoint } from './anatomy';
 import type { Adaptation, AdaptationId, Genome, Part, Stage, Stats, Vec3 } from './types';
@@ -50,7 +51,7 @@ export function initialGenome(): Genome {
 }
 
 export const has = (genome: Genome, id: AdaptationId): boolean => genome.parts.some((part) => part.kind === id);
-export const cloneGenome = (genome: Genome): Genome => ({ ...genome, parts: genome.parts.map((part) => ({ ...part })) });
+export const cloneGenome = (genome: Genome): Genome => ({ ...genome, ...(genome.spine ? { spine: genome.spine.map(node => ({ ...node })) } : {}), parts: genome.parts.map((part) => ({ ...part })) });
 
 /**
  * speed: world units/s; acceleration: units/s²; turn: radians/s; armor: damage fraction.
@@ -61,14 +62,14 @@ export const cloneGenome = (genome: Genome): Genome => ({ ...genome, parts: geno
  */
 export function computeStats(genome: Genome): Stats {
   const strength = (id: AdaptationId) => genome.parts.reduce((sum, part) => sum + (part.kind === id ? part.scale * (part.mirrored ? 1.6 : 1) : 0), 0);
-  const body = genome.length * genome.width * genome.width;
+  const body = genome.length * genome.width * genome.width * bodyVolume(genome);
   const mass = body + genome.parts.reduce((sum, part) => {
     const density = part.kind === 'shell' ? 0.72 : part.kind === 'reservoir' ? 0.42 : 0.11;
     return sum + density * part.scale * (part.mirrored ? 1.6 : 1);
   }, 0);
   const flagellum = strength('flagellum'), fins = strength('fins'), tail = strength('tail');
   const legs = strength('legs'), jet = strength('jet'), shell = strength('shell');
-  const shapeDrag = Math.max(0, genome.width - 0.85) * 0.45;
+  const shapeDrag = Math.max(0, bodyWidth(genome) - 0.85) * 0.45;
   const movement = 4.8 + flagellum * 0.8 + fins * 0.4 + tail * 1.1 + jet * 0.5;
   const diet = new Set<string>(has(genome, 'jaw') ? ['meat', 'detritus'] : ['algae', 'detritus']);
   if (has(genome, 'filter') || has(genome, 'recycler')) diet.add('mineral');
@@ -136,7 +137,7 @@ export function functionalProfile(genome: Genome): FunctionalProfile {
     if (part.kind === 'filter' || part.kind === 'jaw' || part.kind === 'proboscis') {
       const reach = 3.1 + (part.kind === 'proboscis' ? 2.9 : 1.2) * organOutput(tissue);
       if (reach > feedReach) {
-        const points = attachmentAngles(part).map(angle => attachmentPoint(part.axial, angle, genome.length, genome.width));
+        const points = attachmentAngles(part).map(angle => attachmentPoint(part.axial, angle, genome.length, genome.width, genome.spine));
         mouthOrigin = points.reduce((sum, point) => ({ x: sum.x + point.x / points.length, y: sum.y + point.y / points.length, z: sum.z + point.z / points.length }), { x: 0, y: 0, z: 0 });
         feedReach = reach;
       }
@@ -160,7 +161,7 @@ export function functionalProfile(genome: Genome): FunctionalProfile {
 }
 
 const partInvestment = (part: Part): number => getAdaptation(part.kind).cost * part.scale * (part.mirrored ? 1.6 : 1);
-const bodyInvestment = (genome: Genome): number => Math.abs(genome.length - 1) * 12 + Math.abs(genome.width - 1) * 10;
+const bodyInvestment = (genome: Genome): number => Math.abs(genome.length - 1) * 12 + Math.abs(genome.width - 1) * 10 + spineInvestment(genome);
 
 export function genomeCost(genome: Genome): number {
   return roundCost(genome.parts.reduce((sum, part) => sum + partInvestment(part), bodyInvestment(genome)));
@@ -184,7 +185,9 @@ export function mutationCost(oldGenome: Genome, nextGenome: Genome): number {
   }
   for (const part of previous.values()) removed += partInvestment(part);
   // Reshaping spends energy even when the resulting body happens to be smaller.
-  const reshaping = Math.abs(nextGenome.length - oldGenome.length) * 12 + Math.abs(nextGenome.width - oldGenome.width) * 10;
+  const oldSpine = oldGenome.spine ?? neutralSpine(), nextSpine = nextGenome.spine ?? neutralSpine();
+  const sculpting = nextSpine.reduce((sum, node, i) => sum + Math.abs(node.width - oldSpine[i].width) + Math.abs(node.height - oldSpine[i].height) + Math.abs(node.bend - oldSpine[i].bend), 0) * 3 / SPINE_COUNT;
+  const reshaping = sculpting + Math.abs(nextGenome.length - oldGenome.length) * 12 + Math.abs(nextGenome.width - oldGenome.width) * 10;
   return roundCost(Math.max(0, added - removed * 0.5) + reshaping);
 }
 
@@ -201,7 +204,8 @@ export function validateGenome(value: unknown, stage: Stage): string[] {
   const errors: string[] = [];
   if (![0, 1, 2].includes(stage)) return [GENOME_ERRORS.invalidStage];
   if (!record(value)) return [GENOME_ERRORS.objectRequired];
-  if (!exactKeys(value, GENOME_KEYS)) errors.push(GENOME_ERRORS.invalidFields);
+  if (!exactKeys(value, Object.hasOwn(value, 'spine') ? [...GENOME_KEYS, 'spine'] : GENOME_KEYS)) errors.push(GENOME_ERRORS.invalidFields);
+  if (Object.hasOwn(value, 'spine') && (!Array.isArray(value.spine) || value.spine.length !== SPINE_COUNT || Array.from(value.spine).some(node => !record(node) || !exactKeys(node, ['width', 'height', 'bend']) || !finiteRange(node.width, .5, 1.65) || !finiteRange(node.height, .5, 1.65) || !finiteRange(node.bend, -.65, .65)))) errors.push(GENOME_ERRORS.invalidSpine);
   if (value.version !== 1) errors.push(GENOME_ERRORS.unsupportedVersion);
   if (typeof value.name !== 'string' || value.name.trim().length < 1 || value.name.length > 32 || /[\u0000-\u001f\u007f]/.test(value.name)) errors.push(GENOME_ERRORS.invalidName);
   if (!finiteRange(value.length, 0.65, 2.4)) errors.push(GENOME_ERRORS.invalidLength);

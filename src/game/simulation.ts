@@ -1,3 +1,4 @@
+import { bodyCollisionRadius } from './body-shape';
 import { stepTribeWildlife } from './tribe-wildlife';
 import { activeTribe, createTribe, stepTribe, tribeReady } from './tribe';
 import { activeMachines, createMachines, stepMachines } from './machines';
@@ -16,7 +17,7 @@ import { createWorld, spawnCreature, surfaceY, WORLD_BOUND } from './world';
 import { random, clamp, distance, horizontalDistance, groundHeight } from './random';
 import { CHAPTERS, FOOD_LABEL, speciesById, stageSpecies, TEXT } from './content';
 import { getClimate, hydrationAt } from './climate';
-import { organismGroundClearance, speciesGroundClearance } from './anatomy';
+import { bodyGroundClearance, organismGroundClearance, speciesGroundClearance } from './anatomy';
 import { feedTarget, bondTarget, tendTarget, lineBlocked } from './interactions';
 import { INTERACTION_COPY } from './interaction-copy.cs';
 import { advanceLocomotion } from './locomotion';
@@ -237,12 +238,12 @@ function tend(s:GameState) {
  if(spring){spring.charge=Math.min(10,spring.charge+strength);announce(s,TEXT.springRestored(spring.name,spring.charge));tryWin(s,'restoration');}
  else announce(s,TEXT.soilRestored);
 }
-function constrain(pos:{x:number;y:number;z:number},w:World,radius:number,clearance=1.2,previous={...pos}) {
+function constrain(pos:{x:number;y:number;z:number},w:World,radius:number,clearance=1.2,previous={...pos},hullClearance=0) {
  pos.x=clamp(pos.x,-WORLD_BOUND,WORLD_BOUND);pos.z=clamp(pos.z,-WORLD_BOUND,WORLD_BOUND);
  if(w.stage===1)Object.assign(pos,resolveObstacleMotion(w,previous,pos,radius));
  else for(const o of w.obstacles){const dx=pos.x-o.pos.x,dz=pos.z-o.pos.z,dist=Math.hypot(dx,dz),bound=o.radius+radius;if(dist<bound){const angle=dist<.001?o.id:Math.atan2(dz,dx);pos.x=o.pos.x+Math.cos(angle)*bound;pos.z=o.pos.z+Math.sin(angle)*bound;}}
- if(w.stage===0)pos.y=1.1;
- else if(w.stage===1)pos.y=clamp(pos.y,groundHeight(pos.x,pos.z,1)+1.3,12);
+ if(w.stage===0)pos.y=Math.max(1.1,hullClearance);
+ else if(w.stage===1)pos.y=clamp(pos.y,groundHeight(pos.x,pos.z,1)+Math.max(1.3,hullClearance),12);
  else pos.y=groundHeight(pos.x,pos.z,2)+clearance;
 }
 function npcStep(s:GameState,dt:number) {
@@ -354,7 +355,7 @@ function beginStep(s:GameState,input:Input,dt:number) {
  // Currents are local conditions. Tail and fins help sustain a heading through them.
  const current=s.journey.legacy&&s.stage<2&&horizontalDistance(p.pos,w.patches[1].center)<24?(s.stage===1?2.2:1.25)/profile.currentResistance:0;
  const flow=environmentalFlow(s,p.pos);p.pos.x+=(p.velocity.x+current+flow.x/profile.currentResistance)*dt;p.pos.z+=(p.velocity.z+flow.z/profile.currentResistance)*dt;p.pos.y+=(p.velocity.y+flow.y/profile.currentResistance)*dt;
- constrain(p.pos,w,Math.max(.6,p.genome.width*.8),organismGroundClearance(p.genome),previous);p.distance+=horizontalDistance(previous,p.pos);
+ constrain(p.pos,w,bodyCollisionRadius(p.genome,s.stage),organismGroundClearance(p.genome),previous,p.genome.spine?bodyGroundClearance(p.genome):0);p.distance+=horizontalDistance(previous,p.pos);
 
  const metabolism=Math.max(.025,stats.metabolism*.035);p.energy-=dt*(metabolism+(len>.1?.07:0)+(sprint?.7:0)+p.bonds.length*.1/Math.max(.5,profile.partnerSupport)+Math.abs(input.vertical)*.05+(reefBody?.pumpEnergy??0));
  if(has(p.genome,'chloroplast')&&w.patches[0].discovered&&horizontalDistance(p.pos,w.patches[0].center)<29)p.energy+=dt*profile.photosynthesis;

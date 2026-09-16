@@ -1,3 +1,6 @@
+import { bodyGroundClearance } from '../game/anatomy';
+import { selectBodySection } from './body-selection';
+import { bodyWidth, spineIndex, spineAxial } from '../game/body-shape';
 import type { Blueprint, VehicleBlueprint } from '../game/blueprint';
 import { vehicleStats } from '../game/blueprint';
 import { createMachine, animateMachine, machineAttachmentOnBody } from './machine';
@@ -68,7 +71,7 @@ export class GameRenderer {
  private settlement=new SettlementPresentation();private fleet=new FleetPresentation();private planet=new PlanetPresentation();
  commandSelection:CommandUnitRef[]=[];commandFocus:Vec3|null=null;
  private bondMeshes:THREE.Group[]=[];private bondKey='';private contact=new ContactShadows();private partnerLight=new THREE.PointLight(0xd6f1b0,0,24,1.7);private pulse:THREE.Mesh;private marker=new THREE.Group();private markerBrackets:THREE.Mesh;private markerStem:THREE.Line;private markerTip:THREE.Mesh;private markerArrow:THREE.Mesh;private settings:Settings;private lastHeading=0;
- yaw=0; pitch=.55; zoom=25; editorYaw=.65;editorPitch=.22;editorZoom=10; selectedPart:string|null=null;previewMode:'idle'|'move'|'feed'='idle';onSelectPart:((id:string)=>void)|null=null;
+ yaw=0; pitch=.55; zoom=25; editorYaw=.65;editorPitch=.22;editorZoom=10; selectedPart:string|null=null;selectedSpine:number|null=null;previewMode:'idle'|'move'|'feed'='idle';onSelectPart:((id:string)=>void)|null=null;
  constructor(container:HTMLElement,settings:Settings){
   this.settings=settings;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance',preserveDrawingBuffer:true});this.renderer.setClearColor(0x133f49);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.02;
   this.renderer.domElement.id='world';this.renderer.domElement.setAttribute('aria-label','Trojrozměrný svět LUMAVORA');container.append(this.renderer.domElement);
@@ -137,7 +140,7 @@ export class GameRenderer {
   // Render the retained ecology in its own habitat; the control model still
   // belongs to the campaign stage. This view never changes the saved state.
   if(!isOrganismStage(s.stage))s={...s,stage:s.world.stage};
-  const key=JSON.stringify(s.player.genome);if(key!==this.playerKey){if(this.player){this.scene.remove(this.player);disposeObject(this.player);}this.player=createOrganism(s.player.genome);applyLivingFinish(this.player,'player');this.scene.add(this.player);this.playerKey=key;this.playerOcclusionRadius=Math.max(1.5,s.player.genome.length*1.76,s.player.genome.width*.9)+.5;}
+  const key=JSON.stringify(s.player.genome);if(key!==this.playerKey){if(this.player){this.scene.remove(this.player);disposeObject(this.player);}this.player=createOrganism(s.player.genome);applyLivingFinish(this.player,'player');this.scene.add(this.player);this.playerKey=key;this.playerOcclusionRadius=Math.max(1.5,s.player.genome.length*1.76,bodyWidth(s.player.genome)*.9)+.5;}
   const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s));this.lastHeading=p.heading;
   const reefOpening=s.stage===1&&s.journey.reefEvolution&&!s.journey.legacy?s.journey.reefEvolution.pumping:null;setReefFilterOpening(model,reefOpening);this.reefFilterCues?.update(s,this.settings.reducedMotion?0:t,model);
   const existing=new Set(s.world.creatures.map(c=>c.id));this.creatureMeshes.forEach((m,id)=>{if(!existing.has(id)){this.scene.remove(m);disposeObject(m);this.creatureMeshes.delete(id);}});
@@ -185,9 +188,10 @@ export class GameRenderer {
    const motion=reef?reefBodyProfile(g,pumping).motion:locomotionProfile(g,stage,legacy);
    animateOrganism(this.editorModel!,time,this.previewMode==='move'?motion.speed:0,0,stage,feeding);
    setReefFilterOpening(this.editorModel!,reef?pumping:null);
-   this.editorFloor.position.y=stage===2?-organismGroundClearance(g):-2;
+   this.editorFloor.position.y=stage===2?-organismGroundClearance(g):-Math.max(2,bodyGroundClearance(g)+.2);
   }
   selectOrganismPart(this.editorModel!,this.selectedPart);
+  if(!vehicle)selectBodySection(this.editorModel!,this.selectedSpine);
   this.editorCamera.position.set(Math.sin(this.editorYaw)*this.editorZoom,2.5+Math.sin(this.editorPitch)*this.editorZoom,Math.cos(this.editorYaw)*this.editorZoom);this.editorCamera.lookAt(0,.1,0);this.renderer.render(this.editorScene,this.editorCamera);
  }
  private renderPortrait(g:Genome){const key=JSON.stringify(g);if(key!==this.portraitKey){if(this.portraitModel){this.portraitScene.remove(this.portraitModel);disposeObject(this.portraitModel);}this.portraitModel=createOrganism(g);this.portraitScene.add(this.portraitModel);this.portraitKey=key;}
@@ -197,6 +201,19 @@ export class GameRenderer {
  }
  private editorRay(x:number,y:number):boolean{const rect=this.renderer.domElement.getBoundingClientRect();if(!rect.width||!rect.height)return false;this.pointer.set((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2);this.editorCamera.updateMatrixWorld(true);this.raycaster.setFromCamera(this.pointer,this.editorCamera);return true;}
  attachmentAt(x:number,y:number):{axial:number;angle:number}|null{if(!this.editorModel||!this.editorRay(x,y))return null;return this.editorModel.userData.blueprintKind==='vehicle'?machineAttachmentOnBody(this.editorModel,this.raycaster):attachmentOnBody(this.editorModel,this.raycaster);}
+ /** Read-only visible pick locations for the seven editor sections. */
+ editorSectionTargets():({index:number;x:number;y:number}|null)[]{
+  const body=this.editorModel?.userData.attachmentSurface as THREE.Mesh|undefined;
+  if(!body)return [];
+  const uv=body.geometry.getAttribute('uv'),position=body.geometry.getAttribute('position'),rect=this.renderer.domElement.getBoundingClientRect();
+  this.editorModel!.updateMatrixWorld(true);
+  return Array.from({length:7},(_,index)=>{
+   const candidates=Array.from({length:uv.count},(_,i)=>i).filter(i=>Math.abs(uv.getY(i)*2-1-spineAxial(index))<.055);
+   const points=candidates.map(i=>new THREE.Vector3().fromBufferAttribute(position,i).applyMatrix4(body.matrixWorld).project(this.editorCamera)).sort((a,b)=>a.z-b.z);
+   for(const p of points){const x=rect.left+(p.x+1)*rect.width/2,y=rect.top+(1-p.y)*rect.height/2;if(this.pickPart(x,y))continue;const hit=this.attachmentAt(x,y);if(hit&&spineIndex(hit.axial)===index)return {index,x,y};}
+   return null;
+  });
+ }
  /** Screen projection for a small contextual label; it cannot select or reach a source. */
  worldLabelPosition(pos:Vec3){
   const point=new THREE.Vector3(pos.x,pos.y+3.2,pos.z).project(this.camera);

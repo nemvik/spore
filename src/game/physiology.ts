@@ -1,3 +1,4 @@
+import { bodyWidth } from './body-shape';
 import { computeStats, functionalProfile, has } from './genome';
 import { reefConditions } from './reef-layout';
 import type { Genome, Stage, Vec3, World } from './types';
@@ -45,7 +46,7 @@ export function locomotionProfile(genome: Genome, stage: Stage, legacy = false):
   const drive = -Math.expm1(-legs * .65) / pairedLegOutput;
   const footing = stance / legs;
   const excessLoad = Math.max(0, stats.mass - 1.2);
-  const load = 1 + excessLoad * .15 + Math.max(0, genome.width - 1) * .12;
+  const load = 1 + excessLoad * .15 + Math.max(0, bodyWidth(genome) - 1) * .12;
   const yawLoad = 1 + excessLoad * .24 + Math.max(0, genome.length - 1) * .45;
   const acceleration = clamp((7 + 5 * drive) * footing / load, 2, 18);
   return {

@@ -421,3 +421,13 @@ pnpm test:performance
 ```
 
 Pro `pnpm test:production` nejprve vytvoř build a spusť `pnpm preview`. K otevření časové osy použij například `pnpm exec playwright show-trace evidence/campaign/campaign.trace.zip`. Velké trace a dočasné předchozí pokusy zůstávají lokálními důkazy; nejsou součástí automatického commitu ani deploye.
+
+
+## Přímý výběr článků a srovnání pěti siluet · 2026-09-16
+
+Povrch 3D těla nyní vybírá jeden ze sedmi článků, zlatý pás sleduje skutečnou geometrii i animaci a panel ukazuje stejnou oblast. Přesné posuvníky zachovány. Pět těl se stejnými parametry filtru a bičíku vzniklo běžným UI v počátečním rozpočtu 36 DNA; rozsahy nebylo nutné rozšiřovat. [Srovnání](evidence/body-editor/browser/comparison.png) a [rozsah ověření](evidence/body-editor/REPORT.md).
+
+Aktuální sada **101 souborů / 1969 testů**, typecheck/build, diff-check, nezměněná charakterizace editoru **5/5** a nový browser průchod **5/5** prošly. Přímý výběr, přesuny orgánů, myší/klávesové undo/redo, animace, všechny druhy uchycení, oči, podlaha/stěna/strop, save/import/reload a kompaktní UI ověřeny; 0 browser chyb. Samostatný původní skill klient rovněž proběhl. Kolize používají existující zjednodušený příčný objem; nejde o přesné kolize celé délky/orgánů. Cílený desktop Chromium test s DEV časem není nová úplná kampaň ani důkaz Safari/telefonu. Žádné nové orgány, etapy či dependencies. Hashe a přesná provenience v `evidence/body-editor/verification.json`.
+
+
+Publikace 2026-09-17: editor včetně nutných podkladů tvarování byl oddělen od dřívějších nesouvisejících úprav questů/dechu. Přesný obsah pro commit prošel izolovaně 100 soubory / 1956 testy a typecheckem/buildem. Verzované srovnání a rozsah jsou v `docs/body-editor/README.md`.

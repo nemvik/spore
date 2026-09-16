@@ -1,3 +1,4 @@
+import { bodyCollisionRadius } from './body-shape';
 import type { Creature, GameState, Vec3 } from './types';
 import type { EcologySite } from './journey-types';
 import { hunterThreatening } from './hunter-appetite';
@@ -94,7 +95,7 @@ export function canopyGuidance(s: GameState, site: EcologySite): CanopyGuidance 
   };
   if (!plant || site.vitality <= 0) {
     const dy = site.source.y - s.player.pos.y;
-    const radius = Math.max(.6, s.player.genome.width * .8);
+    const radius = bodyCollisionRadius(s.player.genome,s.stage);
     const blockedAscent = dy > 2.2 && s.world.obstacles.some(o => canopy.roofIds.includes(o.id)
       && s.player.pos.y < o.pos.y
       && obstacleSegmentEntry(s.player.pos, { ...s.player.pos, y: o.pos.y + o.height + radius + .1 }, o, radius) !== null);

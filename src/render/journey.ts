@@ -1,3 +1,4 @@
+import { bodyWidth } from '../game/body-shape';
 import * as THREE from 'three';
 import { HUNTER_TIMING } from '../game/encounter-ai';
 import type { FoodKind, GameState, Resource, Vec3, World } from '../game/types';
@@ -248,7 +249,7 @@ export class JourneyPresentation {
 
   private updateCargo(s: GameState, time: number) {
     const view = this.cargo!, cargo = s.journey.cargo; view.node.visible = !!cargo; if (!cargo) return;
-    const p = s.player, side = .65 + p.genome.width * .25, front = .15 * p.genome.length, health = vitality(cargo.vitality);
+    const p = s.player, side = p.genome.spine ? .65 + bodyWidth(p.genome) * .68 : .65 + p.genome.width * .25, front = .15 * p.genome.length, health = vitality(cargo.vitality);
     view.node.position.set(p.pos.x + Math.cos(p.heading) * side + Math.sin(p.heading) * front, p.pos.y + .36 + Math.sin(time * 2) * .035, p.pos.z - Math.sin(p.heading) * side + Math.cos(p.heading) * front);
     view.node.rotation.set(0, p.heading, -.22); view.node.scale.setScalar(.4 + health * .08);
     view.heartMaterial.color.copy(DRY).lerp(this.color.setHex(COLORS[cargo.kind].heart), health); view.heartMaterial.emissive.copy(view.heartMaterial.color); view.heartMaterial.emissiveIntensity = .15 + health * .75;

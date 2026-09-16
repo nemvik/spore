@@ -6,7 +6,8 @@ export type Stage = 0 | 1 | 2 | 3 | 4 | 5;
 export type AdaptationId = 'flagellum'|'fins'|'tail'|'legs'|'jet'|'filter'|'jaw'|'proboscis'|'eyes'|'antenna'|'sonar'|'shell'|'spines'|'toxin'|'gills'|'lungs'|'bladder'|'reservoir'|'chloroplast'|'symbiote'|'recycler';
 export type Category = 'movement'|'feeding'|'senses'|'defense'|'metabolism'|'symbiosis';
 export interface Part { id: string; kind: AdaptationId; axial: number; angle: number; scale: number; mirrored: boolean; }
-export interface Genome { version: 1; name: string; length: number; width: number; hue: number; pattern: number; parts: Part[]; }
+export interface SpineNode { width: number; height: number; bend: number; }
+export interface Genome { version: 1; name: string; length: number; width: number; hue: number; pattern: number; parts: Part[]; spine?: SpineNode[]; }
 export interface Stats { speed: number; acceleration: number; turn: number; maxHealth: number; damage: number; armor: number; metabolism: number; sense: number; swim: number; walk: number; oxygen: number; moisture: number; diet: string[]; abilities: AdaptationId[]; mass: number; }
 export interface Adaptation { id: AdaptationId; name: string; category: Category; description: string; tradeoff: string; cost: number; stage: Stage; max: number; }
 export interface Vec3 { x: number; y: number; z: number; }

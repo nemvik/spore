@@ -1,3 +1,4 @@
+import { bodyWidth } from '../game/body-shape';
 import * as THREE from 'three';
 import type { GameState, Vec3 } from '../game/types';
 import type { ToolId, TribeBuilding, TribeNeighbour, TribeUnit } from '../game/era-types';
@@ -171,7 +172,7 @@ export class SettlementPresentation {
       const group = new THREE.Group(), body = spec ? createSpeciesModel(spec) : createOrganism(state.player.genome);
       group.name = `tribe-member-${unit.id}`; group.add(body); this.group.add(group);
       if (!spec) applyLivingFinish(body, 'player');
-      const radius = spec ? Math.max(.75, spec.size * 1.2) : Math.max(1, state.player.genome.width, state.player.genome.length * 1.5);
+      const radius = spec ? Math.max(.75, spec.size * 1.2) : Math.max(1, bodyWidth(state.player.genome), state.player.genome.length * 1.5);
       const ring = groundRing(group, radius + .2, COLORS.selected); ring.name = 'selection-ring';
       const shadowGeometry = new THREE.CircleGeometry(radius * .72, 24); shadowGeometry.rotateX(-Math.PI / 2);
       const shadow = mesh(group, shadowGeometry, new THREE.MeshBasicMaterial({ color: 0x152c22, transparent: true, opacity: .2, depthWrite: false, side: THREE.DoubleSide }));
@@ -195,7 +196,7 @@ export class SettlementPresentation {
       if (unit.tool) view.equipment.add(equipment(unit.tool));
       view.tool = unit.tool;
     }
-    view.equipment.position.set(spec ? .65 : state.player.genome.width * .85, view.body.position.y + .35, .2);
+    view.equipment.position.set(spec ? .65 : bodyWidth(state.player.genome) * .85, view.body.position.y + .35, .2);
     view.equipment.scale.setScalar(.82);
     view.cargo.visible = unit.cargo > 0; view.cargo.position.set(0, view.body.position.y + .75, -.45); view.cargo.scale.setScalar(.75 + Math.min(1, unit.cargo / 6) * .5);
     const elapsed = time - view.time;

@@ -1,4 +1,5 @@
-import type { Genome, Part, Vec3, Species } from './types';
+import { bodySection } from './body-shape';
+import type { Genome, Part, Vec3, Species, SpineNode } from './types';
 
 /** The closed sole plane of an unscaled, relaxed limb, below its attachment. */
 export const LEG_SOLE_REACH = 1.16;
@@ -14,10 +15,11 @@ export function attachmentAngles(part: Pick<Part, 'angle' | 'mirrored'>): number
 }
 
 /** Shared analytical attachment surface, independent of rendering or simulation. */
-export function attachmentPoint(axial: number, angle: number, length: number, width: number): Vec3 {
+export function attachmentPoint(axial: number, angle: number, length: number, width: number, spine?: readonly SpineNode[]): Vec3 {
   const a = Math.min(.93, Math.max(-.93, axial));
   const profile = Math.pow(Math.max(.001, 1 - a * a), .48) * (1 + .15 * a);
-  return { x: Math.sin(angle) * .68 * width * profile, y: Math.cos(angle) * .61 * width * profile + .13 * a * a, z: a * 1.76 * length };
+  const section = bodySection(a, spine);
+  return { x: Math.sin(angle) * .68 * width * profile * section.width, y: Math.cos(angle) * .61 * width * profile * section.height + .13 * a * a + section.bend * width, z: a * 1.76 * length };
 }
 
 /** A forgiving contact volume around each visible jaw, independent of other mouths.
@@ -27,7 +29,7 @@ export function attachmentPoint(axial: number, angle: number, length: number, wi
  */
 export function jawContacts(genome: Genome): { mouthOrigin: Vec3; reach: number }[] {
   return genome.parts.filter(part => part.kind === 'jaw').flatMap(part => attachmentAngles(part).map(angle => {
-    const origin = attachmentPoint(part.axial, angle, genome.length, genome.width);
+    const origin = attachmentPoint(part.axial, angle, genome.length, genome.width, genome.spine);
     return { mouthOrigin: { ...origin, z: origin.z + .41 * part.scale }, reach: .55 * part.scale + .45 };
   }));
 }
@@ -38,15 +40,20 @@ export function jawContacts(genome: Genome): { mouthOrigin: Vec3; reach: number 
  * Physics and the rendered stance must both use this same function.
  */
 export function organismGroundClearance(genome: Genome): number {
-  let clearance = .66 * genome.width;
+  let clearance = bodyGroundClearance(genome);
   for (const part of genome.parts) {
     if (part.kind !== 'legs') continue;
     for (const angle of attachmentAngles(part)) {
-      const attachmentY = attachmentPoint(part.axial, angle, genome.length, genome.width).y;
+      const attachmentY = attachmentPoint(part.axial, angle, genome.length, genome.width, genome.spine).y;
       clearance = Math.max(clearance, LEG_SOLE_REACH * part.scale - attachmentY);
     }
   }
   return clearance;
+}
+
+/** Soft trunk clearance, independent of long legs that fold while swimming. */
+export function bodyGroundClearance(genome: Genome): number {
+  return genome.spine ? Math.max(...genome.spine.map(node => genome.width * (.66 * node.height - node.bend))) : .66 * genome.width;
 }
 
 /** Walking species share their rendered sole/body underside with terrain physics. */

@@ -6,6 +6,7 @@ export const GENOME_ERRORS = {
   unsupportedVersion: 'Nepodporovaná verze genomu.',
   invalidName: 'Jméno musí mít 1 až 32 viditelných znaků.',
   invalidLength: 'Délka těla musí být 0,65 až 2,4.',
+  invalidSpine: 'Páteř musí mít 7 článků se šířkou a výškou 0,5 až 1,65 a ohybem −0,65 až 0,65.',
   invalidWidth: 'Šířka těla musí být 0,55 až 1,8.',
   invalidHue: 'Odstín musí být 0 až 360.',
   invalidPattern: 'Neplatný vzor těla.',
