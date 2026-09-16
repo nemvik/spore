@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { bondTarget, feedTarget, lineBlocked, tendTarget } from '../src/game/interactions';
 import { cloneGenome, functionalProfile, initialGenome } from '../src/game/genome';
@@ -6,7 +7,7 @@ import { organismGroundClearance } from '../src/game/anatomy';
 import { createGame, step } from '../src/game/simulation';
 import { createWorld, spawnCreature } from '../src/game/world';
 import { EMPTY_INPUT } from '../src/game/types';
-import type { AdaptationId, FoodKind, GameState, Stage, Vec3 } from '../src/game/types';
+import type { AdaptationId, FoodKind, GameState, Vec3 } from '../src/game/types';
 
 // Prepared unit encounters exercise ordinary public step/actions, not campaign progression.
 function scenario(stage: Stage = 1, kinds: AdaptationId[] = []): GameState {

@@ -159,7 +159,7 @@ if (process.argv.includes('--prepare-only')) { console.log(`Validated ${Object.k
 
 const browser = await chromium.launch({ headless: true, args: process.platform === 'darwin' ? ['--use-gl=angle', '--use-angle=metal'] : [] });
 const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, deviceScaleFactor: 1 });
-await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+if(process.env.LUMAVORA_TRACE==='1')await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
 context.on('page', page => {
   page.on('pageerror', error => errors.push({ page: page.url(), message: error.message, stack: error.stack }));
   page.on('console', message => { if (message.type() === 'error') errors.push({ page: page.url(), message: message.text(), kind: 'console' }); });
@@ -274,8 +274,13 @@ try {
     }
     assert.ok(finPoint, 'The visible fin could not be selected on the 3D organism');
     const beforeDragPart = (await read(page)).editor.draft.parts.find(p => p.id === finId);
+    // Fins extend beyond the body: an arbitrary outward offset can miss the
+    // attachment surface throughout the drag. The editor camera targets the
+    // torso, so drag inward to the actual canvas centre after orbit and zoom.
+    const canvasBox = await page.locator('#world').boundingBox();
+    assert.ok(canvasBox, 'The editor canvas must have a visible bounding box');
     await page.mouse.move(finPoint.x, finPoint.y); await page.mouse.down();
-    await page.mouse.move(finPoint.x + 32, finPoint.y - 23, { steps: 6 }); await page.mouse.up(); await waitFrames(page);
+    await page.mouse.move(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2, { steps: 6 }); await page.mouse.up(); await waitFrames(page);
     const afterDragPart = (await read(page)).editor.draft.parts.find(p => p.id === finId);
     assert.ok(afterDragPart.axial !== beforeDragPart.axial || afterDragPart.angle !== beforeDragPart.angle, 'Dragging a selected 3D organ did not move it');
 
@@ -471,9 +476,9 @@ try {
     return { screenshots: [await screenshot(page, 'predator-ending')], verified: ['two actual jaw attacks', 'invasive removal', 'meat drop', 'DNA reward', 'soil change', 'predator victory'], prepared: 'Eleven prior invasive kills were prepared; the twelfth was performed by browser input' };
   });
 } finally {
-  await context.tracing.stop({ path: path.join(OUTPUT, 'targeted-scenarios.trace.zip') });
+  if(process.env.LUMAVORA_TRACE==='1')await context.tracing.stop({ path: path.join(OUTPUT, 'targeted-scenarios.trace.zip') });
   await context.close(); await browser.close();
-  const report = { kind: 'targeted prepared-state browser scenarios; not a fresh-game campaign run', campaignRules: 'legacy', freshCurrentCampaign: false, acceleratedTimeStepping: true, startedAt: started.toISOString(), endedAt: new Date().toISOString(), url: BASE_URL, viewport: { width: 1536, height: 960 }, browser: `Playwright Chromium ${browser.version()} / ${process.platform === 'darwin' ? 'ANGLE Metal requested' : 'default graphics backend'}; renderer must be measured separately`, browserStateWrites: 'none; prepared saves imported through the real file input', timeControl: 'DEV advanceTime fixed steps while actual keyboard keys are held; not natural wall-clock gameplay', results, browserErrors: errors, externalRequests: [...new Set(externalRequests)], timeline, trace: path.relative(process.cwd(), path.join(OUTPUT, 'targeted-scenarios.trace.zip')) };
+  const report = { kind: 'targeted prepared-state browser scenarios; not a fresh-game campaign run', campaignRules: 'legacy', freshCurrentCampaign: false, acceleratedTimeStepping: true, startedAt: started.toISOString(), endedAt: new Date().toISOString(), url: BASE_URL, viewport: { width: 1536, height: 960 }, browser: `Playwright Chromium ${browser.version()} / ${process.platform === 'darwin' ? 'ANGLE Metal requested' : 'default graphics backend'}; renderer must be measured separately`, browserStateWrites: 'none; prepared saves imported through the real file input', timeControl: 'DEV advanceTime fixed steps while actual keyboard keys are held; not natural wall-clock gameplay', results, browserErrors: errors, externalRequests: [...new Set(externalRequests)], timeline, trace: process.env.LUMAVORA_TRACE === '1' ? path.relative(process.cwd(), path.join(OUTPUT, 'targeted-scenarios.trace.zip')) : null };
   await writeFile(path.join(OUTPUT, 'scenario-results.json'), JSON.stringify(report, null, 2));
   if (results.some(r => r.status !== 'passed') || errors.length || externalRequests.length) process.exitCode = 1;
 }

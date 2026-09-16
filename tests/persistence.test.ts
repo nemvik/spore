@@ -33,7 +33,7 @@ describe('versioned persistence', () => {
     for (let i = 0; i < 60; i++) step(state, { ...EMPTY_INPUT, x: 1 });
     const loaded = parseGame(serializeGame(state));
     expect(loaded).toEqual(state);
-    expect(loaded.world).toBe(loaded.worlds[loaded.stage]);
+    expect(loaded.world).toBe(loaded.worlds[loaded.world.stage]);
     expect(loaded.world).not.toBe(state.world);
     expect(JSON.parse(loaded.checkpoint!).checkpoint).toBeNull();
   });

@@ -1,3 +1,4 @@
+import { worldStageFor } from '../game/stage';
 import type { Settings, Stage } from '../game/types';
 /** Original synthesised score. All oscillators are local Web Audio, no downloads. */
 export class Soundscape {
@@ -5,7 +6,7 @@ export class Soundscape {
  constructor(settings:Settings){this.settings=settings;}
  start(){if(!this.context){this.context=new AudioContext();this.master=this.context.createGain();this.master.connect(this.context.destination);this.ambient=this.context.createGain();this.ambient.connect(this.master);[110,164.81,220,293.66].forEach((hz,i)=>{const o=this.context!.createOscillator(),g=this.context!.createGain();o.type='sine';o.frequency.value=hz;g.gain.value=.016/(i+1);o.connect(g);g.connect(this.ambient!);o.start();this.tones.push(o);});}void this.context.resume();this.update(this.settings);}
  update(s:Settings){this.settings=s;if(this.master){this.master.gain.value=s.muted?0:s.master;this.ambient!.gain.value=s.ambience;}}
- stage(stage:Stage){this.tones.forEach((o,i)=>o.frequency.setTargetAtTime([110,146.83,130.81][stage]*[1,1.5,2,2.667][i],this.context!.currentTime,2));}
+ stage(stage:Stage){this.tones.forEach((o,i)=>o.frequency.setTargetAtTime([110,146.83,130.81][worldStageFor(stage)]*[1,1.5,2,2.667][i],this.context!.currentTime,2));}
  pause(paused:boolean){if(this.context){if(paused)void this.context.suspend();else void this.context.resume();}}
  play(event:'eat'|'hurt'|'evolve'|'bond'|'click'|'discover'|'death'|'tend'){
   if(!this.context||!this.master||this.settings.muted)return;

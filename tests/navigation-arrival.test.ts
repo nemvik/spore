@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { createGame, makeCheckpoint, step } from '../src/game/simulation';
 import { createWorld, spawnCreature } from '../src/game/world';
@@ -6,14 +7,14 @@ import { computeStats, genomeCost, initialGenome } from '../src/game/genome';
 import { distance, groundHeight } from '../src/game/random';
 import { parseGame, serializeGame } from '../src/game/persistence';
 import { EMPTY_INPUT } from '../src/game/types';
-import type { AdaptationId, Stage } from '../src/game/types';
+import type { AdaptationId, } from '../src/game/types';
 
 // Prepared route scenes on the unchanged authored tree geometry. They are not
 // campaign evidence. No actors are repositioned after the ordinary steps begin.
 function scene(dx: number, dz: number, heading?: number) {
   const s = createGame(20260913, false);
   for (let stage = 1; stage <= 2; stage++) {
-    s.stage = stage as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world; initializeJourneyStage(s);
+    s.stage = stage as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world; initializeJourneyStage(s);
   }
   const kinds: AdaptationId[] = ['jaw', 'legs', 'lungs', 'reservoir', 'symbiote'];
   s.player.genome = { ...s.player.genome, parts: [...s.player.genome.parts.filter(part => part.kind !== 'filter'), ...kinds.map(kind => ({ id: 'route-' + kind, kind, axial: 0, angle: 1.25, scale: 1, mirrored: false }))] };

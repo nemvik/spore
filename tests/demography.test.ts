@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { reproduceAfterMeal } from '../src/game/demography';
 import { createGame, makeCheckpoint, recoverGeneration } from '../src/game/simulation';
@@ -7,14 +8,14 @@ import { parseGame, serializeGame } from '../src/game/persistence';
 import { distance, groundHeight, horizontalDistance } from '../src/game/random';
 import { speciesById } from '../src/game/content';
 import { speciesGroundClearance } from '../src/game/anatomy';
-import type { Creature, GameState, Resource, Stage } from '../src/game/types';
+import type { Creature, GameState, Resource, } from '../src/game/types';
 
 /** Isolated post-meal scenes: the caller has already consumed its normal bite.
  * These verify the demographic transaction, not a played campaign or AI route. */
 function scene(stage: Stage = 0, species = stage === 0 ? 'veil' : stage === 1 ? 'sail' : 'bell') {
   const s = createGame(481516, false);
   for (let next = 1; next <= stage; next++) {
-    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world; initializeJourneyStage(s);
+    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world; initializeJourneyStage(s);
   }
   s.world.obstacles = []; s.world.creatures = []; s.checkpoint = null;
   const parent = spawnCreature(s.world, species, 0);

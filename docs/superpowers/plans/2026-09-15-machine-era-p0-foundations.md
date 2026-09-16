@@ -12,6 +12,17 @@
 
 ---
 
+## Implementační poznámky · 2026-09-16
+
+P0 je implementováno; přesné výsledky ověření jsou v `PROGRESS.md` a `BENCHMARK_REPORT.md`. Následující úpravy oproti ukázkám byly nutné podle skutečného kódu:
+
+- `World.stage` zůstává `0|1|2`; `Stage` popisuje všech šest kapitol. Aktivní svět, Journey validace, obnova, zvuk a prezentace používají fyzickou etapu.
+- Zachované testovací scénáře potřebují typové zúžení fyzických etap a mapování indexů trojice. Očekávání formátu uložených her se mění na verzi 3; herní očekávání zůstávají. Historický přesný save test normalizuje pouze obě kořenové verze (stav a checkpoint).
+- Referenční test vznikl před rozdělením `step()`: 18 scénářů × 600 tiků, plný deterministický stav včetně RNG a vyčerpaných zdrojů. Otisky se po refaktoru nezměnily. Commit nebyl proveden podle pracovních pravidel zadavatele.
+- Nové řezy mají přísnou validaci jednotlivých položek a povinnou návaznost na etapu. Kolekce bez schématu z P2/P3 smějí být zatím jen prázdné.
+- P0 nenabízí hotový kmen. Jde o výslovně označený statický náhled s ovládáním kamery, bez tělesné simulace. Vstup nevymaže pobřežní vítězství; vítězný modal se podle etapy neotevírá znovu. Návrat do sandboxu je možný pouze pro prázdný náhled a neponechá falešnou dokončenou kapitolu v historii.
+- Starší importovaná linie může náhled zvolit výslovně, stejně jako současná; poznámka v ukázce T8 o zákazu pro v2 je v rozporu s požadavkem na dobrovolné pokračování a neuplatňuje se.
+
 ## Globální mantinely
 
 Platí pro **každý** úkol:

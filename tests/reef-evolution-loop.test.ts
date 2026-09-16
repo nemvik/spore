@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { createGame, makeCheckpoint, recoverGeneration, step } from '../src/game/simulation';
 import { createWorld, spawnCreature } from '../src/game/world';
@@ -9,7 +10,7 @@ import { computeStats, genomeCost, initialGenome } from '../src/game/genome';
 import { groundHeight, horizontalDistance } from '../src/game/random';
 import { parseGame, serializeGame } from '../src/game/persistence';
 import { EMPTY_INPUT } from '../src/game/types';
-import type { AdaptationId, GameState, Input, Stage } from '../src/game/types';
+import type { AdaptationId, GameState, Input, } from '../src/game/types';
 
 /** Prepared integration scenes, not earned campaigns. Visited worlds are authored
  * normally, then NPCs and incidental food are removed to isolate the stated cause.
@@ -17,7 +18,7 @@ import type { AdaptationId, GameState, Input, Stage } from '../src/game/types';
 function fixture(optedIn = true, stage: Stage = 1, organs: AdaptationId[] = ['filter', 'gills']) {
   const s = createGame(8675309, false, true, optedIn);
   for (let visited = 1; visited <= stage; visited++) {
-    s.stage = visited as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world;
+    s.stage = visited as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world;
     initializeJourneyStage(s);
   }
   s.player.genome = initialGenome();

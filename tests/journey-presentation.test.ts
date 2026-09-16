@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createGame } from '../src/game/simulation';
@@ -7,7 +8,7 @@ import { groundHeight } from '../src/game/random';
 import { landSiteSupport } from '../src/game/climate';
 import { speciesById } from '../src/game/content';
 import { JourneyPresentation } from '../src/render/journey';
-import type { GameState, Stage } from '../src/game/types';
+import type { GameState, } from '../src/game/types';
 
 function stateFor(seed = 481516, stage: Stage = 0): GameState {
   const state = createGame(seed, false);
@@ -35,9 +36,9 @@ describe('journey landmarks express persistent world state', () => {
       view.update(state, .3, .1); expect(growth.visible).toBe(true); expect(growth.position).toMatchObject(plant.pos); expect(other.userData.occupied).toBe(true); expect(refuge.userData.occupied).toBe(false);
       const size = growth.scale.y; site.resolved = true; view.update(state, .4, .1); expect(growth.scale.y).toBeGreaterThan(size);
       expect(view.group.getObjectByName('journey-strand-supply-1')!.visible).toBe(true); expect(view.group.getObjectByName('journey-strand-supply-0')!.visible).toBe(false);
-      const reloaded = JSON.parse(JSON.stringify(state)) as GameState; reloaded.world = reloaded.worlds[reloaded.stage]!;
+      const reloaded = JSON.parse(JSON.stringify(state)) as GameState; reloaded.world = reloaded.worlds[reloaded.world.stage]!;
       // Restore the current world's identity as the normal loader does.
-      reloaded.world = JSON.parse(JSON.stringify(state.world)); reloaded.worlds[reloaded.stage] = reloaded.world;
+      reloaded.world = JSON.parse(JSON.stringify(state.world)); reloaded.worlds[reloaded.world.stage] = reloaded.world;
       const prior = { growth: growth.scale.y, source: source.position.toArray(), refuge: other.userData.occupied };
       view.update(reloaded, .4, 0);
       expect(view.group.getObjectByName('journey-growth-1')!.scale.y).toBe(prior.growth);

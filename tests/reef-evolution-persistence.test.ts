@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { emptyJourney } from '../src/game/journey-types';
@@ -6,7 +7,7 @@ import { createWorld } from '../src/game/world';
 import { initializeJourneyStage } from '../src/game/journey';
 import { genomeCost, initialGenome } from '../src/game/genome';
 import { parseGame, serializeGame } from '../src/game/persistence';
-import type { GameState, Stage } from '../src/game/types';
+import type { GameState, } from '../src/game/types';
 
 /** Explicit persistence fixture, not earned gameplay. The marker is installed
  * before any reef authoring; every visited world and its sites remain intact. */
@@ -14,7 +15,7 @@ function fixture(stage: Stage = 0, optedIn = true): GameState {
   const s = createGame(8675309, false, true);
   if (optedIn) s.journey.reefEvolution = emptyJourney(false, false, true).reefEvolution;
   for (let visited = 1; visited <= stage; visited++) {
-    s.stage = visited as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world;
+    s.stage = visited as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world;
     initializeJourneyStage(s);
   }
   if (stage === 2) {
@@ -45,8 +46,11 @@ describe('optional reef evolution rules and continuous save state', () => {
   });
 
   it('preserves the actual earned v14 reef entry, RNG, retained worlds and checkpoint exactly', () => {
-    const bytes = readFileSync(new URL('../evidence/reef-body/baseline-play/earned-reef-entry.json', import.meta.url), 'utf8');
+    const bytes = readFileSync(new URL('./fixtures/saves/earned-reef-entry-v14.json', import.meta.url), 'utf8');
     const original = JSON.parse(bytes).state as GameState;
+    // Only the save schema version migrates; every earned ecology field stays exact.
+    original.version = 3;
+    original.checkpoint = JSON.stringify({ ...JSON.parse(original.checkpoint!), version: 3 });
     const loaded = parseGame(bytes);
     expect(loaded.journey).not.toHaveProperty('reefEvolution');
     expect(JSON.parse(loaded.checkpoint!).journey).not.toHaveProperty('reefEvolution');

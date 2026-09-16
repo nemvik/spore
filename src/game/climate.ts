@@ -10,7 +10,7 @@ export function livingRootStrength(state: GameState, site: EcologySite): number 
 }
 
 export function landSiteSupport(state: GameState, site: EcologySite): number {
-  if (state.stage !== 2 || site.stage !== 2 || site.patch > 1) return 0;
+  if (state.world.stage !== 2 || site.stage !== 2 || site.patch > 1) return 0;
   if (state.journey.legacy || state.campaign.won) return clamp((state.world.landmarks.find(l => l.id === `spring-${site.patch}`)?.charge ?? 0) / 10, 0, 1);
   if (!site.resolved) return 0;
   const roots = livingRootStrength(state, site);
@@ -41,12 +41,18 @@ export interface ClimateView {
 
 /** Pure projection; legacy and completed campaigns retain their earned climate. */
 export function getClimate(state: GameState): ClimateView {
-  if (state.stage !== 2) {
+  if (state.world.stage !== 2) {
     return { drought: 0, shorelineZ: 54, springs: [], patchStress: state.world.patches.map(() => 0), sanctuary: null, resolved: state.campaign.won };
   }
   const drought = clamp(state.campaign.drought, 0, 1);
+  const planet = state.stage === 5 && state.planet?.version === 2 ? state.planet : null;
   const naturalWater = clamp(1 - drought * 1.5, 0, 1) * 0.6;
   const support = (id: string, charge: number) => {
+    if (planet) {
+      const biome = Number(id.slice('spring-'.length)) + 1;
+      const roots = planet.stabilizers.filter(root => root.biome === biome);
+      return roots.length === 2 ? Math.min(...roots.map(root => livingRootStrength(state, root.site))) : 0;
+    }
     if (state.journey.legacy || state.campaign.won) return clamp(charge / 10, 0, 1);
     const site = state.journey.sites.find(site => site.stage === 2 && `spring-${site.patch}` === id);
     return site ? landSiteSupport(state, site) : 0;
@@ -55,7 +61,7 @@ export function getClimate(state: GameState): ClimateView {
     const restoration = support(spring.id, spring.charge);
     return { id: spring.id, x: spring.pos.x, z: spring.pos.z, water: Math.max(naturalWater, restoration), protected: restoration >= 1, support: restoration };
   });
-  const predatorRecovery = state.campaign.won && state.campaign.finale === 'predator' ? 0.45 : 1;
+  const predatorRecovery = !planet && state.campaign.won && state.campaign.finale === 'predator' ? 0.45 : 1;
   const patchStress = state.world.patches.map((patch) => {
     const spring = state.world.landmarks.find((landmark) => landmark.id === `spring-${patch.id}` && landmark.kind === 'spring');
     const restoration = spring ? support(spring.id, spring.charge) : 0;
@@ -88,7 +94,7 @@ export function getClimate(state: GameState): ClimateView {
 /** Hydration per second, using the same wet areas the renderer draws; never additive. */
 export function hydrationAt(state: GameState, position: Vec3): number {
   // Microscopic and reef organisms are immersed. Land uses horizontal wet-area geometry.
-  if (state.stage !== 2) return 9;
+  if (state.world.stage !== 2) return 9;
   const climate = getClimate(state);
   if (position.z >= climate.shorelineZ) return 9;
   if (climate.sanctuary?.active && Math.hypot(position.x - climate.sanctuary.x, position.z - climate.sanctuary.z) <= climate.sanctuary.radius) return 9;

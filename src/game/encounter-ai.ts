@@ -1,3 +1,4 @@
+import { recordEcologyMeal } from './ecology-catalog';
 import type { Creature, GameState, Obstacle, Vec3 } from './types';
 import type { HunterMemory, Journey } from './journey-types';
 import { speciesById, TEXT } from './content';
@@ -190,6 +191,7 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
       memory.phase = 'stalk'; memory.time = 0; memory.aim = { ...meal.pos }; c.target = meal.id; c.intent = 'forage';
       if (distance(c.pos, meal.pos) < 2) {
         const hungerBefore = c.hunger;
+        if (meal === offering) recordEcologyMeal(s, c, meal);
         meal.amount = Math.max(0, meal.amount - 1); c.hunger = Math.max(0, c.hunger - 42);
         // A placed lure alone changes no territory. The hunter must reach and
         // personally eat it; offspring still learn their own feeding places.

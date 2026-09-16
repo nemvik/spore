@@ -92,7 +92,7 @@ describe('editor draft and persistent generation regressions [prepared fixtures]
     expect(recovered.player.genome).toEqual(generation.player.genome);
     expect(recovered.world.resources).toEqual(generation.world.resources);
     expect(recovered.world.patches).toEqual(generation.world.patches);
-    expect(recovered.world).toBe(recovered.worlds[recovered.stage]);
+    expect(recovered.world).toBe(recovered.worlds[recovered.world.stage]);
     expect(stored.get(`lumavora:save:${state.id}`)).toBe(savedBytes);
     expect(saveGame(recovered).ok).toBe(true);
     expect(loadGame(state.id).checkpoint).toBe(recovered.checkpoint);

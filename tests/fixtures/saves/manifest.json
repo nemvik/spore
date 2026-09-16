@@ -1,0 +1,71 @@
+{
+  "description": "Byte-identical historical regression inputs. Evidence directories are local test outputs, not required repository inputs. See README.md for preparation and scope.",
+  "files": [
+    {
+      "file": "earned-reef-entry-v14.json",
+      "source": "evidence/reef-body/baseline-play/earned-reef-entry.json",
+      "bytes": 146936,
+      "sha256": "01b21e7079e2320049b8a1be79c641dd45b9f2a7ca9aa9d6310dc7051e770e62"
+    },
+    {
+      "file": "worker-second-retreat.json",
+      "source": "evidence/quality/canopy-v9/worker-second-retreat.json",
+      "bytes": 145530,
+      "sha256": "98de99d0f950511ace6fad35c477d2dcdec67b547fd8d937ab98ae62138be571"
+    },
+    {
+      "file": "worker-open-chimney-contact.json",
+      "source": "evidence/quality/canopy-v9/worker-open-chimney-contact.json",
+      "bytes": 147187,
+      "sha256": "2d218da86ca643fa8b68cb20cd8e75b8d882157cfa6c2cb2162007b5a0fed03a"
+    },
+    {
+      "file": "legacy-initial.fixture.json",
+      "source": "evidence/era-p0/legacy-v2-browser/legacy-initial.fixture.json",
+      "bytes": 94656,
+      "sha256": "31a7ab3de8bf37bb24815e133d58de63ed41a0f6dabc09029fb1459a1d9e3a34"
+    },
+    {
+      "file": "tribe-preview.export.json",
+      "source": "evidence/era-p0/browser/tribe-preview.export.json",
+      "bytes": 204905,
+      "sha256": "1103eb494a664b2c5c06459e35ea2554f5053f486a82ef16a018cc7ca592b937"
+    },
+    {
+      "file": "populated-tribe.fixture.json",
+      "source": "evidence/era-p0/browser/populated-tribe.fixture.json",
+      "bytes": 205048,
+      "sha256": "971ab6505f64e948be388fb6ebd75d80b0884441252976e34f7b89ae83397d00"
+    },
+    {
+      "file": "won-current-coast.fixture.json",
+      "source": "evidence/era-p0/browser/won-current-coast.fixture.json",
+      "bytes": 205216,
+      "sha256": "adcc13e48d8134ad512b84a59f71d0ea030000b96c5abad68011e7f484eaa6c4"
+    },
+    {
+      "file": "alliance-completed.save.json",
+      "source": "evidence/era-p1/browser-verified/alliance-completed.save.json",
+      "bytes": 213735,
+      "sha256": "0bf94d4fb2999b917fb848572e1f9643e72347ad37f17d319e7a2406cc8f13c2"
+    },
+    {
+      "file": "machines-restoration-completed.save.json",
+      "source": "evidence/era-p2/browser/restoration-completed.save.json",
+      "bytes": 226905,
+      "sha256": "7dffc69f9d073c8046783be74ba9fde13b5ece2282eb6357dcc8a7267cc53dec"
+    },
+    {
+      "file": "machines-restoration-final.save.json",
+      "source": "evidence/era-p2/browser-final/restoration-completed.save.json",
+      "bytes": 226905,
+      "sha256": "fd99462a9a0f3af5f41bd4ce285f11524c4a078a14ec72c5f873a1e234fdf89d"
+    },
+    {
+      "file": "stable-sandbox.save.json",
+      "source": "evidence/era-p3/browser-final/stable-sandbox.save.json",
+      "bytes": 249265,
+      "sha256": "0f430d8d72cf75a151f990473c8c9570c9098d4f635ae6159831de3c4a6a9f73"
+    }
+  ]
+}

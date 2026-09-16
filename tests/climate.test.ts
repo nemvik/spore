@@ -1,10 +1,11 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { getClimate, hydrationAt } from '../src/game/climate';
 import { cloneGenome } from '../src/game/genome';
 import { parseGame, serializeGame } from '../src/game/persistence';
 import { createGame, makeCheckpoint } from '../src/game/simulation';
 import { createWorld } from '../src/game/world';
-import type { GameState, Stage } from '../src/game/types';
+import type { GameState, } from '../src/game/types';
 
 // Prepared environmental fixtures isolate climate rules. They are not campaign runs.
 function habitatFixture(stage: Stage = 2): GameState {

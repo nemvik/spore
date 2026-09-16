@@ -1,8 +1,10 @@
 import type { Species, Stage } from './types';
+import { ERA_CHAPTERS } from './era-copy.cs';
 export const CHAPTERS = [
  { name: 'Kapka, která si pamatuje', short: 'Mikrosvět', title: 'První nádech života', subtitle: 'V prachu světla se rodí tvoje linie.', instruction: 'Jez, prozkoumej tři niky a vytvoř dvě nové generace. Pak vyhledej proud do útesů.', meals: 24, color: '#a9e8bf' },
  { name: 'Zahrady pod přílivem', short: 'Útesy a mělčiny', title: 'Tělo pro nový svět', subtitle: 'Pod hladinou není nikdo sám.', instruction: 'Poznej tři vodní niky, nasyť linii a dvakrát se rozmnož. Pro souš si vyviň plíce a končetiny.', meals: 36, color: '#84dbe6' },
  { name: 'Paměť vyschlého moře', short: 'Pobřeží a souš', title: 'Zanech po sobě život', subtitle: 'Příliv odchází. Rozhodni, co zůstane.', instruction: 'Zachraň tři prameny, zastav invazní žrouty nebo převeď symbiotickou linii do svatyně.', meals: 0, color: '#f1cf8e' },
+ ...ERA_CHAPTERS,
 ];
 export const PATCH_NAMES = [
  [['Světelná zahrada','Řasy · klidná voda'],['Skleněný vír','Minerály · silné proudy'],['Soumraková kolébka','Detrit · stín a partneři']],

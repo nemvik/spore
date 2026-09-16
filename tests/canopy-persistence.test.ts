@@ -42,8 +42,8 @@ function canopyFixture(stage: 1 | 2 = 1, released = false): GameState {
 
 function changed(change: (state: GameState) => void, released = false, stage: 1 | 2 = 1) {
   const file = JSON.parse(serializeGame(canopyFixture(stage, released))) as { state: GameState };
-  file.state.world = file.state.worlds[file.state.stage]!;
-  change(file.state); file.state.world = file.state.worlds[file.state.stage]!;
+  file.state.world = file.state.worlds[file.state.world.stage]!;
+  change(file.state); file.state.world = file.state.worlds[file.state.world.stage]!;
   return JSON.stringify(file);
 }
 

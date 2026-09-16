@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { createGame, makeCheckpoint, recoverGeneration, step } from '../src/game/simulation';
 import { actOnJourney, activeSites, initializeJourneyStage, journeyAction, journeyForageTarget, journeyHint, recordJourneyHunt, stepJourney } from '../src/game/journey';
@@ -6,14 +7,14 @@ import { createWorld, spawnCreature } from '../src/game/world';
 import { tendTarget } from '../src/game/interactions';
 import { stepHunters } from '../src/game/encounter-ai';
 import { EMPTY_INPUT } from '../src/game/types';
-import type { FoodKind, GameState, Stage, Vec3 } from '../src/game/types';
+import type { FoodKind, GameState, Vec3 } from '../src/game/types';
 
 // Explicit prepared resource/actor fixtures exercise production actions and saves.
 // They do not measure a human campaign or use ordinary food as a culture shortcut.
 function scene(stage: Stage = 0) {
   const s = createGame(481516, false);
   for (let next = 1; next <= stage; next++) {
-    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world;
+    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world;
     initializeJourneyStage(s);
   }
   s.world.creatures = []; s.world.obstacles = [];

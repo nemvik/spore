@@ -49,6 +49,7 @@ export const SAVE_ERRORS = {
   unsupportedStateVersion: 'nepodporovaná verze herního stavu.',
   missingActiveWorld: 'chybí aktivní svět.',
   activeWorldMismatch: 'aktivní svět se rozchází s historií světů.',
+  eraSliceMismatch: 'stav éry neodpovídá dosažené etapě.',
   symbioteRequired: 'partner potřebuje partnerské lůžko.',
   invalidPartner: 'neplatný symbiotický partner.',
   partnerBenefitMismatch: 'schopnost neodpovídá partnerovi.',

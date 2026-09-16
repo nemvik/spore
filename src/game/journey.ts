@@ -1,3 +1,5 @@
+import { recordEcologyContact, recordEcologyMeal } from './ecology-catalog';
+import { isOrganismStage, worldStageFor } from './stage';
 import type { Creature, FoodKind, GameState, Resource, Vec3 } from './types';
 import type { EcologySite } from './journey-types';
 import { SITE_STORIES, JOURNEY_COPY, siteOutcome } from './journey-content';
@@ -35,6 +37,7 @@ const location = (s: GameState, [x, y, z]: number[]): Vec3 => ({ x, y: s.stage =
 
 /** Add authored relationships only to a fresh stage. Legacy worlds are never regenerated. */
 export function initializeJourneyStage(s: GameState) {
+  if (!isOrganismStage(s.stage)) return;
   if (s.journey.legacy || activeSites(s).length) return;
   const w = s.world;
   for (let patch = 0; patch < 3; patch++) {
@@ -155,6 +158,7 @@ function resolve(s: GameState, site: EcologySite, method: NonNullable<EcologySit
 }
 
 export function actOnJourney(s: GameState, offering = false): boolean {
+  if (!isOrganismStage(s.stage)) return false;
   const action = journeyAction(s, offering);
   if (!action) {
     if (offering && !s.journey.legacy) { journeyNotice(s, JOURNEY_COPY.emptyOffer); return true; }
@@ -191,6 +195,7 @@ export function actOnJourney(s: GameState, offering = false): boolean {
     p.energy = Math.max(0, p.energy - 3);
     s.journey.cargo = { kind: SITE_STORIES[site.id].kind, purpose: 'culture', site: site.id, vitality: 100, distance: 0 };
     site.phase = Math.max(2, site.phase);
+    recordEcologyContact(s, `culture:${site.id}`, 'culture', s.world.stage, site.patch as 0|1|2);
     insight(s, `carry:${site.id}`, 8, 'Život lze přenést. Cesta zpět nemusí být ta nejkratší.');
   } else if (action.operation === 'offer') {
     const cargo = s.journey.cargo!;
@@ -200,7 +205,7 @@ export function actOnJourney(s: GameState, offering = false): boolean {
     const amount = cargo.purpose === 'food' ? 1 : 5;
     s.world.resources.push({ id, kind: cargo.kind, pos: { ...action.pos }, amount, max: amount, patch: patch.id, regen: 0 });
     s.journey.offerings.push({ stage: s.stage, id, site: site.id, remaining: 120 });
-    if (s.journey.offerings.length > 16) { const oldest = s.journey.offerings.shift()!; const world = s.worlds[oldest.stage]; if (world) world.resources = world.resources.filter(r => r.id !== oldest.id); }
+    if (s.journey.offerings.length > 16) { const oldest = s.journey.offerings.shift()!; const world = s.worlds[worldStageFor(oldest.stage)]; if (world) world.resources = world.resources.filter(r => r.id !== oldest.id); }
     s.journey.cargo = null;
     journeyNotice(s, 'Nabídnutá potrava přitahuje konzumenty. Jejich shluk může přivést lovce.');
   } else if (action.operation === 'plant') {
@@ -264,6 +269,7 @@ export function journeyForageTarget(s: GameState, c: Creature): Resource | null 
 }
 
 export function recordConsumption(s: GameState, c: Creature, r: Resource) {
+  recordEcologyMeal(s,c,r);
   if (s.journey.legacy) return;
   const dispersalNotice = recordRootDispersalMeal(s, c, r);
   if (dispersalNotice) journeyNotice(s, dispersalNotice);
@@ -318,7 +324,7 @@ export function stepJourney(s: GameState, dt: number, previous: Vec3, sprint: bo
     if (cargo.vitality <= 0) { s.journey.cargo = null; journeyNotice(s, JOURNEY_COPY.cultureLost(s.stage)); }
   }
   for (const offer of s.journey.offerings) if (offer.stage === s.stage) offer.remaining = Math.max(0, offer.remaining - dt);
-  for (const offer of s.journey.offerings.filter(o => o.remaining <= 0)) { const world = s.worlds[offer.stage]; if (world) world.resources = world.resources.filter(r => r.id !== offer.id); }
+  for (const offer of s.journey.offerings.filter(o => o.remaining <= 0)) { const world = s.worlds[worldStageFor(offer.stage)]; if (world) world.resources = world.resources.filter(r => r.id !== offer.id); }
   s.journey.offerings = s.journey.offerings.filter(o => o.remaining > 0);
   for (const site of sites) {
     if (s.stage === 1 && site.id === 4 && site.plantedId !== null) {

@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { actOnJourney, activeSites, environmentalFlow, initializeJourneyStage, journeyAction, journeyFinale, journeyForageTarget, journeyHint, recordConsumption, stepJourney } from '../src/game/journey';
 import { createGame, evolve, step, transitionRequirements, tryTransition } from '../src/game/simulation';
@@ -8,7 +9,7 @@ import { distance, horizontalDistance } from '../src/game/random';
 import { EMPTY_INPUT } from '../src/game/types';
 import { lineBlocked } from '../src/game/interactions';
 import type { EcologySite } from '../src/game/journey-types';
-import type { Creature, GameState, Stage, Vec3 } from '../src/game/types';
+import type { Creature, GameState, Vec3 } from '../src/game/types';
 
 // Rules tests use disclosed prepared encounters and actor placement. They exercise
 // production actions/NPC steps; they do not claim a fresh campaign run or play duration.

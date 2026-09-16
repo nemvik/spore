@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { createGame, makeCheckpoint, step, transitionRequirements, transitionStatus, tryTransition } from '../src/game/simulation';
 import { activeSites, initializeJourneyStage, journeyEndingStatus, journeyFinale, journeyHint, journeyRequirements, recordJourneyHunt } from '../src/game/journey';
@@ -8,7 +9,7 @@ import { PROGRESSION_COPY } from '../src/game/progression-copy.cs';
 import { SITE_STORIES, siteOutcome } from '../src/game/journey-content';
 import { CHAPTERS, TEXT } from '../src/game/content';
 import { EMPTY_INPUT } from '../src/game/types';
-import type { GameState, Stage } from '../src/game/types';
+import type { GameState, } from '../src/game/types';
 import type { EcologySite } from '../src/game/journey-types';
 
 // Prepared readiness scenes verify displayed predicates against actual actions.
@@ -16,7 +17,7 @@ import type { EcologySite } from '../src/game/journey-types';
 function scene(stage: Stage) {
   const s = createGame(481516, false);
   for (let next = 1; next <= stage; next++) {
-    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world; initializeJourneyStage(s);
+    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world; initializeJourneyStage(s);
   }
   s.world.creatures = []; s.player.genome = cloneGenome(s.player.genome);
   s.player.totalDna = 200; s.player.dna = genomeCost(initialGenome()) + 200 - genomeCost(s.player.genome);

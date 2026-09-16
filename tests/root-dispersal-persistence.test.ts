@@ -35,7 +35,7 @@ describe('optional root dispersal save contract', () => {
       const loaded = parseGame(serializeGame(original));
       expect(loaded).toEqual(original);
       expect(recoverGeneration(loaded).journey.rootDispersal).toEqual(original.journey.rootDispersal);
-      expect(loaded.world).toBe(loaded.worlds[loaded.stage]);
+      expect(loaded.world).toBe(loaded.worlds[loaded.world.stage]);
     }
   });
   it('leaves the extension absent in older v3 saves and nested checkpoints', () => {

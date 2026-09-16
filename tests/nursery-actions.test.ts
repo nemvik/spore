@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { actOnJourney, initializeJourneyStage, journeyAction } from '../src/game/journey';
 import { nurserySpecies } from '../src/game/nursery';
@@ -7,7 +8,7 @@ import { genomeCost, initialGenome } from '../src/game/genome';
 import { parseGame, serializeGame } from '../src/game/persistence';
 import { distance, horizontalDistance } from '../src/game/random';
 import { EMPTY_INPUT } from '../src/game/types';
-import type { GameState, Stage, Vec3 } from '../src/game/types';
+import type { GameState, Vec3 } from '../src/game/types';
 
 /** Prepared extinction/action scenes, not campaign evidence. Previous worlds
  * and authored mothers remain; local animals are removed explicitly. Exact
@@ -17,7 +18,7 @@ function scene(id = 0, historical = false) {
   const s = createGame(20260913, false), stage = Math.floor(id / 3) as Stage;
   if (historical) { s.journey.version = 2; delete s.journey.canopy; }
   for (let next = 1; next <= stage; next++) {
-    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world;
+    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world;
     initializeJourneyStage(s);
   }
   if (stage === 2) {

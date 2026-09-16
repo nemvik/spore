@@ -104,3 +104,15 @@ export function smoothCameraOrbit(current:Vec3,desired:Vec3,focus:Vec3,dt:number
  const angle=yaw+turn*alpha,elevation=pitch+(endPitch-pitch)*alpha;
  return {x:focus.x+Math.sin(angle)*radius*Math.cos(elevation),y:focus.y+Math.sin(elevation)*radius,z:focus.z+Math.cos(angle)*radius*Math.cos(elevation)};
 }
+
+/** Command view: hold a fixed overhead pitch and clear the coastal terrain. */
+export function overheadCamera(focus:Vec3,yaw:number,zoom:number,world:World):Vec3 {
+ const pitch=1.02;
+ const eye={
+  x:focus.x+Math.sin(yaw)*zoom*Math.cos(pitch),
+  y:focus.y+Math.max(12,zoom*Math.sin(pitch)),
+  z:focus.z+Math.cos(yaw)*zoom*Math.cos(pitch),
+ };
+ eye.y=Math.max(eye.y,groundHeight(eye.x,eye.z,world.stage)+6);
+ return eye;
+}

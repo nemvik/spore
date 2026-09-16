@@ -7,6 +7,14 @@ import type { Journey } from './journey-types';
 import { groundHeight } from './random';
 import { WORLD_BOUND } from './world';
 import { SITE_STORIES } from './journey-content';
+import { ECOLOGY_CATALOG, ecologyTaxon } from './ecology-catalog';
+import { planetTScore } from './planet';
+import { worldStageFor } from './stage';
+import type { ActiveMachineState, ActivePlanetState, ActiveTribeState } from './era-types';
+import { validateVehicle, vehicleStats } from './blueprint';
+import type { VehicleBlueprint } from './blueprint';
+import { MAX_UNIT_ORDERS, validOrderShape } from './unit-order';
+import type { UnitOrder } from './unit-order';
 
 const FORMAT = 'lumavora';
 const SAVE_PREFIX = 'lumavora:save:';
@@ -16,7 +24,7 @@ const MAX_COUNT = 1_000_000_000;
 const foods = ['algae', 'mineral', 'nectar', 'meat', 'detritus'];
 const adaptationIds: ReadonlySet<string> = new Set(ADAPTATIONS.map((item) => item.id));
 const knownSpecies = new Map(SPECIES.map((item) => [item.id, item]));
-type SavedEnvelope = { format: 'lumavora'; version: 2; savedAt: number; state: GameState };
+type SavedEnvelope = { format: 'lumavora'; version: 3; savedAt: number; state: GameState };
 export interface SaveSummary { id: string; name: string; stage: number; generation: number; seed: number; updatedAt: number }
 
 function invalid(path: string, reason: string): never { throw new Error(SAVE_ERRORS.corrupted(path, reason)); }
@@ -119,13 +127,30 @@ function validateJourney(value: unknown, stage: Stage, worlds: (World | null)[])
   if (version !== 1 && version !== 2 && version !== 3) invalid('journey.version', SAVE_ERRORS.unsupportedStateVersion);
   const hasDispersal = version === 3 && Object.prototype.hasOwnProperty.call(value, 'rootDispersal');
   const hasReefEvolution = version === 3 && Object.prototype.hasOwnProperty.call(value, 'reefEvolution');
-  const j = object(value, 'journey', ['version', 'legacy', 'sites', 'cargo', 'insights', 'echoes', 'hunters', 'offerings', ...(version === 3 ? ['canopy'] : []), ...(hasDispersal ? ['rootDispersal'] : []), ...(hasReefEvolution ? ['reefEvolution'] : [])]);
+  const hasEcology = Object.prototype.hasOwnProperty.call(value, 'ecology');
+  const j = object(value, 'journey', ['version', 'legacy', 'sites', 'cargo', 'insights', 'echoes', 'hunters', 'offerings', ...(version === 3 ? ['canopy'] : []), ...(hasDispersal ? ['rootDispersal'] : []), ...(hasReefEvolution ? ['reefEvolution'] : []), ...(hasEcology ? ['ecology'] : [])]);
   boolean(j.legacy, 'journey.legacy');
   if (version === 3 && j.legacy) invalid('journey.legacy', SAVE_ERRORS.unknownValue);
   if (hasReefEvolution) {
     const at = 'journey.reefEvolution', reefEvolution = object(j.reefEvolution, at, ['version', 'pumping']);
     oneOf(reefEvolution.version, [1], `${at}.version`);
     number(reefEvolution.pumping, `${at}.pumping`, 0, 1);
+  }
+  if (hasEcology) {
+    const at = 'journey.ecology', ecology = object(j.ecology, at, ['version', 'contacts']);
+    oneOf(ecology.version, [1], `${at}.version`);
+    const keys = array(ecology.contacts, `${at}.contacts`, ECOLOGY_CATALOG.length).map((value, index) => {
+      const path = `${at}.contacts[${index}]`, contact = object(value, path, ['key', 'stage', 'patch', 'method']);
+      const key = string(contact.key, `${path}.key`, 64), taxon = ecologyTaxon(key);
+      if (!taxon) invalid(`${path}.key`, SAVE_ERRORS.unknownValue);
+      number(contact.stage, `${path}.stage`, 0, stage, true);
+      if (contact.stage !== taxon.stage || !worlds[taxon.stage]) invalid(`${path}.stage`, SAVE_ERRORS.missingActiveWorld);
+      oneOf(contact.patch, [null, 0, 1, 2], `${path}.patch`);
+      if (taxon.site !== null && contact.patch !== null && contact.patch !== taxon.site % 3) invalid(`${path}.patch`, SAVE_ERRORS.invalidNiche);
+      oneOf(contact.method, taxon.role === 'producer' ? ['culture'] : taxon.role === 'partner' ? ['feeding', 'hunt', 'bond'] : ['feeding', 'hunt'], `${path}.method`);
+      return key;
+    });
+    if (new Set(keys).size !== keys.length) invalid(`${at}.contacts`, SAVE_ERRORS.duplicateIds);
   }
   const siteStages = new Map<number, number>();
   const siteIds: number[] = [];
@@ -290,23 +315,303 @@ function validateJourney(value: unknown, stage: Stage, worlds: (World | null)[])
   return value as Omit<Journey, 'version'> & { version: 1 | 2 | 3 };
 }
 
-function validateState(value: unknown, nestedCheckpoint = false, expectedVersion?: 1 | 2): GameState {
+function validateTribePreview(value: unknown): void {
+  const path = 'state.tribe', t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours']);
+  oneOf(t.version, [1], `${path}.version`);
+  number(t.food, `${path}.food`);
+  const tool = (value: unknown, at: string) => { if (value !== null) string(value, at, 64); };
+  const members = array(t.members, `${path}.members`, 64).map((value, index) => {
+    const at = `${path}.members[${index}]`, member = object(value, at, ['id', 'pos', 'heading', 'health', 'hunger', 'tool']);
+    const id = number(member.id, `${at}.id`, 1, MAX_COUNT, true);
+    vector(member.pos, `${at}.pos`); number(member.heading, `${at}.heading`, -1e9, 1e9);
+    number(member.health, `${at}.health`, 0, 100); number(member.hunger, `${at}.hunger`, 0, 100);
+    tool(member.tool, `${at}.tool`);
+    return id;
+  });
+  uniqueIds(members, `${path}.members`);
+  const huts = array(t.huts, `${path}.huts`, 64).map((value, index) => {
+    const at = `${path}.huts[${index}]`, hut = object(value, at, ['id', 'kind', 'pos', 'tool']);
+    const id = number(hut.id, `${at}.id`, 1, MAX_COUNT, true);
+    oneOf(hut.kind, ['shelter', 'workshop'], `${at}.kind`); vector(hut.pos, `${at}.pos`);
+    tool(hut.tool, `${at}.tool`);
+    return id;
+  });
+  uniqueIds(huts, `${path}.huts`);
+  const unlocked = array(t.unlocked, `${path}.unlocked`, 64).map((value, index) => string(value, `${path}.unlocked[${index}]`, 64));
+  if (new Set(unlocked).size !== unlocked.length) invalid(`${path}.unlocked`, SAVE_ERRORS.duplicateIds);
+  const neighbours = array(t.neighbours, `${path}.neighbours`, 16).map((value, index) => {
+    const at = `${path}.neighbours[${index}]`, neighbour = object(value, at, ['id', 'pos', 'relation', 'resolved']);
+    const id = number(neighbour.id, `${at}.id`, 1, MAX_COUNT, true);
+    vector(neighbour.pos, `${at}.pos`); number(neighbour.relation, `${at}.relation`, -100, 100);
+    oneOf(neighbour.resolved, [null, 'conquered', 'allied'], `${at}.resolved`);
+    return id;
+  });
+  uniqueIds(neighbours, `${path}.neighbours`);
+}
+
+const tribeTools = ['basket', 'spear', 'drum', 'waterskin'] as const;
+
+function validateUnitOrder(value: unknown, owner: number, path: string): void {
+  const order = object(value, path, ['unit', 'kind', 'target']);
+  if (number(order.unit, `${path}.unit`, 1, MAX_COUNT, true) !== owner) invalid(`${path}.unit`, SAVE_ERRORS.unknownValue);
+  oneOf(order.kind, ['move', 'gather', 'attack', 'socialize', 'build'], `${path}.kind`);
+  const kind = order.target && typeof order.target === 'object' ? (order.target as Record<string, unknown>).kind : undefined;
+  const target = object(order.target, `${path}.target`, kind === 'point' ? ['kind', 'pos'] : ['kind', 'id']);
+  oneOf(target.kind, ['point', 'food', 'creature', 'hut', 'neighbour', 'region', 'spring'], `${path}.target.kind`);
+  if (target.kind === 'point') vector(target.pos, `${path}.target.pos`);
+  else number(target.id, `${path}.target.id`, 1, MAX_COUNT, true);
+  if (!validOrderShape(value as UnitOrder)) invalid(path, SAVE_ERRORS.unknownValue);
+  // A resource may be exhausted or a target killed before this order becomes
+  // active. Its shape and ownership must be valid; existence is resolved by AI.
+}
+
+function validateActiveTribe(value: unknown): void {
+  const path = 'state.tribe';
+  const t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed']);
+  oneOf(t.version, [2], `${path}.version`);
+  number(t.food, `${path}.food`);
+  const nextId = number(t.nextId, `${path}.nextId`, 1, MAX_COUNT, true);
+  oneOf(t.legacyAbility, ['restoration', 'predator', 'migration'], `${path}.legacyAbility`);
+  for (const key of ['abilityCooldown', 'abilityTime', 'elapsed']) number(t[key], `${path}.${key}`);
+  boolean(t.completed, `${path}.completed`);
+  const ids: number[] = [];
+  const members = array(t.members, `${path}.members`, 12).map((value, index) => {
+    const at = `${path}.members[${index}]`;
+    const member = object(value, at, ['id', 'pos', 'heading', 'health', 'hunger', 'tool', 'species', 'benefit', 'loyalty', 'cargo', 'cooldown', 'orders', 'intent', 'navigation']);
+    const id = number(member.id, `${at}.id`, 1, nextId - 1, true); ids.push(id);
+    vector(member.pos, `${at}.pos`); number(member.heading, `${at}.heading`, -1e9, 1e9);
+    for (const key of ['health', 'hunger', 'loyalty']) number(member[key], `${at}.${key}`, 0, 100);
+    oneOf(member.tool, [null, ...tribeTools], `${at}.tool`);
+    if (member.species === null) oneOf(member.benefit, [null], `${at}.benefit`);
+    else {
+      const species = knownSpecies.get(string(member.species, `${at}.species`, 40));
+      if (!species || species.role !== 'partner') invalid(`${at}.species`, SAVE_ERRORS.invalidPartner);
+      const benefit = species.id === 'lantern' ? 'light' : species.id === 'mender' ? 'shield' : 'recycle';
+      if (member.benefit !== benefit) invalid(`${at}.benefit`, SAVE_ERRORS.partnerBenefitMismatch);
+    }
+    // Removing a basket does not destroy the larger load already being carried.
+    number(member.cargo, `${at}.cargo`, 0, 5); number(member.cooldown, `${at}.cooldown`);
+    oneOf(member.intent, ['forage', 'flee', 'hunt', 'rest', 'bonded', 'build', 'socialize'], `${at}.intent`);
+    array(member.orders, `${at}.orders`, MAX_UNIT_ORDERS).forEach((order, index) => validateUnitOrder(order, id, `${at}.orders[${index}]`));
+    const navigation = object(member.navigation, `${at}.navigation`, ['waypoint', 'target', 'rethink']);
+    vector(navigation.waypoint, `${at}.navigation.waypoint`); vector(navigation.target, `${at}.navigation.target`);
+    number(navigation.rethink, `${at}.navigation.rethink`);
+    return member;
+  });
+  const huts = array(t.huts, `${path}.huts`, 24).map((value, index) => {
+    const at = `${path}.huts[${index}]`, hut = object(value, at, ['id', 'kind', 'pos', 'tool', 'progress', 'health']);
+    ids.push(number(hut.id, `${at}.id`, 1, nextId - 1, true));
+    oneOf(hut.kind, ['shelter', 'workshop'], `${at}.kind`); vector(hut.pos, `${at}.pos`);
+    oneOf(hut.tool, hut.kind === 'shelter' ? [null] : tribeTools, `${at}.tool`);
+    number(hut.progress, `${at}.progress`, 0, 1); number(hut.health, `${at}.health`, 0, 100);
+    return hut;
+  });
+  const unlocked = array(t.unlocked, `${path}.unlocked`, tribeTools.length).map((value, index) => {
+    oneOf(value, tribeTools, `${path}.unlocked[${index}]`);
+    if (!huts.some(hut => hut.kind === 'workshop' && hut.tool === value && hut.progress === 1 && Number(hut.health) > 0)) invalid(`${path}.unlocked[${index}]`, SAVE_ERRORS.unknownValue);
+    return value;
+  });
+  if (new Set(unlocked).size !== unlocked.length) invalid(`${path}.unlocked`, SAVE_ERRORS.duplicateIds);
+  members.forEach((member, index) => {
+    if (member.tool !== null && !unlocked.includes(member.tool)) invalid(`${path}.members[${index}].tool`, SAVE_ERRORS.unknownValue);
+  });
+  const shelters = huts.filter(hut => hut.kind === 'shelter' && hut.progress === 1 && Number(hut.health) > 0);
+  // Every active tribe starts with a home and buildings cannot be demolished.
+  // Cargo delivery and recruitment both require this persistent home reference.
+  if (!shelters.length) invalid(`${path}.huts`, SAVE_ERRORS.invalidCount);
+  const capacity = Math.min(12, 2 + 4 * shelters.length);
+  if (members.filter(member => Number(member.health) > 0).length > capacity) invalid(`${path}.members`, SAVE_ERRORS.invalidCount);
+  const identities: unknown[] = [];
+  const neighbours = array(t.neighbours, `${path}.neighbours`, 3, 3).map((value, index) => {
+    const at = `${path}.neighbours[${index}]`;
+    const neighbour = object(value, at, ['id', 'pos', 'relation', 'resolved', 'identity', 'health', 'alarm', 'tribute', 'cooldown']);
+    ids.push(number(neighbour.id, `${at}.id`, 1, nextId - 1, true)); vector(neighbour.pos, `${at}.pos`);
+    number(neighbour.relation, `${at}.relation`, -100, 100);
+    oneOf(neighbour.resolved, [null, 'conquered', 'allied'], `${at}.resolved`);
+    oneOf(neighbour.identity, ['garden', 'terrace', 'sanctuary'], `${at}.identity`); identities.push(neighbour.identity);
+    number(neighbour.health, `${at}.health`, 0, 250); number(neighbour.alarm, `${at}.alarm`, 0, 100);
+    number(neighbour.tribute, `${at}.tribute`); number(neighbour.cooldown, `${at}.cooldown`);
+    return neighbour;
+  });
+  uniqueIds(ids, path);
+  if (new Set(identities).size !== identities.length) invalid(`${path}.neighbours`, SAVE_ERRORS.duplicateIds);
+  if (t.completed && neighbours.some(neighbour => neighbour.resolved === null)) invalid(`${path}.completed`, SAVE_ERRORS.unknownValue);
+}
+
+function validateTribe(value: unknown): void {
+  if (value && typeof value === 'object' && (value as Record<string, unknown>).version === 2) validateActiveTribe(value);
+  else validateTribePreview(value);
+}
+
+function validateMachinePreview(value: unknown): void {
+  const path = 'state.machines', m = object(value, path, ['version', 'resource', 'blueprints', 'fleet', 'regions']);
+  oneOf(m.version, [1], `${path}.version`); number(m.resource, `${path}.resource`);
+  // Historical P0 previews retain their empty schema; loading is not activation.
+  for (const key of ['blueprints', 'fleet', 'regions']) array(m[key], `${path}.${key}`, 0);
+}
+
+function validateActiveMachines(value: unknown): void {
+  const path = 'state.machines';
+  const m = object(value, path, ['version', 'resource', 'blueprints', 'fleet', 'regions', 'springs', 'archetype', 'airUnlocked', 'barrierIds', 'nextId', 'elapsed', 'completed']);
+  oneOf(m.version, [2], `${path}.version`); number(m.resource, `${path}.resource`);
+  const nextId = number(m.nextId, `${path}.nextId`, 1, MAX_COUNT, true), ids: number[] = [];
+  oneOf(m.archetype, ['restoration', 'predator', 'migration'], `${path}.archetype`);
+  boolean(m.airUnlocked, `${path}.airUnlocked`); boolean(m.completed, `${path}.completed`); number(m.elapsed, `${path}.elapsed`);
+  const designs = new Map<number, VehicleBlueprint>();
+  array(m.blueprints, `${path}.blueprints`, 64).forEach((value, index) => {
+    const at = `${path}.blueprints[${index}]`, design = object(value, at, ['id', 'blueprint']);
+    const id = number(design.id, `${at}.id`, 1, nextId - 1, true); ids.push(id);
+    const errors = validateVehicle(design.blueprint);
+    if (errors.length) invalid(`${at}.blueprint`, errors.join(' '));
+    const blueprint = design.blueprint as VehicleBlueprint;
+    if (blueprint.carrier === 'air' && !m.airUnlocked) invalid(`${at}.blueprint.carrier`, SAVE_ERRORS.unknownValue);
+    designs.set(id, blueprint);
+  });
+  array(m.fleet, `${path}.fleet`, 8).forEach((value, index) => {
+    const at = `${path}.fleet[${index}]`;
+    const unit = object(value, at, ['id', 'blueprint', 'pos', 'heading', 'health', 'cooldown', 'cargo', 'orders', 'navigation', 'intent']);
+    const id = number(unit.id, `${at}.id`, 1, nextId - 1, true); ids.push(id);
+    const blueprintId = number(unit.blueprint, `${at}.blueprint`, 1, nextId - 1, true), blueprint = designs.get(blueprintId);
+    if (!blueprint) invalid(`${at}.blueprint`, SAVE_ERRORS.unknownValue);
+    vector(unit.pos, `${at}.pos`); number(unit.heading, `${at}.heading`, -1e9, 1e9);
+    number(unit.health, `${at}.health`, 0, vehicleStats(blueprint).durability);
+    number(unit.cooldown, `${at}.cooldown`); number(unit.cargo, `${at}.cargo`, 0, 1, true);
+    oneOf(unit.intent, ['rest', 'move', 'work', 'return', 'attack'], `${at}.intent`);
+    array(unit.orders, `${at}.orders`, MAX_UNIT_ORDERS).forEach((order, index) => validateUnitOrder(order, id, `${at}.orders[${index}]`));
+    const navigation = object(unit.navigation, `${at}.navigation`, ['waypoint', 'target', 'rethink']);
+    vector(navigation.waypoint, `${at}.navigation.waypoint`); vector(navigation.target, `${at}.navigation.target`);
+    number(navigation.rethink, `${at}.navigation.rethink`);
+  });
+  const identities: unknown[] = [];
+  const regions = array(m.regions, `${path}.regions`, 3, 3).map((value, index) => {
+    const at = `${path}.regions[${index}]`;
+    const region = object(value, at, ['id', 'identity', 'pos', 'airOnly', 'owner', 'method', 'health', 'soil', 'settlers', 'relation', 'deliveries', 'alarm', 'cooldown']);
+    ids.push(number(region.id, `${at}.id`, 1, nextId - 1, true)); vector(region.pos, `${at}.pos`);
+    oneOf(region.identity, ['gardens', 'terraces', 'highlands'], `${at}.identity`); identities.push(region.identity);
+    boolean(region.airOnly, `${at}.airOnly`);
+    if (region.airOnly !== (region.identity === 'highlands')) invalid(`${at}.airOnly`, SAVE_ERRORS.unknownValue);
+    oneOf(region.owner, ['neutral', 'player'], `${at}.owner`);
+    oneOf(region.method, region.owner === 'neutral' ? [null] : [m.archetype], `${at}.method`);
+    number(region.health, `${at}.health`, 0, 400);
+    for (const key of ['soil', 'relation', 'alarm']) number(region[key], `${at}.${key}`, 0, 100);
+    number(region.settlers, `${at}.settlers`, 0, 2, true); number(region.deliveries, `${at}.deliveries`, 0, 3, true);
+    number(region.cooldown, `${at}.cooldown`);
+    return region;
+  });
+  if (new Set(identities).size !== identities.length) invalid(`${path}.regions`, SAVE_ERRORS.duplicateIds);
+  const springs = array(m.springs, `${path}.springs`, 3, 3).map((value, index) => {
+    const at = `${path}.springs[${index}]`, spring = object(value, at, ['id', 'pos', 'owner', 'progress', 'rate']);
+    ids.push(number(spring.id, `${at}.id`, 1, nextId - 1, true)); vector(spring.pos, `${at}.pos`);
+    oneOf(spring.owner, ['neutral', 'player'], `${at}.owner`);
+    number(spring.progress, `${at}.progress`, 0, 1); number(spring.rate, `${at}.rate`, .5, 2);
+    if (spring.owner === 'player' && spring.progress !== 1) invalid(`${at}.progress`, SAVE_ERRORS.unknownValue);
+    return spring;
+  });
+  uniqueIds(ids, path);
+  const ownedRegions = regions.filter(region => region.owner === 'player').length;
+  if (m.airUnlocked !== (ownedRegions > 0)) invalid(`${path}.airUnlocked`, SAVE_ERRORS.unknownValue);
+  if (m.completed && (ownedRegions !== 3 || springs.filter(spring => spring.owner === 'player').length < 2)) invalid(`${path}.completed`, SAVE_ERRORS.unknownValue);
+  // Barrier IDs belong to the retained world, independently of machine IDs.
+  const barriers = array(m.barrierIds, `${path}.barrierIds`, 16, 16).map((id, index) => number(id, `${path}.barrierIds[${index}]`, 1, MAX_COUNT, true));
+  uniqueIds(barriers, `${path}.barrierIds`);
+}
+
+function validateMachines(value: unknown): void {
+  if (value && typeof value === 'object' && (value as Record<string, unknown>).version === 2) validateActiveMachines(value);
+  else validateMachinePreview(value);
+}
+
+function validatePlanetPreview(value: unknown): void {
+  const path = 'state.planet', p = object(value, path, ['version', 'temperature', 'atmosphere', 'tScore', 'stabilizers']);
+  oneOf(p.version, [1], `${path}.version`);
+  number(p.temperature, `${path}.temperature`, -1, 1); number(p.atmosphere, `${path}.atmosphere`, -1, 1);
+  oneOf(p.tScore, [0, 1, 2, 3], `${path}.tScore`); array(p.stabilizers, `${path}.stabilizers`, 0);
+}
+
+function validateActivePlanet(value: unknown): void {
+  const path = 'state.planet';
+  const p = object(value, path, ['version', 'temperature', 'atmosphere', 'tScore', 'activeMachine', 'toolOn', 'biomes', 'stabilizers', 'populations', 'nursery', 'nextId', 'elapsed', 'stableTime', 'completed', 'sandbox']);
+  oneOf(p.version, [2], `${path}.version`);
+  const temperature = number(p.temperature, `${path}.temperature`, -1, 1), atmosphere = number(p.atmosphere, `${path}.atmosphere`, -1, 1);
+  oneOf(p.tScore, [planetTScore(temperature, atmosphere)], `${path}.tScore`);
+  number(p.activeMachine, `${path}.activeMachine`, 1, MAX_COUNT, true); boolean(p.toolOn, `${path}.toolOn`);
+  const nextId = number(p.nextId, `${path}.nextId`, 4, MAX_COUNT, true), ids: number[] = [];
+  number(p.elapsed, `${path}.elapsed`); number(p.stableTime, `${path}.stableTime`, 0, 30);
+  boolean(p.completed, `${path}.completed`); boolean(p.sandbox, `${path}.sandbox`);
+  if (p.sandbox && !p.completed) invalid(`${path}.sandbox`, SAVE_ERRORS.unknownValue);
+  array(p.biomes, `${path}.biomes`, 3, 3).forEach((value, index) => {
+    const at = `${path}.biomes[${index}]`, biome = object(value, at, ['id', 'level', 'pos']);
+    const id = number(biome.id, `${at}.id`, 1, 3, true); ids.push(id);
+    oneOf(biome.level, [id], `${at}.level`); vector(biome.pos, `${at}.pos`);
+  });
+  const rootKeys: string[] = [], producerCounts = [0, 0, 0];
+  array(p.stabilizers, `${path}.stabilizers`, 6).forEach((value, index) => {
+    const at = `${path}.stabilizers[${index}]`, root = object(value, at, ['id', 'biome', 'key', 'site']);
+    const id = number(root.id, `${at}.id`, 4, nextId - 1, true); ids.push(id);
+    const biome = number(root.biome, `${at}.biome`, 1, 3, true), key = string(root.key, `${at}.key`, 64), taxon = ecologyTaxon(key);
+    if (!taxon || taxon.role !== 'producer') invalid(`${at}.key`, SAVE_ERRORS.unknownValue);
+    rootKeys.push(`${biome}:${key}`); producerCounts[biome - 1]++;
+    const site = object(root.site, `${at}.site`, ['id', 'stage', 'patch', 'source', 'refuges', 'sourceId', 'plantedId', 'vitality', 'observed', 'resolved', 'method', 'threatIds', 'phase']);
+    oneOf(site.id, [id], `${at}.site.id`); oneOf(site.stage, [5], `${at}.site.stage`); oneOf(site.patch, [biome - 1], `${at}.site.patch`);
+    vector(site.source, `${at}.site.source`); array(site.refuges, `${at}.site.refuges`, 1, 1).forEach((pos, i) => vector(pos, `${at}.site.refuges[${i}]`));
+    const sourceId = number(site.sourceId, `${at}.site.sourceId`, 1, MAX_COUNT, true); oneOf(site.plantedId, [sourceId], `${at}.site.plantedId`);
+    number(site.vitality, `${at}.site.vitality`, 0, 100);
+    oneOf(site.observed, [true], `${at}.site.observed`); oneOf(site.resolved, [false], `${at}.site.resolved`); oneOf(site.method, [null], `${at}.site.method`);
+    array(site.threatIds, `${at}.site.threatIds`, 0); oneOf(site.phase, [0], `${at}.site.phase`);
+  });
+  if (new Set(rootKeys).size !== rootKeys.length) invalid(`${path}.stabilizers`, SAVE_ERRORS.duplicateIds);
+  if (producerCounts.some(count => count > 2)) invalid(`${path}.stabilizers`, SAVE_ERRORS.invalidCount);
+  const populationKeys: string[] = [], herbivores = [0, 0, 0], predators = [0, 0, 0];
+  array(p.populations, `${path}.populations`, 9).forEach((value, index) => {
+    const at = `${path}.populations[${index}]`, population = object(value, at, ['id', 'biome', 'key', 'pos', 'vitality', 'abundance', 'nutrition']);
+    ids.push(number(population.id, `${at}.id`, 4, nextId - 1, true));
+    const biome = number(population.biome, `${at}.biome`, 1, 3, true), key = string(population.key, `${at}.key`, 64), taxon = ecologyTaxon(key);
+    if (!taxon || taxon.role !== 'herbivore' && taxon.role !== 'predator') invalid(`${at}.key`, SAVE_ERRORS.unknownValue);
+    populationKeys.push(`${biome}:${key}`); (taxon.role === 'herbivore' ? herbivores : predators)[biome - 1]++;
+    vector(population.pos, `${at}.pos`); number(population.vitality, `${at}.vitality`, 0, 100);
+    number(population.abundance, `${at}.abundance`, 0, 3); number(population.nutrition, `${at}.nutrition`, 0, 1);
+  });
+  if (new Set(populationKeys).size !== populationKeys.length) invalid(`${path}.populations`, SAVE_ERRORS.duplicateIds);
+  if (herbivores.some(count => count > 2) || predators.some(count => count > 1)) invalid(`${path}.populations`, SAVE_ERRORS.invalidCount);
+  uniqueIds(ids, path);
+  const nursery = object(p.nursery, `${path}.nursery`, ['pos', 'sources']); vector(nursery.pos, `${path}.nursery.pos`);
+  const sourceKeys = array(nursery.sources, `${path}.nursery.sources`, 2, 2).map((value, index) => {
+    const at = `${path}.nursery.sources[${index}]`, source = object(value, at, ['key', 'resourceId']);
+    oneOf(source.key, ['culture:6', 'culture:7'], `${at}.key`); number(source.resourceId, `${at}.resourceId`, 1, MAX_COUNT, true);
+    return source.key;
+  });
+  if (new Set(sourceKeys).size !== sourceKeys.length) invalid(`${path}.nursery.sources`, SAVE_ERRORS.duplicateIds);
+}
+
+function validatePlanet(value: unknown): void {
+  if (value && typeof value === 'object' && (value as Record<string, unknown>).version === 2) validateActivePlanet(value);
+  else validatePlanetPreview(value);
+}
+
+function validateState(value: unknown, nestedCheckpoint = false, expectedVersion?: 1 | 2 | 3): GameState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid('state', SAVE_ERRORS.objectRequired);
   const version = (value as Record<string, unknown>).version;
-  if ((version !== 1 && version !== 2) || (expectedVersion !== undefined && version !== expectedVersion)) invalid('state.version', SAVE_ERRORS.unsupportedStateVersion);
-  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version === 2 ? ['journey'] : [])]);
+  if ((version !== 1 && version !== 2 && version !== 3) || (expectedVersion !== undefined && version !== expectedVersion)) invalid('state.version', SAVE_ERRORS.unsupportedStateVersion);
+  const sliceKeys = (['tribe', 'machines', 'planet'] as const).filter(key => version === 3 && Object.prototype.hasOwnProperty.call(value, key));
+  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys]);
   gameId(s.id, 'state.id'); const seed = number(s.seed, 'state.seed', 0, UINT32, true);
-  oneOf(s.stage, [0, 1, 2], 'state.stage'); const stage = s.stage as Stage;
+  oneOf(s.stage, version === 3 ? [0, 1, 2, 3, 4, 5] : [0, 1, 2], 'state.stage'); const stage = s.stage as Stage;
+  const worldStage = worldStageFor(stage);
+  for (const [key, firstStage, validate] of [['tribe', 3, validateTribe], ['machines', 4, validateMachines], ['planet', 5, validatePlanet]] as const) {
+    const present = sliceKeys.includes(key);
+    if (present !== (stage >= firstStage)) invalid(`state.${key}`, SAVE_ERRORS.eraSliceMismatch);
+    if (present) validate(s[key]);
+  }
   number(s.tick, 'state.tick', 0, MAX_COUNT, true); number(s.rng, 'state.rng', 0, UINT32, true);
   const worlds = array(s.worlds, 'state.worlds', 3, 3);
   worlds.forEach((world, index) => {
     if (world !== null) validateWorld(world, index as Stage, seed, `state.worlds[${index}]`);
-    else if (index === stage) invalid('state.worlds', SAVE_ERRORS.missingActiveWorld);
+    else if (index === worldStage) invalid('state.worlds', SAVE_ERRORS.missingActiveWorld);
   });
   // Saves carry the active alias for readability. Refuse conflicting duplicate states.
-  validateWorld(s.world, stage, seed, 'state.world');
-  if (JSON.stringify(s.world) !== JSON.stringify(worlds[stage])) invalid('state.world', SAVE_ERRORS.activeWorldMismatch);
-  const journey = version === 1 ? emptyJourney(true) : validateJourney(s.journey, stage, worlds as (World | null)[]);
+  validateWorld(s.world, worldStage, seed, 'state.world');
+  if (JSON.stringify(s.world) !== JSON.stringify(worlds[worldStage])) invalid('state.world', SAVE_ERRORS.activeWorldMismatch);
+  const journey = version === 1 ? emptyJourney(true) : validateJourney(s.journey, worldStage, worlds as (World | null)[]);
   // Historical legacy saves predate the explicit scan timer. Only this missing
   // field migrates; new journey saves require it, and unknown fields always fail.
   if ((version === 1 || journey.legacy) && s.player && typeof s.player === 'object' && !Array.isArray(s.player) && !Object.prototype.hasOwnProperty.call(s.player, 'scan')) (s.player as Record<string, unknown>).scan = 0;
@@ -315,7 +620,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   const missingRecharge = !!s.player && typeof s.player === 'object' && !Array.isArray(s.player) && !Object.prototype.hasOwnProperty.call(s.player, 'abilityRecharge');
   if (missingRecharge) (s.player as Record<string, unknown>).abilityRecharge = 0;
   const p = object(s.player, 'player', ['pos', 'velocity', 'heading', 'health', 'energy', 'oxygen', 'moisture', 'genome', 'dna', 'totalDna', 'generation', 'meals', 'kills', 'bonds', 'cooldown', 'abilityRecharge', 'scan', 'invulnerable', 'feeding', 'distance']);
-  const genomeErrors = validateGenome(p.genome, stage);
+  const genomeErrors = validateGenome(p.genome, worldStage);
   if (genomeErrors.length) invalid('player.genome', genomeErrors.join(' '));
   const genome = p.genome as GameState['player']['genome'];
   const stats = computeStats(genome);
@@ -367,7 +672,49 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   array(c.journals, 'campaign.journals', 128).forEach((item) => string(item, 'campaign.journal', 512));
   number(c.drought, 'campaign.drought', 0, 1); boolean(c.won, 'campaign.won'); boolean(c.sandbox, 'campaign.sandbox');
   oneOf(c.finale, [null, 'restoration', 'predator', 'migration'], 'campaign.finale');
-  if ((c.won && (stage !== 2 || c.finale === null)) || (!c.won && c.finale !== null) || (c.sandbox && !c.won)) invalid('campaign', SAVE_ERRORS.invalidFinale);
+  if ((c.won && (stage < 2 || c.finale === null)) || (!c.won && c.finale !== null) || (c.sandbox && !c.won) || (stage >= 3 && !c.won)) invalid('campaign', SAVE_ERRORS.invalidFinale);
+  if (s.tribe && (s.tribe as ActiveTribeState).version === 2) {
+    const tribe = s.tribe as ActiveTribeState;
+    if (tribe.legacyAbility !== c.finale) invalid('state.tribe.legacyAbility', SAVE_ERRORS.invalidFinale);
+    const inherited = [...bonds] as GameState['player']['bonds'];
+    tribe.members.forEach((member, index) => {
+      if (member.species === null) return;
+      const bondIndex = inherited.findIndex(bond => bond.species === member.species && bond.benefit === member.benefit);
+      if (bondIndex < 0) invalid(`state.tribe.members[${index}].species`, SAVE_ERRORS.invalidPartner);
+      inherited.splice(bondIndex, 1);
+    });
+  }
+  if (s.machines && (s.machines as ActiveMachineState).version === 2) {
+    const machines = s.machines as ActiveMachineState, tribe = s.tribe as GameState['tribe'];
+    if (tribe?.version !== 2 || !tribe.completed) invalid('state.machines', SAVE_ERRORS.eraSliceMismatch);
+    if (machines.archetype !== c.finale) invalid('state.machines.archetype', SAVE_ERRORS.invalidFinale);
+    const coast = worlds[2] as World;
+    machines.barrierIds.forEach((id, index) => {
+      if (!coast.obstacles.some(obstacle => obstacle.id === id && obstacle.kind === 'rock')) invalid(`state.machines.barrierIds[${index}]`, SAVE_ERRORS.unknownValue);
+    });
+  }
+  if (s.planet && (s.planet as ActivePlanetState).version === 2) {
+    const planet = s.planet as ActivePlanetState, machines = s.machines as GameState['machines'], coast = worlds[2] as World;
+    if (machines?.version !== 2 || !machines.completed || !journey.ecology) invalid('state.planet', SAVE_ERRORS.eraSliceMismatch);
+    if (!machines.fleet.some(unit => unit.id === planet.activeMachine && unit.health > 0)) invalid('state.planet.activeMachine', SAVE_ERRORS.unknownValue);
+    const contacts = new Set(journey.ecology.contacts.map(contact => contact.key)), resourceIds: number[] = [];
+    const samePosition = (a: GameState['player']['pos'], b: GameState['player']['pos']) => a.x === b.x && a.y === b.y && a.z === b.z;
+    planet.stabilizers.forEach((root, index) => {
+      const at = `state.planet.stabilizers[${index}]`, taxon = ecologyTaxon(root.key)!;
+      if (!contacts.has(root.key)) invalid(`${at}.key`, SAVE_ERRORS.unknownValue);
+      const resource = coast.resources.find(resource => resource.id === root.site.sourceId); resourceIds.push(root.site.sourceId);
+      if (!resource || resource.kind !== taxon.food || resource.patch !== root.biome - 1 || resource.regen !== 0 || resource.max !== 12) invalid(`${at}.site.sourceId`, SAVE_ERRORS.unknownValue);
+      if (!samePosition(root.site.source, resource.pos) || !samePosition(root.site.refuges[0], resource.pos)) invalid(`${at}.site.source`, SAVE_ERRORS.invalidNiche);
+    });
+    planet.populations.forEach((population, index) => {
+      if (!contacts.has(population.key)) invalid(`state.planet.populations[${index}].key`, SAVE_ERRORS.unknownValue);
+    });
+    planet.nursery.sources.forEach((source, index) => {
+      const taxon = ecologyTaxon(source.key)!, resource = coast.resources.find(resource => resource.id === source.resourceId); resourceIds.push(source.resourceId);
+      if (!resource || resource.kind !== taxon.food || resource.patch !== taxon.site! - 6) invalid(`state.planet.nursery.sources[${index}].resourceId`, SAVE_ERRORS.unknownValue);
+    });
+    uniqueIds(resourceIds, 'state.planet');
+  }
   array(s.lineage, 'lineage', 10000, 1).forEach((value, index) => {
     const at = `lineage[${index}]`, l = object(value, at, ['generation', 'stage', 'time', 'name', 'parts', 'event']);
     number(l.generation, `${at}.generation`, 1, Number(p.generation), true); number(l.stage, `${at}.stage`, 0, stage, true);
@@ -386,6 +733,12 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     try { decoded = JSON.parse(checkpoint); } catch { invalid('checkpoint', SAVE_ERRORS.invalidCheckpointJson); }
     const restored = validateState(decoded, true);
     if (restored.id !== s.id || restored.seed !== seed || restored.stage > stage || restored.player.generation > Number(p.generation) || restored.journey.legacy !== journey.legacy || restored.journey.version !== (journey.version === 1 ? 2 : journey.version)) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    for (const key of ['tribe', 'machines', 'planet'] as const) {
+      if (Object.prototype.hasOwnProperty.call(restored, key) !== sliceKeys.includes(key)) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    }
+    if (restored.tribe?.version !== (s.tribe as GameState['tribe'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if (restored.machines?.version !== (s.machines as GameState['machines'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     // The rule marker is fixed at birth; the earlier filter opening may differ.
     if (restored.journey.reefEvolution?.version !== journey.reefEvolution?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     // Recovery consumes this string later, so persist migrated fields inside it as well.
@@ -401,10 +754,10 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     p.totalDna = learned; p.dna = available;
   }
   if (journey.version === 1) journey.version = 2;
-  s.version = 2;
+  s.version = 3;
   s.journey = journey;
   const result = value as GameState;
-  result.world = result.worlds[stage]!;
+  result.world = result.worlds[worldStage]!;
   return result;
 }
 
@@ -414,16 +767,16 @@ function readEnvelope(text: string): SavedEnvelope {
   try { value = JSON.parse(text); } catch { throw new Error(SAVE_ERRORS.invalidJson); }
   const envelope = object(value, SAVE_ERRORS.envelopePath, ['format', 'version', 'savedAt', 'state']);
   if (envelope.format !== FORMAT) throw new Error(SAVE_ERRORS.invalidFormat);
-  if (envelope.version !== 1 && envelope.version !== 2) throw new Error(SAVE_ERRORS.unsupportedVersion);
+  if (envelope.version !== 1 && envelope.version !== 2 && envelope.version !== 3) throw new Error(SAVE_ERRORS.unsupportedVersion);
   number(envelope.savedAt, 'savedAt', 0, 8_640_000_000_000_000, true);
   validateState(envelope.state, false, envelope.version);
-  envelope.version = 2;
+  envelope.version = 3;
   return value as SavedEnvelope;
 }
 
 export function serializeGame(state: GameState): string {
   let text: string;
-  try { text = JSON.stringify({ format: FORMAT, version: 2, savedAt: Date.now(), state }); }
+  try { text = JSON.stringify({ format: FORMAT, version: 3, savedAt: Date.now(), state }); }
   catch { throw new Error(SAVE_ERRORS.unserializableState); }
   const normalized = JSON.stringify(readEnvelope(text));
   // Migrating an older checkpoint can add fields after the input size check.

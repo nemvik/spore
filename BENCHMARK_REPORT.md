@@ -1,5 +1,83 @@
 # LUMAVORA · benchmark report
 
+> Úklid 2026-09-16 na žádost uživatele odstranil 10,33 GiB zastaralých traces a nepoužívaných screenshotů. Historické výsledky zůstávají platným záznamem tehdejšího ověření, ale některé odkazované velké soubory už nejsou uchované. Přesný seznam je v `evidence/cleanup-2026-09-16.json`; finální reporty, uložené hry a vybrané snímky zachovány.
+
+## Rozšíření P1–P3 · dokončeno a ověřeno · 2026-09-16
+
+Kmen, Stroje a Terraformace tvoří hratelné pokračování se všemi přechody, planetárním finále a sandboxem. Multiplayer zůstal mimo rozsah. Níže uvedené P0 a původní benchmarky jsou historické výsledky.
+
+| Oblast | Doložený výsledek |
+| --- | --- |
+| Kmen | [Obě cesty](evidence/era-p1/browser-verified/results.json): diplomacie i boj, skutečný sběr a doprava, výstavba a čtyři nástroje, klik/rámeček/skupinové rozkazy, 12 členů, save/import během stavby i po dokončení. Připravený pobřežní vstup, DEV čas. |
+| Stroje | [Tři strategie](evidence/era-p2/browser-final/results.json): obnova, regulace a diplomacie; přesný placený návrh, příjem ze dvou pramenů, tank i letoun, tři regiony, fyzická horská bariéra a save/reload. Základem je odehraná P1 pozice; alternativní pobřežní závěry jsou přiznané fixtures. |
+| Editor | Původní charakterizace [před](evidence/era-p2/editor-before/result.json)/[po](evidence/era-p2/editor-after/result.json) 5/5; [strojový editor](evidence/era-p2/machine-editor/result.json) ověřil výběr a tah na modelu, symetrii, undo/redo, neplatný trup, cancel, platbu 62 jantaru a přesné načtení návrhu. |
+| Terraformace | [Připravený P3 průchod](evidence/era-p3/browser-final/result.json): reálné odběry a krmení, regrese T1→T0 bez stabilizace, tři živé řetězce, vypnuté nástroje, finále a 120 s stabilního sandboxu, export/reload. Neupravený export odehraného P2 scénáře; DEV krokování. |
+| Úplná nová kampaň | [Audit jedné linie 0→5](evidence/era-p3/fresh-expansion/lineage-audit.json): normální Nová linie, seed 8675309, skutečné klávesy/myš a nativní čas. Bez importů, zápisů do stavu, časových zkratek, smrti nebo obnovy. Finále na ticku **57561 = 15 min 59,35 s simulace**, poté přes 15 s živého sandboxu. Všech šest milníkových exportů prošlo přesným načtením a roundtripem aktuálního parseru. |
+| Testy a build | **98 souborů / 1913 testů PASS**, jeden worker, 37,96 s; následně typecheck a build. Původní 18×600 tickové snapshoty shodné. [Souhrn a logy](evidence/era-p3/verification/summary.json). Známé upozornění na JS chunk přes 500 kB. |
+| Kompatibilita | [118/118 historických uložených her](evidence/era-p3/verification/historical-save-corpus.json) zachovalo vstupní soubory, světy, genomy a checkpointy podle dosavadních migrací; žádný starý save automaticky nezískal katalog. Dalších 19 pozic rozšíření prošlo samostatným auditem. Od tohoto auditu se parser nezměnil; nová fresh linie byla ověřena i po poslední úpravě hry. |
+
+### Úplný průchod a původ důkazů
+
+Nová linie vytvořila pět generací, snědla 92 porcí, neprovedla žádný lov a přenesla získaného partnera do kmene. Sjednotila tři sousedy diplomacií, vyrobila tank a letoun, obnovila tři regiony a zajistila dva jantarové prameny. Terraformace zdědila skutečně získané kontakty; chybějícího korunoplaze hráč obnovil za jantar a fyzicky nakrmil. Každá ze tří lokalit má dvě kultury, dva býložravce a lovce. T3 vydrželo s vypnutým nástrojem, následovalo finále celé linie a sandbox. Genom i zaplacené návrhy zůstaly zachované, katalog má 16 kontaktů. [Původní browser listener](evidence/era-p3/fresh-expansion/browser-errors.json) hlásil nula chyb za všech šest etap.
+
+Root skutečně prohlédl [Kmen](evidence/era-p3/fresh-expansion/01-tribe-completed.png), [Stroje](evidence/era-p3/fresh-expansion/02-machines-completed.png), [finále](evidence/era-p3/fresh-expansion/03-planet-finale.png) i [živou planetu](evidence/era-p3/fresh-expansion/04-living-planet.png). Ovládání je doloženo malými časovými osami; velký trace byl vypnutý a průběžné nepotřebné snímky odstraněny. Podrobnosti a přiznané opravy testovacího ovladače jsou v [záznamu průchodu](evidence/era-p3/fresh-expansion/run-summary.md).
+
+Průchod běžel na nezměněné [zmrazené verzi zdrojů](evidence/era-p3/freeze/source-manifest.json). Sedm souborů finálního zdroje se liší pouze pozdějším vyřazováním P2 strojů, textem šesti kapitol a úklidem školkové potravy/ostatků. Tyto změny mají samostatné regrese, UI ověření vyřazení a finální produkční smoke. Celý průchod proto není vydáván za opakovaný průchod posledním buildem. Agent znal mapu a používal read-only diagnostiku; nejde o slepý první lidský playtest. Čas zahrnuje i aktivní čekání při opravě ovladače.
+
+### Stabilita a poslední opravy
+
+Review opravil ekonomické blokace, plnou flotilu tanků bez místa pro letoun, mrtvý první stroj při vstupu P3, návrat placeného nákladu, klima v rendereru, překrytí mapy a klávesnicový fokus. Vyřazení jednoho stroje u dílny vrací 35 % ceny a nevyužitý náklad, poslední živý stroj zůstává. Jedenáct regresí a [skutečné UI 8→7→8](evidence/era-p2/retirement/result.json) prošly včetně placeného letounu a save/importu. Osm dalších regresí ověřilo opětovné použití školkové porce bez přesunu a ochranu mateřských zdrojů/kořenů; ostatky mají původní limit 40. Vlastní i nezávislý review dokončen.
+
+[Planetární soak prošel](evidence/era-p3/soak-warmed/result.json): **639,581 s aktivního času / 640,533 s simulace**, 25 cyklů, 12 editorů, dva refresh/load a nula browser chyb. Zahřáté geometrie 1867→1845, programy 19→19, textury 1→1; finální snímek prohlédnut. Připravený stabilní P3 save, skutečný čas, nikoli nová kampaň nebo izolovaný GPU benchmark. První pokus chybně předpokládal globální Tab při fokusu panelu; druhý narazil na pozdní upload geometrie do GPU. Kauzální kontrola prokázala +387 geometrií při novém pohledu bez nových modelů a +59 za dalšího skutečného jedince. Po zahřátí všech biomů původní limit prošel beze změny. Starší testovací timeouty při diskové tísni jsou zachované; assertions ani timeouty se nezeslabovaly.
+
+[Aktuální produkční build](evidence/era-p3/production-cleanup-final/result.json) ověřil skutečný pohyb/jídlo, pauzu, save/refresh/load, nastavení a Web Audio. Bez časového hooku, chyb nebo externích požadavků; nezávislý agent prohlédl jediný finální snímek. JS `index-Db2Hqb7K.js`, SHA256 `8fe6d169d52e92fd39bbd8b3490530c6cabda98f4b3b8adab17c4ddaad5c87cc`. Nezměněný původní skill klient také prošel po poslední změně: tick 231, pohyb 8,93 m, dvě jídla; root prohlédl [canvas](evidence/era-p3/skill-cleanup-final/shot-0.png). Tento klient používá DEV časový shim.
+
+### Přenositelnost před publikací
+
+Jedenáct nezbytných uložených vstupů (2,07 MB) je nově verzováno v `tests/fixtures/saves/`, beze změny původních bytů a s manifestem původu/SHA256. Dvě jednotkové regrese a příslušné browser skripty používají tyto vstupy místo ignorovaných lokálních evidence. V odděleném exportu zdrojů bez `evidence/` prošlo všech **1913 testů**, typecheck a build; aktuální parser ověřil všech 11 fixture. Node 22, existující uzamčené závislosti sdílené symlinkem; nejde o ověření nové instalace závislostí. Herní zdroje se nezměnily. Původní snímky, traces a lokální reporty se do Gitu nepřidávají.
+
+### Meze a reprodukce
+
+Krátké [měření 12členné tlupy](evidence/era-p1/browser-final/twelve-members-metrics.json) při 1536×960 medium zaznamenalo 376 snímků, medián 16,7 ms / p95 16,8 ms, 784 draw calls a 179792 trojúhelníků. Není to obecná výkonová záruka. Návrhových 20–30 minut na etapu, starších 45–90 minut a lidská retence nejsou doložené; automaticky vedený celý průchod trval přibližně 16 simulačních minut. Safari a telefon nebyly ověřeny.
+
+`LUMAVORA_URL` určuje vývojový server. `pnpm test:tribe`, `test:machines`, `test:machine-editor`, `test:machine-retirement` a `test:planet` spouštějí připravené scénáře. `test:planet-soak` používá skutečný čas a `PLANET_SOAK_SOURCE`; `test:production` po buildu používá `PRODUCTION_URL`. Browser a preview procesy závěrečného ověření byly ukončeny; finální save a potřebné zdroje zůstaly. Žádný commit, push, deploy, nová závislost ani změna lockfilu.
+
+## Rozšíření kampaně · základy P0 · 2026-09-16
+
+Historická fáze P0 provedla [detailní plán P0](docs/superpowers/plans/2026-09-15-machine-era-p0-foundations.md). Rozšiřuje datový model na šest etap, zachovává tři fyzické světy a připravuje ovládání i kameru dalších etap. **V tehdejší fázi P0 ještě nebyl implementován hratelný obsah P1–P3; aktuální stav je v úvodu tohoto reportu.** Po pobřežním vítězství lze výslovně vstoupit do označeného, statického náhledu kmene a vrátit se do původního sandboxu. Multiplayer se neměnil. Níže uvedené starší benchmarky jsou historie, nikoli nové měření P0.
+
+### Implementováno a ověřeno
+
+- `Stage` 0–5 a `WorldStage` 0–2; společné mapování fyzického prostředí, samostatné ovládací modely a kamera nad krajinou. Náhled zachovává celý genom, světy, ekologii, Journey, symbionty a pobřežní závěr.
+- Formát uložené hry v3, migrace v1/v2 bez automatického přechodu do nové éry, přísná validace verzovaných řezů i checkpointů. Prázdné tvary strojů a planety nepřijímají dosud nedefinovaný obsah.
+- Rozdělení simulace na pojmenované fáze při zachování pořadí výpočtů. Před refaktorem zachycené otisky všech mezikroků se shodují v **18 scénářích × 600 tiků** (tři světy, tři seedy, původní i aktuální pravidla). Staré testy upravují pouze typ fyzické etapy a očekávanou verzi migrovaného formátu, nikoli herní očekávání.
+- `pnpm typecheck`, **78 testovacích souborů / 1181 testů** a `pnpm build` prošly. Build nadále upozorňuje na JavaScript chunk přes 500 kB.
+- Nezávislý audit **118/118 historických uložených her**: u 31 současných Journey pozic se mění pouze verze kořenového stavu/checkpointu; u 87 starších souhlasí výsledek s dosavadní migrací a novou verzí. Vstupní soubory zůstaly beze změny. [Výsledek](evidence/era-p0/save-corpus.json).
+- [Browser náhledu](evidence/era-p0/browser/era-browser-results.json): skutečný UI import připraveného pobřežního vítězství, opt-in, kamera a limity zoomu, blokace tělesných akcí, save/export/reload/import, návrat a opětovný vstup. Rozvinutý importovaný kmen nenabízí destruktivní návrat. Sedm snímků a trace; nula browser chyb a externích požadavků. Jde o přiznaný připravený stav, nikoli nový průchod aktuální kampaní.
+- [Původní kampaň](evidence/era-p0/legacy-browser/result.json): browser regrese dosáhla pobřežního vítězství a sandboxu, bez browser chyb. Používá původní pravidla a zrychlené DEV krokování.
+- [Historický v2 import → dohrání](evidence/era-p0/legacy-v2-browser/result.json): skutečný dříve uložený tick-0 export prošel normálním UI importem, celou kampaní starých pravidel, uložením/refresh/load a pobřežním vítězstvím → sandboxem. Pět generací, 68 jídel, jeden partner, žádné chyby. Explicitní aserce potvrzují etapu 2 a nepřítomnost všech nových řezů i po vítězství; původní vstupní soubor zůstává bitově shodný. Zdroj, SHA256 a formát v2 jsou v provenienci výsledku. DEV čas je zrychlený, nejde o první lidské hraní.
+- [Produkční ověření](evidence/era-p0/production/result.json): reálný pohyb a krmení, pauza, save/refresh/load, nastavení a Web Audio; žádný `advanceTime`, browser chyba ani externí požadavek.
+- Původní nezměněný klient skillu `develop-web-game` prošel (exit 0, tick 155, dvě jídla, stav i screenshot skutečné hry). Při zatíženém vývojovém serveru hlásil timeout čekání po úvodním kliknutí; následný stav i snímek potvrzují spuštěnou hru. Nepoužívá se jako důkaz délky nebo výkonu.
+- Nezávislý code review zkontroloval migraci, přechod a návrat. Odhalená nekonzistence tlačítka návratu pro importovaný rozvinutý kmen je opravena sdílenou podmínkou i regresním testem.
+
+### Závěrečné ověření
+
+Browser fixtures prošly **7/7 scénářů**, bez browser chyb a externích požadavků. [Výsledek](evidence/era-p0/fixtures-editor-fix/scenario-results.json). První běh měl 6/7 úspěšných scénářů; fixní souřadnice drag testu mířily mimo tělo, kam editor orgán připojit nemůže. Test nyní táhne na povrch těla, původní assertion skutečné změny polohy zůstala. Původní selhání je zachováno v `evidence/era-p0/fixtures/`; produkční logika tažení se neměnila.
+
+[Soak prošel](evidence/era-p0/soak/metrics.json): **607,026 s aktivního hraní / 674,025 s celkem**, 19 cyklů, devět otevření editoru, dva refresh/load, žádné chyby ani obnova po smrti. Bez časových zkratek, aktuální nová linie, 589,633 simulačních sekund. Ve srovnání uvnitř jedné nepřerušené stránky geometrie 438→439, textury 0→0, programy 20→20, medián JS heap 23 794 604→17 184 220 B; všechny nastavené meze růstu prošly. Běh používal SwiftShader/software, takže nejde o nový GPU benchmark ani důkaz nulového úniku paměti. Výsledný screenshot byl prohlédnut.
+
+### Reprodukce a meze
+
+Vývojový server tohoto běhu je `127.0.0.1:5180`, statický build `127.0.0.1:4180`. Testy používají `PLAYWRIGHT_BROWSERS_PATH=/private/tmp/lumavora-p0-browsers` a `LUMAVORA_URL` (produkce `PRODUCTION_URL`). Nový příkaz `pnpm test:era` běží proti vývojovému serveru; `node scripts/era-browser.mjs --prepare-only` pouze připraví označený scénář. Existující `test:browser`, `test:fixtures`, `test:production` a `test:soak` zůstávají dostupné.
+
+Historický průchod použil navíc `BROWSER_TEST_INITIAL_SAVE=evidence/quality/regression/browser-test/legacy-initial.fixture.json` a `BROWSER_TEST_OUTPUT=evidence/era-p0/legacy-v2-browser`. [Manifest 156 zdrojových/testovacích souborů](evidence/era-p0/source-manifest.json), [úplný testovací log](evidence/era-p0/unit-tests.log) a [build log](evidence/era-p0/build.log) zachycují tuto implementaci.
+
+Vite nyní omezuje hledání vstupů na `index.html` a nesleduje historické důkazy, browser archivy ani lokální pnpm store. Původní polling těchto mnohagigabajtových adresářů přetěžoval server; zdrojové soubory zůstávají sledované. Žádná nová závislost, změna lockfilu, commit, push ani deploy.
+
+P0 nepřidává hratelnou kmenovou ekonomiku, jednotky, stroje ani planetu a nedokládá delší kampaň či lidskou retenci. Historický cíl 45–90 minut není touto změnou splněn. Nové měření výkonu na GPU, Safari ani mobilní ovládání nebyly provedeny.
+
+---
+
 **Stav: funkční definice dokončení z briefu splněna a ověřena. Povinné systémy, průchod, opravy, produkční test,600s soak i výkonové měření jsou dokončené. Návrhový cíl délky45–90min zůstává nesplněný; přesné omezení je níže.**
 
 `GAME_BRIEF.md`, `BENCHMARK_SCORECARD.md` a `RUN_CODEX.md` zůstaly beze změny. Report hodnotí doložené chování, nepřiděluje hře nezávislé estetické skóre.

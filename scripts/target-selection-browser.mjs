@@ -59,7 +59,7 @@ if (process.argv.includes('--prepare-only')) { console.log('Validated both fixtu
 
 const browser = await chromium.launch({ headless: true, args: process.platform === 'darwin' ? ['--use-gl=angle', '--use-angle=metal'] : [] });
 const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, deviceScaleFactor: 1 });
-await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+if(process.env.LUMAVORA_TRACE==='1')await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
 const page = await context.newPage();
 page.on('pageerror', e => errors.push({ kind: 'pageerror', message: e.message }));
 page.on('console', e => { if (e.type() === 'error') errors.push({ kind: 'console', message: e.text() }); });
@@ -148,7 +148,7 @@ try {
   assert.deepEqual(errors, []);
 } catch (e) { failure = { message: e.message, stack: e.stack }; await shot('failure'); }
 finally {
-  await context.tracing.stop({ path: path.join(OUTPUT, 'selection.trace.zip') });
+  if(process.env.LUMAVORA_TRACE==='1')await context.tracing.stop({ path: path.join(OUTPUT, 'selection.trace.zip') });
   await writeFile(path.join(OUTPUT, 'browser-results.json'), JSON.stringify({ disclosure: 'Prepared saves, actual LMB/Space, native RAF, read-only diagnostic projection. Not a campaign.', started: started.toISOString(), finished: new Date().toISOString(), url: URL, results, errors, failure: failure ?? null, timeline }, null, 2));
   await browser.close();
 }

@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { HUNTER_TIMING, hunterCue, stepHunters } from '../src/game/encounter-ai';
 import { emptyJourney } from '../src/game/journey-types';
@@ -5,7 +6,7 @@ import { createGame, makeCheckpoint } from '../src/game/simulation';
 import { createWorld, spawnCreature } from '../src/game/world';
 import { parseGame, serializeGame } from '../src/game/persistence';
 import { distance, groundHeight } from '../src/game/random';
-import type { Creature, Stage } from '../src/game/types';
+import type { Creature, } from '../src/game/types';
 
 // Authored encounter fixtures, not progression shortcuts or evidence of a campaign run.
 function scenario(stage: Stage = 0) {

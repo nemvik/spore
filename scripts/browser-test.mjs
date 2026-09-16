@@ -1,34 +1,51 @@
 /** Accelerated LEGACY campaign regression, not a fresh current-journey playthrough.
  * Import an untouched createGame(seed, true) tick-0 save through the normal UI;
+ * BROWSER_TEST_INITIAL_SAVE optionally imports a historical equivalent verbatim.
  * thereafter only DOM clicks, keyboard input and disclosed fixed time steps.
  * Original script: evidence/quality/legacy-reproduction/browser-test.original.mjs */
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import path from 'node:path';
 import { createServer } from 'vite';
 // Respect an explicit registry; use the local benchmark cache only when present.
 if (process.env.PLAYWRIGHT_BROWSERS_PATH === undefined && existsSync('/private/tmp/lumavora-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/private/tmp/lumavora-browsers';
 const {chromium}=await import('playwright');
 const out=process.env.BROWSER_TEST_OUTPUT??'evidence/quality/regression/browser-test';await fs.mkdir(out,{recursive:true});
+const sourcePath=process.env.BROWSER_TEST_INITIAL_SAVE;
+const importPath=`${out}/legacy-initial.fixture.json`;
+const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
+// Run identity and serialization versions are metadata. Compare the complete
+// playable state, including checkpoint contents, after established migrations.
+const playableState=state=>{const {id,version,checkpoint,...playable}=state;return {...playable,checkpoint:checkpoint?playableState(JSON.parse(checkpoint)):null};};
 const provenance={kind:'legacy-campaign-regression',campaignRules:'legacy',freshCurrentCampaign:false,acceleratedTimeStepping:true,explicitlyNotFirstPlayDuration:true,initialState:{factory:'createGame(481516, true)',tick:0,preparedProgress:false,import:'normal Saves UI file input; import assigns a new lineage ID'},gameplay:'DOM clicks and keyboard inputs; DEV advanceTime performs fixed simulation steps'};
 const server=await createServer({server:{middlewareMode:true},appType:'custom',logLevel:'error'});
-let initial;
+let initial,sourceHash;
 try{
  const {createGame}=await server.ssrLoadModule('/src/game/simulation.ts');
  const {serializeGame,parseGame}=await server.ssrLoadModule('/src/game/persistence.ts');
- initial=createGame(481516,true);
+ const expected=createGame(481516,true);
+ if(sourcePath)assert.notEqual(path.resolve(sourcePath),path.resolve(importPath),'Use a separate BROWSER_TEST_OUTPUT to keep the historical input untouched');
+ const text=sourcePath?await fs.readFile(sourcePath,'utf8'):serializeGame(expected);
+ sourceHash=sha256(text);
+ initial=parseGame(text);
+ assert.deepEqual(playableState(initial),playableState(expected),'Imported save must be an untouched seed481516 legacy tick-0 state after migration');
  assert.equal(initial.tick,0);assert.equal(initial.stage,0);assert.equal(initial.journey.legacy,true);assert.equal(initial.player.meals,0);
- const text=serializeGame(initial);assert.deepEqual(parseGame(text),initial);
- await fs.writeFile(`${out}/legacy-initial.fixture.json`,text);
+ if(!sourcePath)assert.deepEqual(initial,expected);
+ Object.assign(provenance.initialState,{sourcePath:sourcePath??importPath,sourceKind:sourcePath?'historical-export':'generated-current-export',sourceSha256:sourceHash,formatVersion:JSON.parse(text).version});
+ await fs.writeFile(importPath,text);
+ assert.equal(sha256(await fs.readFile(sourcePath??importPath)),sourceHash,'Import source must remain byte-identical');
  await fs.writeFile(`${out}/methodology.json`,JSON.stringify(provenance,null,2));
 }finally{await server.close();}
 if(process.argv.includes('--prepare-only')){console.log('Validated untouched legacy tick-0 save; no browser launched.');process.exit(0);}
 const browser=await chromium.launch({headless:true,args:process.platform==='darwin'?['--use-gl=angle','--use-angle=metal']:[]});
 const context=await browser.newContext({viewport:{width:1600,height:1000},deviceScaleFactor:1});
-await context.tracing.start({screenshots:true,snapshots:true,sources:true});
+if(process.env.LUMAVORA_TRACE==='1')await context.tracing.start({screenshots:true,snapshots:true,sources:true});
 const page=await context.newPage(),errors=[],log=[];const started=Date.now();
 page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
 const read=()=>page.evaluate(()=>JSON.parse(window.render_game_to_text()));
+function assertOrganismEnding(state){assert.equal(state.stage,2,'Victory must remain on the coast until explicit era opt-in');for(const key of ['tribe','machines','planet'])assert.equal(Object.hasOwn(state,key),false,`${key} must not appear before explicit era opt-in`);}
 async function record(event){const s=await read();const item={event,wallSeconds:(Date.now()-started)/1000,simulationSeconds:s.tick/60,stage:s.stage,generation:s.player.generation,meals:s.player.meals,dna:s.player.dna,bonds:s.player.bonds.length,position:s.player.pos,field:s.field,nicheActivities:s.campaign.journals.filter(j=>j.startsWith('field:')),render:s.render};log.push(item);console.log(JSON.stringify(item));await fs.writeFile(`${out}/timeline.json`,JSON.stringify(log,null,2));}
 async function shot(name){await page.waitForTimeout(200);await page.screenshot({path:`${out}/${name}.png`});await fs.writeFile(`${out}/${name}.json`,JSON.stringify(await read(),null,2));}
 async function hold(buttons,ms){for(const b of buttons)await page.keyboard.down(b);await page.evaluate(ms=>window.advanceTime(ms),ms);for(const b of buttons)await page.keyboard.up(b);}
@@ -78,7 +95,7 @@ async function discover(){
 async function editorAdd(kinds,name){await moveTo((await read()).world.landmarks[0].pos,4);await page.keyboard.press('Tab');assert.equal((await read()).mode,'editor');for(const kind of kinds)await page.click(`[data-action="add:${kind}"]`);if(name){await page.locator('[data-genome="name"]').fill(name);await page.locator('[data-genome="name"]').press('Tab');}await shot(`editor-stage-${(await read()).stage}-gen-${(await read()).player.generation+1}`);const before=(await read()).player.genome;await page.click('[data-action="confirm-editor"]');assert.equal((await read()).mode,'game','Evolution confirmed');assert.notDeepEqual((await read()).player.genome,before);await record('Legitimate evolution: '+kinds.join(','));}
 async function findPartner(){for(let i=0;i<15;i++){const s=await read();const partner=s.world.creatures.filter(c=>['lantern','mender','gloom'].includes(c.species)).sort((a,b)=>dist(a.pos,s.player.pos)-dist(b.pos,s.player.pos))[0];if(!partner)return false;await moveTo(partner.pos,3);await hold(['KeyR'],200);if((await read()).player.bonds.length){await record('Live symbiosis established');return true;}}return false;}
 try{
- await page.goto((process.env.LUMAVORA_URL??process.env.BASE_URL??'http://127.0.0.1:5173')+'/?test=1');await page.waitForSelector('#start-btn');await page.click('[data-action="saves"]');await page.locator('#import-save').setInputFiles(`${out}/legacy-initial.fixture.json`);await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).mode==='game');
+ await page.goto((process.env.LUMAVORA_URL??process.env.BASE_URL??'http://127.0.0.1:5173')+'/?test=1');await page.waitForSelector('#start-btn');await page.click('[data-action="saves"]');await page.locator('#import-save').setInputFiles(importPath);await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).mode==='game');
  const imported=await read();assert.equal(imported.tick,0);assert.equal(imported.stage,0);assert.equal(imported.player.meals,0);assert.deepEqual(imported.player,initial.player);await record('Imported untouched LEGACY initial state, seed481516, tick0');await shot('01-microworld');
  await collectUntil(4);await editorAdd(['symbiote'],'Luma · zahradník');
  await collectUntil(16);await editorAdd(['proboscis','spines']);
@@ -90,8 +107,9 @@ try{
  await page.click('[data-action="save"]');const saved=await read();await page.reload();await page.waitForSelector('#start-btn');await page.click('[data-action="saves"]');await page.locator('[data-action^="load:"]').first().click();let restored=await read();assert.equal(restored.stage,2);assert.deepEqual(restored.player.genome,saved.player.genome);assert.deepEqual(restored.world.patches,saved.world.patches);await record('Save-refresh-load preserved genome and ecology');
  await page.keyboard.press('Escape');const paused=(await read()).tick;await page.evaluate(()=>advanceTime(5000));assert.equal((await read()).tick,paused);await page.setViewportSize({width:1024,height:768});await shot('06-pause-laptop');await page.click('[data-action="close"]');await page.setViewportSize({width:1600,height:1000});
  for(let i=0;i<3;i++){let s=await read();const spring=s.world.landmarks.find(l=>l.id===`spring-${i}`);await moveTo(spring.pos,3);while((await read()).world.landmarks.find(l=>l.id===spring.id).charge<10){s=await read();if(s.player.energy<35){await collectUntil(s.campaign.stageMeals+4);await moveTo(spring.pos,3);}await hold(['KeyT'],2100);}await record(`Restored spring ${i+1}`);await shot(`07-spring-${i+1}`);}
- assert.equal((await read()).campaign.won,true);assert.equal((await read()).campaign.finale,'restoration');await shot('08-finale');await record('Campaign completed by restoration without kills');await page.click('[data-action="sandbox"]');assert.equal((await read()).mode,'game');assert.equal((await read()).campaign.sandbox,true);await shot('09-sandbox');
+ assert.equal((await read()).campaign.won,true);assert.equal((await read()).campaign.finale,'restoration');assertOrganismEnding(await read());await shot('08-finale');await record('Campaign completed by restoration without kills');await page.click('[data-action="sandbox"]');assert.equal((await read()).mode,'game');assert.equal((await read()).campaign.sandbox,true);assertOrganismEnding(await read());await shot('09-sandbox');
  const full=await read();assert.equal(full.player.kills,0);assert.equal(errors.length,0,errors.join('\n'));
+ assert.equal(sha256(await fs.readFile(sourcePath??importPath)),sourceHash,'Import source changed during the browser run');
  await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',...provenance,seed:481516,realGameplayInputsOnly:true,wallSeconds:(Date.now()-started)/1000,simulationSeconds:full.tick/60,errors,browser:browser.version(),platform:process.platform,final:{stage:full.stage,genome:full.player.genome,campaign:full.campaign}},null,2));
 }catch(error){await fs.writeFile(`${out}/failure.json`,JSON.stringify({status:'failed',...provenance,error:String(error),stack:error.stack,errors,log},null,2));await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});console.error(error);process.exitCode=1;}
-finally{await context.tracing.stop({path:`${out}/campaign.trace.zip`});await browser.close();}
+finally{if(process.env.LUMAVORA_TRACE==='1')await context.tracing.stop({path:`${out}/campaign.trace.zip`});await browser.close();}

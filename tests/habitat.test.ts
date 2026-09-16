@@ -1,10 +1,11 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { getClimate } from '../src/game/climate';
 import { cloneGenome } from '../src/game/genome';
 import { parseGame, serializeGame } from '../src/game/persistence';
 import { createGame, makeCheckpoint } from '../src/game/simulation';
-import type { Stage } from '../src/game/types';
+import type { } from '../src/game/types';
 import { createWorld } from '../src/game/world';
 import { createHabitat, updateHabitat } from '../src/render/habitat';
 

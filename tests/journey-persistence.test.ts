@@ -5,13 +5,14 @@ import { emptyJourney } from '../src/game/journey-types';
 import { loadGame, loadGames, parseGame, saveGame, serializeGame } from '../src/game/persistence';
 import { createGame, makeCheckpoint, recoverGeneration } from '../src/game/simulation';
 import type { GameState, Stage } from '../src/game/types';
+import { worldStageFor } from '../src/game/stage';
 import { createWorld } from '../src/game/world';
 
 // Explicit serialization fixtures: no campaign completion or duration is implied.
 function stagedFixture(stage: Stage): GameState {
   const state = createGame(481516);
   for (let index = 0; index <= stage; index++) state.worlds[index] = createWorld(state.seed, index as Stage);
-  state.stage = stage; state.world = state.worlds[stage]!;
+  state.stage = stage; state.world = state.worlds[worldStageFor(stage)]!;
   state.player.pos = { ...state.world.landmarks[0].pos };
   state.player.dna = 71; state.player.totalDna = 105;
   state.player.generation = 3; state.campaign.stageReproductions = 2;
@@ -93,13 +94,13 @@ describe('explicit save v1 to v2 migration', () => {
   it.each([0, 1, 2] as const)('preserves every existing world and player field at stage%i, including its checkpoint', stage => {
     const original = oldEnvelope(stagedFixture(stage));
     const bytes = JSON.stringify(original), loaded = parseGame(bytes);
-    expect(loaded.version).toBe(2); expect(loaded.journey).toEqual(emptyJourney(true));
+    expect(loaded.version).toBe(3); expect(loaded.journey).toEqual(emptyJourney(true));
     for (const key of ['id', 'seed', 'tick', 'rng', 'stage', 'player', 'worlds', 'world', 'campaign', 'lineage', 'messages', 'deathReason'] as const) {
       expect(loaded[key]).toEqual(original.state[key]);
     }
     expect(loaded.world).toBe(loaded.worlds[stage]);
     const oldCheckpoint = JSON.parse(original.state.checkpoint), checkpoint = JSON.parse(loaded.checkpoint!);
-    expect(checkpoint.version).toBe(2); expect(checkpoint.journey).toEqual(emptyJourney(true));
+    expect(checkpoint.version).toBe(3); expect(checkpoint.journey).toEqual(emptyJourney(true));
     expect(checkpoint.worlds).toEqual(oldCheckpoint.worlds);
     expect(checkpoint.player).toEqual(oldCheckpoint.player);
     expect(checkpoint.campaign).toEqual(oldCheckpoint.campaign);
@@ -108,8 +109,8 @@ describe('explicit save v1 to v2 migration', () => {
     expect(recovered.journey.legacy).toBe(true);
     expect(JSON.stringify(original)).toBe(bytes);
     const written = JSON.parse(serializeGame(loaded));
-    expect(written.version).toBe(2); expect(written.state.version).toBe(2);
-    expect(JSON.parse(written.state.checkpoint).version).toBe(2);
+    expect(written.version).toBe(3); expect(written.state.version).toBe(3);
+    expect(JSON.parse(written.state.checkpoint).version).toBe(3);
   });
 
   it('migrates an older-stage checkpoint without filling or regenerating its future worlds', () => {
@@ -148,7 +149,7 @@ describe('explicit save v1 to v2 migration', () => {
     expect(setItem).not.toHaveBeenCalled();
     expect(records.get(`lumavora:save:${first.id}`)).toBe(firstBytes);
     expect(saveGame(loaded)).toEqual({ ok: true });
-    expect(JSON.parse(records.get(`lumavora:save:${first.id}`)!).version).toBe(2);
+    expect(JSON.parse(records.get(`lumavora:save:${first.id}`)!).version).toBe(3);
     expect(records.get(`lumavora:save:${second.id}`)).toBe(secondBytes);
   });
 
@@ -254,7 +255,7 @@ describe('explicit journey v1 spending to v2 allocation migration', () => {
     expect(recovered.worlds).toEqual(oldCheckpoint.worlds);
     expect(JSON.stringify(old)).toBe(bytes);
     const rewritten = JSON.parse(serializeGame(loaded));
-    expect(rewritten.version).toBe(2); expect(rewritten.state.version).toBe(2);
+    expect(rewritten.version).toBe(3); expect(rewritten.state.version).toBe(3);
     expect(rewritten.state.journey.version).toBe(2);
     expect(JSON.parse(rewritten.state.checkpoint).journey.version).toBe(2);
     expect(parseGame(JSON.stringify(rewritten))).toEqual(loaded);
@@ -324,7 +325,7 @@ describe('strict persistent journey validation', () => {
     expect(recoverGeneration(loaded).journey).toEqual(state.journey);
     expect(loaded.journey.legacy).toBe(false);
     for (const site of loaded.journey.sites) {
-      expect(loaded.worlds[site.stage]!.resources.find(r => r.id === site.plantedId)?.amount).toBe(0);
+      expect(loaded.worlds[worldStageFor(site.stage)]!.resources.find(r => r.id === site.plantedId)?.amount).toBe(0);
     }
   });
 

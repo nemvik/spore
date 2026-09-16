@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { awakenNursery, nurseryFood, nurserySpecies } from '../src/game/nursery';
 import { createGame, makeCheckpoint, recoverGeneration, step } from '../src/game/simulation';
@@ -9,14 +10,14 @@ import { speciesGroundClearance } from '../src/game/anatomy';
 import { genomeCost, initialGenome } from '../src/game/genome';
 import { distance, groundHeight, horizontalDistance } from '../src/game/random';
 import { EMPTY_INPUT } from '../src/game/types';
-import type { FoodKind, GameState, Resource, Stage } from '../src/game/types';
+import type { FoodKind, GameState, Resource, } from '../src/game/types';
 
 /** Explicit local-extinction scenes, not a played campaign. Actual retained
  * source/canopy records remain intact unless a geometry test says otherwise. */
 function scene(id = 0) {
   const s = createGame(20260913, false), stage = Math.floor(id / 3) as Stage;
   for (let next = 1; next <= stage; next++) {
-    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world;
+    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world;
     initializeJourneyStage(s);
   }
   const site = s.journey.sites.find(site => site.id === id)!;

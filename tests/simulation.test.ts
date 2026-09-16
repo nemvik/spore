@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { createGame, evolve, fieldProgress, makeCheckpoint, nearNest, recoverGeneration, statsFor, step, summary, transitionRequirements, tryTransition, tryWin } from '../src/game/simulation';
 import { createWorld, spawnCreature, surfaceY, WORLD_BOUND } from '../src/game/world';
@@ -5,7 +6,7 @@ import { CHAPTERS, SPECIES, stageSpecies } from '../src/game/content';
 import { cloneGenome, has, initialGenome, validateGenome } from '../src/game/genome';
 import { distance, groundHeight, horizontalDistance } from '../src/game/random';
 import { EMPTY_INPUT } from '../src/game/types';
-import type { AdaptationId, FoodKind, GameState, Genome, Input, Stage } from '../src/game/types';
+import type { AdaptationId, FoodKind, GameState, Genome, Input, } from '../src/game/types';
 
 // These deliberately prepared unit scenarios verify rules and consequences. They are
 // not a new-game playthrough and make no claim about natural campaign duration.
@@ -237,7 +238,7 @@ describe('food, predation, resource memory and restoration', () => {
     expect(restored.world.creatures.some(c => c.id === prey.id)).toBe(false);
     expect(restored.world.patches[0]).toEqual(s.world.patches[0]);
     expect(restored.world.resources).toEqual(s.world.resources);
-    expect(restored.world).toBe(restored.worlds[restored.stage]);
+    expect(restored.world).toBe(restored.worlds[restored.world.stage]);
   });
   it('tending spends energy and restores depleted world resource amounts and soil', () => {
     const s = scenario(); const food = resource(s, 'algae', 1);

@@ -15,7 +15,7 @@ function clear(w: World, p: Vec3, radius: number) {
   for (const o of w.obstacles) if (p.y > o.pos.y - radius + 1e-8 && p.y < o.pos.y + o.height + radius - 1e-8)
     expect(horizontalDistance(p, o.pos), `obstacle ${o.id}`).toBeGreaterThanOrEqual(o.radius + radius - 1e-8);
 }
-function native(name: string) { return parseGame(readFileSync(new URL(`../evidence/quality/canopy-v9/${name}.json`, import.meta.url), 'utf8')); }
+function native(name: string) { return parseGame(readFileSync(new URL(`./fixtures/saves/${name}.json`, import.meta.url), 'utf8')); }
 
 describe('a recorded cylinder-side contact preserves tangential and vertical movement', () => {
   it('slides the native west/up request along the pillar instead of discarding its climb at the second contact', () => {

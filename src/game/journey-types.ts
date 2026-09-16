@@ -1,4 +1,5 @@
 import type { FoodKind, Stage, Vec3 } from './types';
+import type { WorldStage } from './stage';
 
 /** Persistent ecological situations. Presentation effects do not live in a save. */
 export interface EcologySite {
@@ -54,6 +55,16 @@ export interface RootDispersal { version: 1; carried: RootFragment[]; roots: Dis
 /** Opted-in reef physiology keeps the current continuous filter opening. */
 export interface ReefEvolution { version: 1; pumping: number; }
 
+/** A completed interaction with a native taxon, rather than a sighting. */
+export interface EcologyContact {
+  key: string;
+  stage: WorldStage;
+  /** Historical hunts and bonds did not retain their precise native locality. */
+  patch: 0 | 1 | 2 | null;
+  method: 'culture' | 'feeding' | 'hunt' | 'bond';
+}
+export interface EcologyLedger { version: 1; contacts: EcologyContact[]; }
+
 export interface Journey {
   /** Version 2 uses reversible construction allocation for non-legacy campaigns. */
   version: 2 | 3;
@@ -71,6 +82,8 @@ export interface Journey {
   rootDispersal?: RootDispersal;
   /** Absent in older lineages, including saves made before entering their reef. */
   reefEvolution?: ReefEvolution;
+  /** Opt-in contact history. Importing an older campaign leaves it absent. */
+  ecology?: EcologyLedger;
 }
 
 export function emptyJourney(legacy = false, dispersal = false, reefEvolution = false): Journey {

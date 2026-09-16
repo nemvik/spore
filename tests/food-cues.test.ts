@@ -1,10 +1,11 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { createGame, senseRange } from '../src/game/simulation';
 import { createWorld, spawnCreature } from '../src/game/world';
 import { actOnJourney, initializeJourneyStage, journeyAction } from '../src/game/journey';
 import { groundHeight } from '../src/game/random';
-import type { FoodKind, GameState, Stage } from '../src/game/types';
+import type { FoodKind, GameState, } from '../src/game/types';
 import { FoodCues } from '../src/render/food-cues';
 import { disposeObject } from '../src/render/organism';
 
@@ -12,7 +13,7 @@ import { disposeObject } from '../src/render/organism';
 function scene(stage: Stage = 0) {
   const s = createGame(20260913, false);
   for (let next = 1; next <= stage; next++) {
-    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.stage] = s.world; initializeJourneyStage(s);
+    s.stage = next as Stage; s.world = createWorld(s.seed, s.stage); s.worlds[s.world.stage] = s.world; initializeJourneyStage(s);
   }
   s.world.obstacles = []; s.world.creatures = [];
   s.player.pos = { x: 0, y: stage === 0 ? 1.1 : stage === 1 ? 0 : groundHeight(0, 0, 2) + 1.2, z: 0 };

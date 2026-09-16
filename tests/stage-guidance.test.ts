@@ -1,3 +1,4 @@
+import type { WorldStage as Stage } from '../src/game/stage';
 import { describe, expect, it } from 'vitest';
 import { createGame } from '../src/game/simulation';
 import { createWorld, spawnCreature } from '../src/game/world';
@@ -9,7 +10,7 @@ import { mouthWorldPosition } from '../src/game/locomotion';
 import { groundHeight } from '../src/game/random';
 import { organismGroundClearance, speciesGroundClearance } from '../src/game/anatomy';
 import { speciesById } from '../src/game/content';
-import type { Stage } from '../src/game/types';
+import type { } from '../src/game/types';
 
 // Prepared encounters isolate presentation from progression. All readiness,
 // culture damage and predator strikes still use their ordinary public rules.

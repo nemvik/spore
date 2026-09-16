@@ -1,3 +1,7 @@
+import type { Blueprint, VehicleBlueprint } from '../game/blueprint';
+import { vehicleStats } from '../game/blueprint';
+import { createMachine, animateMachine, machineAttachmentOnBody } from './machine';
+import { controlModelFor, isOrganismStage } from '../game/stage';
 import * as THREE from 'three';
 import { JourneyPresentation } from './journey';
 import { RootDispersalPresentation } from './root-dispersal';
@@ -9,7 +13,7 @@ import { functionalProfile, has } from '../game/genome';
 import { bondTarget, feedTarget, primaryInteraction, tendTarget, type InteractionTarget } from '../game/interactions';
 import { getClimate } from '../game/climate';
 import { groundHeight } from '../game/random';
-import { compositionCamera, keepCameraOutside, smoothCameraOrbit } from '../game/camera';
+import { compositionCamera, overheadCamera, keepCameraOutside, smoothCameraOrbit } from '../game/camera';
 import { ContactShadows } from './contact-shadows';
 import { applyLivingFinish, setLivingDanger, setPartnerActivity, targetBracketGeometry } from './world-style';
 import { hunterCue } from '../game/encounter-ai';
@@ -20,8 +24,16 @@ import { MigrationCues } from './migration-cues';
 import { FoodCues } from './food-cues';
 import { reefBodyProfile } from '../game/reef-body';
 import { ReefFilterCues, setReefFilterOpening } from './reef-filter-cues';
+import { SettlementPresentation } from './settlement';
+import { FleetPresentation } from './fleet';
+import { commandRay, pickCommandTarget, selectCommandUnits, terrainDestination } from './command-picking';
+import type { CommandPickVolume, CommandTarget, CommandUnitRef, ScreenRect } from './command-picking';
+import { activeTribe, tribeHome } from '../game/tribe';
+import { planetVehicle } from '../game/planet';
+import { PlanetPresentation } from './planet';
 
 export { compositionCamera, keepCameraOutside } from '../game/camera';
+const isVehicle=(g:Genome|Blueprint):g is VehicleBlueprint=>'kind' in g&&g.kind==='vehicle';
 
 type Occluder = { node: THREE.Object3D; bounds: THREE.Box3; opacity: number; resource?: true; materials: { source: THREE.MeshStandardMaterial; display: THREE.MeshStandardMaterial }[] | null };
 
@@ -53,12 +65,15 @@ export class GameRenderer {
  private obstacleContours:ObstacleContours|null=null;
  private migrationCues:MigrationCues|null=null;
  private foodCues=new FoodCues();private reefFilterCues:ReefFilterCues|null=null;
+ private settlement=new SettlementPresentation();private fleet=new FleetPresentation();private planet=new PlanetPresentation();
+ commandSelection:CommandUnitRef[]=[];commandFocus:Vec3|null=null;
  private bondMeshes:THREE.Group[]=[];private bondKey='';private contact=new ContactShadows();private partnerLight=new THREE.PointLight(0xd6f1b0,0,24,1.7);private pulse:THREE.Mesh;private marker=new THREE.Group();private markerBrackets:THREE.Mesh;private markerStem:THREE.Line;private markerTip:THREE.Mesh;private markerArrow:THREE.Mesh;private settings:Settings;private lastHeading=0;
  yaw=0; pitch=.55; zoom=25; editorYaw=.65;editorPitch=.22;editorZoom=10; selectedPart:string|null=null;previewMode:'idle'|'move'|'feed'='idle';onSelectPart:((id:string)=>void)|null=null;
  constructor(container:HTMLElement,settings:Settings){
   this.settings=settings;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance',preserveDrawingBuffer:true});this.renderer.setClearColor(0x133f49);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.02;
   this.renderer.domElement.id='world';this.renderer.domElement.setAttribute('aria-label','Trojrozměrný svět LUMAVORA');container.append(this.renderer.domElement);
   this.camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,260);this.scene.add(new THREE.HemisphereLight(0xd6f2e6,0x274556,1.6));this.sun=new THREE.DirectionalLight(0xffdfb2,2.0);this.sun.position.set(-25,60,25);this.sun.castShadow=true;this.sun.shadow.camera.left=-60;this.sun.shadow.camera.right=60;this.sun.shadow.camera.top=60;this.sun.shadow.camera.bottom=-60;this.sun.shadow.normalBias=.04;this.scene.add(this.sun);
+  this.scene.add(this.settlement.group,this.fleet.group,this.planet.group);
   const rim=new THREE.DirectionalLight(0x5abcc6,1.4);rim.position.set(20,10,-40);this.scene.add(rim);
   this.editorScene.background=new THREE.Color(0x112d38);this.editorScene.fog=new THREE.FogExp2(0x112d38,.045);this.editorScene.add(new THREE.HemisphereLight(0xe4fff7,0x243b4d,1.6));const a=new THREE.DirectionalLight(0xffe9c4,2.4);a.position.set(-6,10,8);this.editorScene.add(a);const b=new THREE.DirectionalLight(0x67ccd9,1.7);b.position.set(5,2,-6);this.editorScene.add(b);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(18,80),new THREE.MeshStandardMaterial({color:0x16353e,roughness:.92}));floor.rotation.x=-Math.PI/2;this.editorFloor.add(floor);this.editorFloor.position.y=-2;this.editorScene.add(this.editorFloor);
@@ -95,9 +110,9 @@ export class GameRenderer {
   if(this.worldGroup){this.scene.remove(this.worldGroup);disposeObject(this.worldGroup);}this.worldGroup=createHabitat(s.world,getClimate(s));this.scene.add(this.worldGroup);this.worldRef=s.world;this.lastStage=s.stage;this.cameraReady=false;
   this.occluders=[];this.nextBoundsUpdate=0;this.worldGroup.updateMatrixWorld(true);this.worldGroup.traverse(node=>{if(node.name.startsWith('flora-')||node.name.startsWith('obstacle-'))this.occluders.push({node,bounds:new THREE.Box3().setFromObject(node),opacity:1,materials:null});});
   this.obstacleContours=new ObstacleContours(s.world);this.worldGroup.add(this.obstacleContours.group);
-  if(s.stage===2){this.migrationCues=new MigrationCues();this.worldGroup.add(this.migrationCues.mesh);}
+  if(s.world.stage===2){this.migrationCues=new MigrationCues();this.worldGroup.add(this.migrationCues.mesh);}
   this.creatureMeshes.forEach(m=>{this.scene.remove(m);disposeObject(m);});this.creatureMeshes.clear();this.resources.forEach(m=>{this.scene.remove(m);disposeObject(m);});this.resources.clear();
-  const backgrounds=[0x1a4d57,0x134556,0x8bafaa],fogs=[0x2b646b,0x24586a,0xabc4b1];this.scene.background=new THREE.Color(backgrounds[s.stage]);this.scene.fog=new THREE.FogExp2(fogs[s.stage],s.stage===2?.008:.012);this.focus.set(s.player.pos.x,s.player.pos.y,s.player.pos.z);this.sun.intensity=s.stage===2?2.6:1.9;
+  const backgrounds=[0x1a4d57,0x134556,0x8bafaa],fogs=[0x2b646b,0x24586a,0xabc4b1];this.scene.background=new THREE.Color(backgrounds[s.world.stage]);this.scene.fog=new THREE.FogExp2(fogs[s.world.stage],s.world.stage===2?.008:.012);this.focus.set(s.player.pos.x,s.player.pos.y,s.player.pos.z);this.sun.intensity=s.world.stage===2?2.6:1.9;
  }
  private resourceMesh(r:Resource){
   const g=new THREE.Group();const colors={algae:0xaff0b5,mineral:0xabdcea,nectar:0xf4c285,meat:0xe4969e,detritus:0xc3afe2};const mat=new THREE.MeshStandardMaterial({color:colors[r.kind],emissive:colors[r.kind],emissiveIntensity:.25,roughness:.42,metalness:.12});
@@ -108,48 +123,71 @@ export class GameRenderer {
   else{for(let i=0;i<3;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.43,10,6),mat);m.scale.set(.52,1.6,.4);m.position.x=(i-1)*.32;m.rotation.z=(i-1)*-.5;g.add(m);}}
   g.position.set(r.pos.x,r.pos.y-.25,r.pos.z);return g;
  }
- render(s:GameState,dt:number,mode:'game'|'menu'|'editor',draft?:Genome,selection?:FeedSelection|null){
+ render(s:GameState,dt:number,mode:'game'|'menu'|'editor',draft?:Genome|Blueprint,selection?:FeedSelection|null){
+  const control=controlModelFor(s.stage),climate=getClimate(s);
+  const tribe=activeTribe(s),commanding=control==='command'&&!!tribe,vehicle=control==='vehicle'?planetVehicle(s):null,remote=commanding||!!vehicle;
   this.presentationTime+=Math.max(0,Math.min(.1,dt));
   if(mode==='editor'&&draft){this.renderEditor(draft,this.previewStage??s.stage,s.journey.legacy,!!s.journey.reefEvolution&&!s.journey.legacy);return;}
   if(mode==='menu'){this.renderPortrait(s.player.genome);return;}
   if(this.worldRef!==s.world||this.lastStage!==s.stage)this.rebuild(s);else this.syncObstacles(s.world);
+  this.settlement.update(s,this.commandSelection,s.world.time,this.settings.reducedMotion);
+  this.fleet.update(s,vehicle?[{kind:'machine',id:vehicle.id}]:this.commandSelection,s.world.time,this.settings.reducedMotion);
+  this.planet.update(s,s.world.time,this.settings.reducedMotion);
+  if(commanding&&!this.commandFocus)this.commandFocus={...tribeHome(tribe!)};
+  // Render the retained ecology in its own habitat; the control model still
+  // belongs to the campaign stage. This view never changes the saved state.
+  if(!isOrganismStage(s.stage))s={...s,stage:s.world.stage};
   const key=JSON.stringify(s.player.genome);if(key!==this.playerKey){if(this.player){this.scene.remove(this.player);disposeObject(this.player);}this.player=createOrganism(s.player.genome);applyLivingFinish(this.player,'player');this.scene.add(this.player);this.playerKey=key;this.playerOcclusionRadius=Math.max(1.5,s.player.genome.length*1.76,s.player.genome.width*.9)+.5;}
-  const p=s.player,t=s.world.time;const model=this.player!;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s));this.lastHeading=p.heading;
+  const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s));this.lastHeading=p.heading;
   const reefOpening=s.stage===1&&s.journey.reefEvolution&&!s.journey.legacy?s.journey.reefEvolution.pumping:null;setReefFilterOpening(model,reefOpening);this.reefFilterCues?.update(s,this.settings.reducedMotion?0:t,model);
   const existing=new Set(s.world.creatures.map(c=>c.id));this.creatureMeshes.forEach((m,id)=>{if(!existing.has(id)){this.scene.remove(m);disposeObject(m);this.creatureMeshes.delete(id);}});
   for(const c of s.world.creatures){let m=this.creatureMeshes.get(c.id);const spec=speciesById(c.species);if(!m){m=createSpeciesModel(spec);if(spec.role==='predator')applyLivingFinish(m,'predator');this.creatureMeshes.set(c.id,m);this.scene.add(m);}m.position.set(c.pos.x,c.pos.y,c.pos.z);m.rotation.y=c.heading;animateSpeciesModel(m,t,Math.hypot(c.velocity.x,c.velocity.z),spec);if(spec.role==='predator')setLivingDanger(m,hunterCue(s,c.id));}
   this.updateResources(s,t);
-  updateHabitat(this.worldGroup!,s.world,this.settings.reducedMotion?0:t,getClimate(s));this.contact.update(s);
+  updateHabitat(this.worldGroup!,s.world,this.settings.reducedMotion?0:t,climate);this.contact.update(s,!remote);
   this.migrationCues?.update(s,this.settings.reducedMotion?0:t);
   this.foodCues.update(s,this.settings.reducedMotion?0:t);
   const bondKey=p.bonds.map(b=>b.species).join('|');if(bondKey!==this.bondKey){this.bondMeshes.forEach(m=>{this.scene.remove(m);disposeObject(m);});this.bondMeshes=p.bonds.map(b=>{const m=createSpeciesModel(speciesById(b.species));m.scale.multiplyScalar(.45);this.scene.add(m);return m;});this.bondKey=bondKey;}
   this.bondMeshes.forEach((m,i)=>{const bond=p.bonds[i],spec=speciesById(bond.species);const phase=t*.8+i*Math.PI;const side=bond.benefit==='shield'?1:bond.benefit==='recycle'?-.6:Math.cos(phase)*1.6;const behind=bond.benefit==='shield'?.2:bond.benefit==='recycle'?-1:Math.sin(phase)*1.6;
-   m.position.set(p.pos.x+side*Math.cos(p.heading)+behind*Math.sin(p.heading),p.pos.y+(bond.benefit==='light'?1.1:bond.benefit==='recycle'?.85:.15),p.pos.z-side*Math.sin(p.heading)+behind*Math.cos(p.heading));m.rotation.y=p.heading;animateSpeciesModel(m,t,speed*.3,spec);const strength=.7+bond.loyalty*.003;m.scale.setScalar(spec.size*.45*strength);setPartnerActivity(m,s.journey.legacy?bond.loyalty>0:partnerActive(bond));
+   m.visible=!remote;m.position.set(p.pos.x+side*Math.cos(p.heading)+behind*Math.sin(p.heading),p.pos.y+(bond.benefit==='light'?1.1:bond.benefit==='recycle'?.85:.15),p.pos.z-side*Math.sin(p.heading)+behind*Math.cos(p.heading));m.rotation.y=p.heading;animateSpeciesModel(m,t,speed*.3,spec);const strength=.7+bond.loyalty*.003;m.scale.setScalar(spec.size*.45*strength);setPartnerActivity(m,s.journey.legacy?bond.loyalty>0:partnerActive(bond));
   });
-  this.partnerLight.position.set(p.pos.x,p.pos.y+2,p.pos.z);this.partnerLight.intensity=hasActivePartner(s,'light')?3.3:0;
+  this.partnerLight.position.set(p.pos.x,p.pos.y+2,p.pos.z);this.partnerLight.intensity=!remote&&hasActivePartner(s,'light')?3.3:0;
   const pulse=abilityPulse(s);this.pulse.visible=!!pulse&&!this.settings.reducedMotion;if(pulse){this.pulse.position.set(p.pos.x,p.pos.y-.7,p.pos.z);this.pulse.scale.setScalar(1+pulse.progress*(pulse.radius-1));const material=this.pulse.material as THREE.MeshBasicMaterial;material.color.setHex(pulse.color);material.opacity=(1-pulse.progress)*.5;}
+  if(remote)this.pulse.visible=false;
   // The HUD and action handlers use this same pure selection, including depth and obstruction.
-  this.updateInteractionMarker(selection?feedTarget(s,selection):primaryInteraction([feedTarget(s),bondTarget(s),tendTarget(s)]),p.pos);
-  this.target.set(p.pos.x,p.pos.y+.5,p.pos.z);this.focus.lerp(this.target,1-Math.exp(-dt*7));
-  const desired=compositionCamera(this.target,this.yaw,this.pitch,this.zoom,s.world);this.cameraDestination.set(desired.x,desired.y,desired.z);
+  this.updateInteractionMarker(control==='body'?(selection?feedTarget(s,selection):primaryInteraction([feedTarget(s),bondTarget(s),tendTarget(s)])):null,p.pos);
+  const focus=vehicle?{...vehicle.pos,y:Math.min(vehicle.pos.y,groundHeight(vehicle.pos.x,vehicle.pos.z,2)+5)}:(commanding&&this.commandFocus?this.commandFocus:p.pos);
+  this.target.set(focus.x,focus.y+.5,focus.z);this.focus.lerp(this.target,1-Math.exp(-dt*7));
+  const desired=control==='command'?overheadCamera(this.target,this.yaw,THREE.MathUtils.clamp(this.zoom,18,60),s.world):compositionCamera(this.target,this.yaw,this.pitch,this.zoom,s.world);this.cameraDestination.set(desired.x,desired.y,desired.z);
   if(!this.cameraReady){this.camera.position.copy(this.cameraDestination);this.focus.copy(this.target);this.cameraReady=true;}
   else{const smoothed=smoothCameraOrbit(this.camera.position,this.cameraDestination,this.target,dt);this.camera.position.set(smoothed.x,smoothed.y,smoothed.z);}
-  const safe=keepCameraOutside(this.camera.position,this.target,s.world);this.camera.position.set(safe.x,safe.y,safe.z);this.camera.lookAt(this.focus);
+  if(control!=='command'){const safe=keepCameraOutside(this.camera.position,this.target,s.world);this.camera.position.set(safe.x,safe.y,safe.z);}this.camera.lookAt(this.focus);
   this.updateOcclusion(dt);
   this.journey.update(s,this.settings.reducedMotion?0:s.world.time,dt);
   this.rootDispersal.update(s,this.settings.reducedMotion?0:s.world.time);
   this.renderer.render(this.scene,this.camera);
  }
+ panCommand(x:number,z:number,dt:number){if(!this.commandFocus)return;const f=this.commandFocus,speed=26;f.x=THREE.MathUtils.clamp(f.x+(x*Math.cos(this.yaw)+z*Math.sin(this.yaw))*dt*speed,-70,70);f.z=THREE.MathUtils.clamp(f.z+(z*Math.cos(this.yaw)-x*Math.sin(this.yaw))*dt*speed,-70,70);f.y=groundHeight(f.x,f.z,2);}
+ focusCommand(pos:Vec3){this.commandFocus={...pos};}
+ commandScreenTargets(s:GameState){return this.commandVolumes(s).map(v=>{const p=new THREE.Vector3(v.center.x,v.center.y,v.center.z).project(this.camera);return {target:v.target,screen:p.z>=-1&&p.z<=1?{x:(p.x+1)*50,y:(1-p.y)*50}:null};});}
+ private commandVolumes(s:GameState):CommandPickVolume[]{if(s.stage===4&&s.machines?.version===2)return [...this.fleet.pickTargets()];return [...this.settlement.pickTargets(),...s.world.resources.filter(r=>r.amount>=1).map(r=>({target:{kind:'food' as const,id:r.id},center:r.pos,radius:1.5})),...s.world.creatures.filter(c=>c.health>0).map(c=>({target:{kind:'creature' as const,id:c.id},center:c.pos,radius:Math.max(1,speciesById(c.species).size)}))];}
+ pickCommand(s:GameState,x:number,y:number):CommandTarget|null{const ray=commandRay(this.camera,x,y,this.renderer.domElement.getBoundingClientRect());return ray?pickCommandTarget(ray,this.commandVolumes(s)):null;}
+ selectCommand(s:GameState,rect:ScreenRect):CommandUnitRef[]{return selectCommandUnits(this.camera,this.renderer.domElement.getBoundingClientRect(),rect,this.commandVolumes(s));}
+ commandGround(s:GameState,x:number,y:number):Vec3|null{const ray=commandRay(this.camera,x,y,this.renderer.domElement.getBoundingClientRect());return ray?terrainDestination(ray,s.world):null;}
  previewStage:Stage|null=null;
- private renderEditor(g:Genome,stage:Stage,legacy=false,reefEvolution=false){const key=JSON.stringify(g);if(key!==this.editorKey){if(this.editorModel){this.editorScene.remove(this.editorModel);disposeObject(this.editorModel);}this.editorModel=createOrganism(g);this.editorScene.add(this.editorModel);this.editorKey=key;}
+ private renderEditor(g:Genome|Blueprint,stage:Stage,legacy=false,reefEvolution=false){
+  const vehicle=isVehicle(g),key=JSON.stringify(g);
+  if(key!==this.editorKey){if(this.editorModel){this.editorScene.remove(this.editorModel);disposeObject(this.editorModel);}this.editorModel=isVehicle(g)?createMachine(g):createOrganism(g);this.editorModel.userData.blueprintKind=vehicle?'vehicle':'organism';this.editorScene.add(this.editorModel);this.editorKey=key;}
   const time=this.settings.reducedMotion&&this.previewMode==='idle'?0:this.presentationTime;
-  const phase=time%1.8,feeding=this.previewMode==='feed'&&phase<.72?Math.sin(phase/.72*Math.PI):0;
-  const reef=reefEvolution&&stage===1,pumping=reef&&this.previewMode==='feed'?1:0;
-  const motion=reef?reefBodyProfile(g,pumping).motion:locomotionProfile(g,stage,legacy);
-  animateOrganism(this.editorModel!,time,this.previewMode==='move'?motion.speed:0,0,stage,feeding);
-  setReefFilterOpening(this.editorModel!,reef?pumping:null);
+  if(isVehicle(g)){animateMachine(this.editorModel!,time,this.previewMode==='move'?vehicleStats(g).speed:0,this.previewMode==='feed');this.editorFloor.position.y=-this.editorModel!.userData.groundClearance;}
+  else{
+   const phase=time%1.8,feeding=this.previewMode==='feed'&&phase<.72?Math.sin(phase/.72*Math.PI):0;
+   const reef=reefEvolution&&stage===1,pumping=reef&&this.previewMode==='feed'?1:0;
+   const motion=reef?reefBodyProfile(g,pumping).motion:locomotionProfile(g,stage,legacy);
+   animateOrganism(this.editorModel!,time,this.previewMode==='move'?motion.speed:0,0,stage,feeding);
+   setReefFilterOpening(this.editorModel!,reef?pumping:null);
+   this.editorFloor.position.y=stage===2?-organismGroundClearance(g):-2;
+  }
   selectOrganismPart(this.editorModel!,this.selectedPart);
-  this.editorFloor.position.y=stage===2?-organismGroundClearance(g):-2;
   this.editorCamera.position.set(Math.sin(this.editorYaw)*this.editorZoom,2.5+Math.sin(this.editorPitch)*this.editorZoom,Math.cos(this.editorYaw)*this.editorZoom);this.editorCamera.lookAt(0,.1,0);this.renderer.render(this.editorScene,this.editorCamera);
  }
  private renderPortrait(g:Genome){const key=JSON.stringify(g);if(key!==this.portraitKey){if(this.portraitModel){this.portraitScene.remove(this.portraitModel);disposeObject(this.portraitModel);}this.portraitModel=createOrganism(g);this.portraitScene.add(this.portraitModel);this.portraitKey=key;}
@@ -158,7 +196,7 @@ export class GameRenderer {
   animateOrganism(model,time,.3,0,0,0);this.portraitCamera.position.set(0,2.1,10.4);this.portraitCamera.lookAt(0,.15,0);this.renderer.render(this.portraitScene,this.portraitCamera);
  }
  private editorRay(x:number,y:number):boolean{const rect=this.renderer.domElement.getBoundingClientRect();if(!rect.width||!rect.height)return false;this.pointer.set((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2);this.editorCamera.updateMatrixWorld(true);this.raycaster.setFromCamera(this.pointer,this.editorCamera);return true;}
- attachmentAt(x:number,y:number):{axial:number;angle:number}|null{if(!this.editorModel||!this.editorRay(x,y))return null;return attachmentOnBody(this.editorModel,this.raycaster);}
+ attachmentAt(x:number,y:number):{axial:number;angle:number}|null{if(!this.editorModel||!this.editorRay(x,y))return null;return this.editorModel.userData.blueprintKind==='vehicle'?machineAttachmentOnBody(this.editorModel,this.raycaster):attachmentOnBody(this.editorModel,this.raycaster);}
  /** Screen projection for a small contextual label; it cannot select or reach a source. */
  worldLabelPosition(pos:Vec3){
   const point=new THREE.Vector3(pos.x,pos.y+3.2,pos.z).project(this.camera);
@@ -167,7 +205,7 @@ export class GameRenderer {
   // Reserve the objective, vitals and controls so a world label cannot cover them.
   return x>.18&&x<.79&&y>.18&&y<.74?{x:x*100,y:y*100}:null;
  }
- pickPart(x:number,y:number):string|null{if(!this.editorModel||!this.editorRay(x,y))return null;this.editorModel.updateMatrixWorld(true);for(const hit of this.raycaster.intersectObject(this.editorModel,true)){if(hit.object===this.editorModel.userData.attachmentSurface)return null;let obj:THREE.Object3D|null=hit.object;while(obj){if(obj.userData.partId)return obj.userData.partId as string;obj=obj.parent;}}return null;}
+ pickPart(x:number,y:number):string|null{if(!this.editorModel||!this.editorRay(x,y))return null;this.editorModel.updateMatrixWorld(true);for(const hit of this.raycaster.intersectObject(this.editorModel,true)){if(hit.object===this.editorModel.userData.attachmentSurface&&this.editorModel.userData.blueprintKind!=='vehicle')return null;let obj:THREE.Object3D|null=hit.object;while(obj){if(obj.userData.partId)return obj.userData.partId as string;obj=obj.parent;}}return null;}
  /** Pick rendered geometry only; input identity cannot alter or bypass world rules. */
  pickWorld(s:GameState,x:number,y:number):FeedSelection|null{
   const rect=this.renderer.domElement.getBoundingClientRect();if(!rect.width||!rect.height)return null;
