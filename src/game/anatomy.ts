@@ -1,26 +1,9 @@
-import { bodySection } from './body-shape';
-import type { Genome, Part, Vec3, Species, SpineNode } from './types';
+import type { Genome, Species, Vec3 } from './types';
+import { attachmentAngles, attachmentPoint } from './body-profile';
+export { attachmentAngles, attachmentPoint } from './body-profile';
 
 /** The closed sole plane of an unscaled, relaxed limb, below its attachment. */
 export const LEG_SOLE_REACH = 1.16;
-const SEAM_HALF_ANGLE = .22;
-
-/** Mirrored dorsal/ventral organs straddle the seam rather than occupying one slot. */
-export function attachmentAngles(part: Pick<Part, 'angle' | 'mirrored'>): number[] {
-  if (!part.mirrored) return [part.angle];
-  const radial = Math.abs(Math.atan2(Math.sin(part.angle), Math.cos(part.angle)));
-  const separated = Math.min(Math.PI - SEAM_HALF_ANGLE, Math.max(SEAM_HALF_ANGLE, radial));
-  const first = Math.sin(part.angle) < 0 ? -separated : separated;
-  return [first, -first];
-}
-
-/** Shared analytical attachment surface, independent of rendering or simulation. */
-export function attachmentPoint(axial: number, angle: number, length: number, width: number, spine?: readonly SpineNode[]): Vec3 {
-  const a = Math.min(.93, Math.max(-.93, axial));
-  const profile = Math.pow(Math.max(.001, 1 - a * a), .48) * (1 + .15 * a);
-  const section = bodySection(a, spine);
-  return { x: Math.sin(angle) * .68 * width * profile * section.width, y: Math.cos(angle) * .61 * width * profile * section.height + .13 * a * a + section.bend * width, z: a * 1.76 * length };
-}
 
 /** A forgiving contact volume around each visible jaw, independent of other mouths.
  * The jaws project .82 local metres forward; centring on their middle permits

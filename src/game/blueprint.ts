@@ -4,8 +4,8 @@ import { MACHINE_COPY as C } from './machine-copy.cs';
 export type Carrier='tank'|'air';
 export type VehiclePartId='hull'|'cabin'|'tracks'|'rotor'|'drill'|'seeder'|'cannon'|'broadcast'|'armor';
 export type VehicleCategory='structure'|'drive'|'module'|'armor';
-export interface VehiclePart extends Omit<Part,'kind'> {kind:VehiclePartId;}
-export interface VehicleBlueprint extends Omit<Genome,'parts'|'spine'> {kind:'vehicle';carrier:Carrier;parts:VehiclePart[];}
+export interface VehiclePart extends Omit<Part,'kind'|'limb'> {kind:VehiclePartId;}
+export interface VehicleBlueprint {version:1;kind:'vehicle';carrier:Carrier;name:string;length:number;width:number;hue:number;pattern:number;parts:VehiclePart[];}
 export type OrganismBlueprint=Genome&{kind:'organism'};
 export type Blueprint=OrganismBlueprint|VehicleBlueprint;
 export type BlueprintPart=Part|VehiclePart;
@@ -19,8 +19,17 @@ export const VEHICLE_PARTS:readonly VehiclePartSpec[]=[
 ];
 export const vehiclePart=(id:VehiclePartId):VehiclePartSpec=>VEHICLE_PARTS.find(p=>p.id===id)!;
 export const fromGenome=(genome:Genome):OrganismBlueprint=>({...structuredClone(genome),kind:'organism'});
-/** Preserve historical genomes; only sculpted bodies include the optional spine. */
-export const toGenome=(g:OrganismBlueprint):Genome=>({version:g.version,name:g.name,length:g.length,width:g.width,hue:g.hue,pattern:g.pattern,parts:structuredClone(g.parts),...(g.spine?{spine:structuredClone(g.spine)}:{})});
+/** Preserve the exact genome discriminant and every nested body field. */
+export const toGenome = (g: OrganismBlueprint): Genome => {
+  if (g.version === 2) return structuredClone({
+    version: g.version, name: g.name, length: g.length, width: g.width, hue: g.hue,
+    pattern: g.pattern, parts: g.parts, body: g.body,
+  });
+  return structuredClone({
+    version: g.version, name: g.name, length: g.length, width: g.width, hue: g.hue,
+    pattern: g.pattern, parts: g.parts, ...(g.spine ? { spine: g.spine } : {}),
+  });
+};
 export const cloneBlueprint=<T extends Blueprint>(g:T):T=>structuredClone(g);
 export function initialVehicle(carrier:Carrier,archetype:'restoration'|'predator'|'migration'):VehicleBlueprint {
   const module:VehiclePartId=archetype==='predator'?'cannon':archetype==='migration'?'broadcast':carrier==='tank'?'drill':'seeder';

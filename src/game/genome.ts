@@ -1,46 +1,18 @@
-import { bodyVolume, bodyWidth, neutralSpine, SPINE_COUNT, spineInvestment } from './body-shape';
+import { attachmentAngles, attachmentPoint, bodyVolume, bodyWidth, neutralSpine, SPINE_COUNT, spineInvestment } from './body-profile';
 import { GENOME_ERRORS } from './errors.cs';
-import { attachmentAngles, attachmentPoint } from './anatomy';
-import type { Adaptation, AdaptationId, Genome, Part, Stage, Stats, Vec3 } from './types';
+import { ADAPTATIONS, CREATURE_ADAPTATIONS, getAdaptation } from './adaptation-catalog';
+import { validateCreatureStructure } from './creature-body';
+import type { AdaptationId, Genome, LegacyGenome, Part, Stage, Stats, Vec3 } from './types';
+export { ADAPTATIONS, CREATURE_ADAPTATIONS, adaptationsForGenome, getAdaptation } from './adaptation-catalog';
 
 /** Costs are DNA; each paired attachment costs and contributes 1.6 times one part. */
-export const ADAPTATIONS: Adaptation[] = [
-  { id: 'flagellum', name: 'Vlnivý bičík', category: 'movement', description: 'Pružný pohon pro rychlé plavání a rozjezd.', tradeoff: 'Vyšší spotřeba energie za rychlost.', cost: 10, stage: 0, max: 3 },
-  { id: 'fins', name: 'Vějířové ploutve', category: 'movement', description: 'Přesné zatáčení, stoupání a plavání v proudu.', tradeoff: 'Přidávají hmotnost a spotřebu.', cost: 16, stage: 1, max: 3 },
-  { id: 'tail', name: 'Kýlový ocas', category: 'movement', description: 'Silný trvalý pohon ve vodě.', tradeoff: 'Ve vodě vyšší rychlost, ale větší poloměr zatáčení. Na souši zůstává jen hmotnost.', cost: 20, stage: 1, max: 1 },
-  { id: 'legs', name: 'Pružné končetiny', category: 'movement', description: 'Umožní chůzi a nesou tělo na souši.', tradeoff: 'Ve vodě přidávají odpor; souš také vyžaduje plíce.', cost: 24, stage: 1, max: 3 },
-  { id: 'jet', name: 'Pulzní vak', category: 'movement', description: 'Zesiluje vodní sprint a zrychlení.', tradeoff: 'Drahý, energeticky náročný pohon.', cost: 24, stage: 1, max: 1 },
-  { id: 'filter', name: 'Filtrační věnec', category: 'feeding', description: 'Zpracuje řasy, detrit a minerální živiny.', tradeoff: 'Nelze kombinovat s dravou čelistí.', cost: 12, stage: 0, max: 1 },
-  { id: 'jaw', name: 'Srpková čelist', category: 'feeding', description: 'Loví tvory a tráví maso i detrit.', tradeoff: 'Ztrácí trávení řas; nelze kombinovat s filtrem.', cost: 18, stage: 0, max: 1 },
-  { id: 'proboscis', name: 'Nektarová sosna', category: 'feeding', description: 'Otevírá přístup k nektaru bez lovu.', tradeoff: 'Lehce zvyšuje spotřebu a hmotnost.', cost: 14, stage: 0, max: 1 },
-  { id: 'eyes', name: 'Čočkové oči', category: 'senses', description: 'Odhalí vzdálenější tvory a zdroje.', tradeoff: 'Citlivá tkáň potřebuje energii.', cost: 12, stage: 0, max: 2 },
-  { id: 'antenna', name: 'Chemická tykadla', category: 'senses', description: 'Zlepší dosah vnímání a stopování živin.', tradeoff: 'Mírná metabolická režie.', cost: 12, stage: 0, max: 2 },
-  { id: 'sonar', name: 'Ozvěnová koruna', category: 'senses', description: 'Pulz odhaluje život i ve tmě a za úkryty.', tradeoff: 'Aktivní pulz stojí energii.', cost: 24, stage: 1, max: 1 },
-  { id: 'shell', name: 'Mozaikový krunýř', category: 'defense', description: 'Tlumení zásahů a větší zásoba zdraví.', tradeoff: 'Hmotnost snižuje rychlost i obratnost.', cost: 18, stage: 0, max: 2 },
-  { id: 'spines', name: 'Pružné ostny', category: 'defense', description: 'Odrazují lovce a zraňují při kontaktu.', tradeoff: 'Přidávají odpor a náklady na údržbu.', cost: 14, stage: 0, max: 3 },
-  { id: 'toxin', name: 'Hořké žlázy', category: 'defense', description: 'Obranný pulz odežene blízké predátory.', tradeoff: 'Pulz spotřebuje energii; žlázy mají stálou režii.', cost: 20, stage: 0, max: 1 },
-  { id: 'gills', name: 'Korálové žábry', category: 'metabolism', description: 'Zvyšují zásobu kyslíku a účinnost plavání.', tradeoff: 'V čisté vodě doplňují dech, ale také vstřebávají plyn průduchů. Na souši nenahrazují plíce.', cost: 16, stage: 1, max: 2 },
-  { id: 'lungs', name: 'Vzdušné komory', category: 'metabolism', description: 'Umožní dýchat mimo vodu.', tradeoff: 'Na souši potřebují končetiny a dostatek vláhy.', cost: 24, stage: 1, max: 1 },
-  { id: 'bladder', name: 'Vztlaková perla', category: 'metabolism', description: 'Zlepšuje stoupání a vznášení v hloubce.', tradeoff: 'Zvětšuje tělo a jeho hmotnost.', cost: 16, stage: 1, max: 1 },
-  { id: 'reservoir', name: 'Rosný zásobník', category: 'metabolism', description: 'Uchová více vody pro delší výpravy po souši.', tradeoff: 'Plný zásobník zatěžuje tělo.', cost: 22, stage: 1, max: 2 },
-  { id: 'chloroplast', name: 'Světelné lístky', category: 'symbiosis', description: 'Získávají energii ze světla a snižují hlad.', tradeoff: 'Ve tmě fotosyntéza nepomáhá; zpomalují tělo.', cost: 20, stage: 0, max: 2 },
-  { id: 'symbiote', name: 'Partnerské lůžko', category: 'symbiosis', description: 'Umožní navázat vztah s pomocným druhem.', tradeoff: 'Partner potřebuje krmení a část tvé energie.', cost: 18, stage: 0, max: 1 },
-  { id: 'recycler', name: 'Recyklační uzel', category: 'symbiosis', description: 'Zpracuje detrit a minerály, účinněji využije živiny.', tradeoff: 'Snižuje obratnost a zatěžuje tělo.', cost: 20, stage: 1, max: 1 },
-];
-
 const adaptationMap = new Map(ADAPTATIONS.map((adaptation) => [adaptation.id, adaptation]));
 const GENOME_KEYS = ['version', 'name', 'length', 'width', 'hue', 'pattern', 'parts'];
 const PART_KEYS = ['id', 'kind', 'axial', 'angle', 'scale', 'mirrored'];
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const roundCost = (value: number) => Math.max(0, Math.ceil(value - 1e-8));
 
-export function getAdaptation(id: AdaptationId): Adaptation {
-  const adaptation = adaptationMap.get(id);
-  if (!adaptation) throw new Error(GENOME_ERRORS.unknownAdaptation(String(id)));
-  return adaptation;
-}
-
-export function initialGenome(): Genome {
+export function initialGenome(): LegacyGenome {
   return {
     version: 1, name: 'Luma', length: 1, width: 1, hue: 168, pattern: 0,
     parts: [
@@ -51,7 +23,7 @@ export function initialGenome(): Genome {
 }
 
 export const has = (genome: Genome, id: AdaptationId): boolean => genome.parts.some((part) => part.kind === id);
-export const cloneGenome = (genome: Genome): Genome => ({ ...genome, ...(genome.spine ? { spine: genome.spine.map(node => ({ ...node })) } : {}), parts: genome.parts.map((part) => ({ ...part })) });
+export const cloneGenome = <T extends Genome>(genome: T): T => structuredClone(genome);
 
 /**
  * speed: world units/s; acceleration: units/s²; turn: radians/s; armor: damage fraction.
@@ -199,8 +171,7 @@ const record = (value: unknown): value is Record<string, unknown> => {
 const finiteRange = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
 
-/** Validate untrusted save/editor input before using it for prices or simulation. */
-export function validateGenome(value: unknown, stage: Stage): string[] {
+function validateLegacyGenome(value: unknown, stage: Stage): string[] {
   const errors: string[] = [];
   if (![0, 1, 2].includes(stage)) return [GENOME_ERRORS.invalidStage];
   if (!record(value)) return [GENOME_ERRORS.objectRequired];
@@ -239,6 +210,26 @@ export function validateGenome(value: unknown, stage: Stage): string[] {
   if (stage === 2 && !counts.has('legs')) errors.push(GENOME_ERRORS.legsRequired);
   if (stage === 2 && !counts.has('lungs')) errors.push(GENOME_ERRORS.lungsRequired);
   return [...new Set(errors)];
+}
+
+/** Validate untrusted save/editor input before using it for prices or simulation. */
+export function validateGenome(value: unknown, stage: Stage): string[] {
+  if (record(value) && value.version === 2) {
+    if (![0, 1, 2, 3, 4, 5].includes(stage)) return [GENOME_ERRORS.invalidStage];
+    const errors = validateCreatureStructure(value);
+    if (stage < 2) errors.push(GENOME_ERRORS.stageRequired('Kloubové tělo', 3));
+    if (Array.isArray(value.parts)) {
+      for (let index = 0; index < Math.min(value.parts.length, 19); index++) {
+        const part = value.parts[index];
+        if (!record(part) || typeof part.kind !== 'string') continue;
+        const adaptation = CREATURE_ADAPTATIONS.find(item => item.id === part.kind);
+        if (!adaptation) continue;
+        if (adaptation.stage > stage) errors.push(GENOME_ERRORS.stageRequired(adaptation.name, adaptation.stage + 1));
+      }
+    }
+    return [...new Set(errors)];
+  }
+  return validateLegacyGenome(value, stage);
 }
 
 export function validateMutation(oldGenome: Genome, nextGenome: Genome, stage: Stage, budget: number): { ok: boolean; errors: string[]; cost: number } {

@@ -78,7 +78,7 @@ const menuPreview=createGame(481516,false,true,true);
 const manualTime=import.meta.env.DEV&&new URLSearchParams(location.search).has('test');
 const escape=(s:unknown)=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const pct=(n:number)=>`${clamp(n,0,100).toFixed(0)}%`;
-const glyphs:Record<AdaptationId|VehiclePartId,string>={flagellum:'〰',fins:'⋈',tail:'⌁',legs:'⋔',jet:'◉',filter:'❋',jaw:'⋏',proboscis:'⤴',eyes:'◎',antenna:'⋎',sonar:'◌',shell:'⬡',spines:'✧',toxin:'⁙',gills:'≋',lungs:'♧',bladder:'◍',reservoir:'◇',chloroplast:'❧',symbiote:'∞',recycler:'⟳',hull:'⬡',cabin:'▣',tracks:'▰',rotor:'✣',drill:'↧',seeder:'✺',cannon:'↟',broadcast:'◉',armor:'▱'};
+const glyphs:Record<AdaptationId|VehiclePartId,string>={flagellum:'〰',fins:'⋈',tail:'⌁',legs:'⋔',arms:'⌁',jet:'◉',filter:'❋',jaw:'⋏',proboscis:'⤴',eyes:'◎',antenna:'⋎',sonar:'◌',shell:'⬡',spines:'✧',toxin:'⁙',gills:'≋',lungs:'♧',bladder:'◍',reservoir:'◇',chloroplast:'❧',symbiote:'∞',recycler:'⟳',hull:'⬡',cabin:'▣',tracks:'▰',rotor:'✣',drill:'↧',seeder:'✺',cannon:'↟',broadcast:'◉',armor:'▱'};
 const categoryLabels:Record<Category|'all',string>={all:COPY.all,movement:COPY.movement,feeding:COPY.food,senses:COPY.senses,defense:COPY.defense,metabolism:COPY.environment,symbiosis:COPY.symbiosis};
 function brand(){return `<div class="brand"><span class="sigil">·</span><div>LUMAVORA<small>${COPY.brandSubtitle}</small></div></div>`;}
 function button(action:string,label:string,primary=false,extra=''){return `<button class="${primary?'primary':'secondary'}" data-action="${action}" ${extra}>${label}</button>`;}

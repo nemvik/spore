@@ -113,7 +113,7 @@ describe('strict genome validation', () => {
     expect(validateGenome(attach(initialGenome(), 'fins'), 1)).toEqual([]);
     expect(validateGenome(attach(initialGenome(), 'jaw'), 0).join(' ')).toContain('vylučují');
     expect(validateGenome(attach(attach(initialGenome(), 'tail'), 'tail'), 1).length).toBeGreaterThan(0);
-    let oversized = initialGenome();
+    let oversized: Genome = initialGenome();
     for (let i = 0; i < 18; i++) oversized = attach(oversized, 'flagellum');
     expect(validateGenome(oversized, 1).join(' ')).toContain('18');
   });

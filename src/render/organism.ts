@@ -395,7 +395,7 @@ function createPart(part: Part, angle: number, genome: Genome, p: Palette, motio
       }
       motion(motions, root, 'pulse', phase); break;
     }
-    default: { const exhaustive: never = part.kind; void exhaustive; }
+    default: { if (part.kind !== 'arms') { const exhaustive: never = part.kind; void exhaustive; } }
   }
   return root;
 }
