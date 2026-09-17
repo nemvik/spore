@@ -5,7 +5,7 @@ import { spineAxial } from '../game/body-shape';
  * Interpolating the mesh's own rings keeps both edges on the rendered surface,
  * including bent/narrow sections and the historical 32-ring body.
  */
-export function selectBodySection(model: THREE.Group, selected: number | null): void {
+export function selectBodySection(model: THREE.Group, selected: number | null, axialNodes?: readonly number[]): void {
   const body = model.userData.attachmentSurface as THREE.Mesh | undefined;
   if (!body || body.userData.selectedSection === selected) return;
   body.userData.selectedSection = selected;
@@ -24,8 +24,9 @@ export function selectBodySection(model: THREE.Group, selected: number | null): 
   let stride = 1;
   while (stride < uv.count && uv.getY(stride) === uv.getY(0)) stride++;
   const rows = position.count / stride;
-  const low = selected === 0 ? -1 : spineAxial(selected) - .15;
-  const high = selected === 6 ? 1 : spineAxial(selected) + .15;
+  const axial=axialNodes?.[selected]??spineAxial(selected);
+  const low = selected === 0 ? -1 : axialNodes?(axial+axialNodes[selected-1])/2:axial-.15;
+  const high = selected === (axialNodes?axialNodes.length-1:6) ? 1 : axialNodes?(axial+axialNodes[selected+1])/2:axial+.15;
   const levels = [low];
   for (let row = 1; row < rows - 1; row++) {
     const axial = uv.getY(row * stride) * 2 - 1;

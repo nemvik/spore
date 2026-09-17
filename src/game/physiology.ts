@@ -1,3 +1,4 @@
+import type { CreatureAnatomy } from './creature-anatomy';
 import { bodyWidth } from './body-shape';
 import { computeStats, functionalProfile, has } from './genome';
 import { reefConditions } from './reef-layout';
@@ -21,8 +22,8 @@ const pairedLegOutput = -Math.expm1(-1.6 * .65);
  * fin steering cannot improve their gait, but every retained organ still weighs
  * what computeStats says it weighs. Sprint and exhaustion are applied by callers.
  */
-export function locomotionProfile(genome: Genome, stage: Stage, legacy = false): LocomotionProfile {
-  const stats = computeStats(genome), aquatic = functionalProfile(genome);
+export function locomotionProfile(genome: Genome, stage: Stage, legacy = false, derived?: CreatureAnatomy): LocomotionProfile {
+  const stats = computeStats(genome, derived), aquatic = functionalProfile(genome, derived);
   if (stage < 2 || legacy) {
     const medium = stage === 2 ? Math.max(.35, stats.walk) : Math.max(.6, stats.swim);
     const mobility = stage === 2 && !has(genome, 'legs') ? .08 : 1;

@@ -1,3 +1,4 @@
+import type { CreatureAnatomy } from './creature-anatomy';
 import { genomeCost, initialGenome, validateGenome, has } from './genome';
 import { GENOME_ERRORS } from './errors.cs';
 import { TEXT } from './content';
@@ -17,8 +18,8 @@ export interface JourneyEvolutionQuote {
 const primordialAllocation = genomeCost(initialGenome());
 
 /** New journeys can reallocate learned construction capacity at the nursery. */
-export function quoteJourneyEvolution(s: GameState, draft: Genome): JourneyEvolutionQuote {
-  const errors = validateGenome(draft, s.stage);
+export function quoteJourneyEvolution(s: GameState, draft: Genome, derived?: CreatureAnatomy): JourneyEvolutionQuote {
+  const errors = validateGenome(draft, s.stage, derived);
   const validKnowledge = Number.isFinite(s.player.totalDna) && s.player.totalDna >= 0;
   const available = validKnowledge ? primordialAllocation + s.player.totalDna : 0;
   if (!validKnowledge || !Number.isFinite(available)) errors.push(GENOME_ERRORS.invalidBudget);

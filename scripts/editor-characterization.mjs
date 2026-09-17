@@ -58,7 +58,7 @@ try {
 } finally { await ssr.close(); }
 const sources = {};
 for (const file of ['scripts/editor-characterization.mjs', 'src/main.ts', 'src/game/genome.ts', 'src/game/journey-evolution.ts', 'src/render/renderer.ts']) sources[file] = digest(await readFile(file));
-await writeFile(path.join(output, 'provenance.json'), JSON.stringify({ provenance, sources, input: 'normal UI only', simulation: 'DEV test=1; no advanceTime, simulation-state writes, or internal editor calls', knownBehavior: ['An organ click with no drag creates one undo entry.', 'No-op scalar input creates none.', 'Filter+jaw may coexist in the draft; confirm is disabled.', 'Tab opens the editor from game; Escape cancels when focus is not in an input.', 'Undo/redo keep an existing selected ID after remove; selection is not itself an undo transaction.'] }, null, 2));
+await writeFile(path.join(output, 'provenance.json'), JSON.stringify({ provenance, sources, input: 'normal UI only', simulation: 'DEV test=1; no advanceTime, simulation-state writes, or internal editor calls', knownBehavior: ['SP-002 R1: an organ click with no drag creates no history entry.', 'No-op scalar input creates none.', 'Filter+jaw may coexist in the draft; confirm is disabled.', 'Tab opens the editor from game; Escape cancels when focus is not in an input.', 'Undo/redo keep an existing selected ID after remove; selection is not itself an undo transaction.'] }, null, 2));
 await writeFile(path.join(output, 'FIXTURE.md'), '# Organism editor characterization\n\nPrepared UI regression, not an earned campaign or play-duration measurement. Current Journey stage 0 has its exact initial 36 DNA capacity; prepared stage 1 has 182 DNA capacity. Historical v2 is a byte-identical initial legacy export with provenance.json hashes. The test imports all fixtures through the real Saves UI. Read-only render_game_to_text observations inspect drafts, and downloaded UI exports verify the full committed state and checkpoint. Manual simulation mode freezes time; no browser state or internal editor method is written or called. The same script and assertions must run after the shared-editor refactor.\n');
 
 const browser = await chromium.launch({ headless: true, args: process.platform === 'darwin' ? ['--use-gl=angle', '--use-angle=metal'] : [] });
@@ -217,14 +217,14 @@ try {
     let point = null;
     for (let y = 360; y <= 640 && !point; y += 25) for (let x = 480; x <= 1080 && !point; x += 25) {
       await page.mouse.click(x, y);
-      if (!await page.locator('[data-action="undo"]').isDisabled()) point = { x, y };
+      if ((await read(page)).editor.selectedSpine === null && (await read(page)).editor.selected) point = { x, y };
     }
     assert.ok(point, 'A visible organ must be reachable by the actual canvas raycast');
     assert.deepEqual((await read(page)).editor.draft, original, 'A stationary organ click must not move it');
-    await action(page, 'undo'); assert.deepEqual((await read(page)).editor.draft, original);
-    assert.equal(await page.locator('[data-action="undo"]').isDisabled(), true, 'Known pre-refactor behavior: one stationary organ click creates one no-op history entry');
+    assert.deepEqual((await read(page)).editor.history, { undo: 0, redo: 0, pending: false }, 'SP-002 R1: selection must not create an edit');
+    assert.equal(await page.locator('[data-action="undo"]').isDisabled(), true, 'Stationary selection leaves Undo unavailable');
     const image = await capture(page, '05-current-no-op-organ-click'); await cancel(page);
-    return { point, screenshots: [image], verified: ['real canvas raycast', 'stationary organ click creates one no-op history entry'] };
+    return { point, screenshots: [image], verified: ['real canvas raycast', 'stationary organ click creates no history entry (intentional SP-002 R1 change)'] };
   });
 
   await scenario('historical-v2-editor-export-reload', async page => {

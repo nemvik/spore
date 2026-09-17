@@ -1,3 +1,4 @@
+import type { CreatureAnatomy } from './creature-anatomy';
 import { resolveCreatureAnatomy } from './creature-anatomy';
 import type { ResolvedLimb } from './creature-anatomy';
 import type { CreatureGenome, Vec3 } from './types';
@@ -74,8 +75,8 @@ export function solveLimbPose(limb: ResolvedLimb, target: Vec3): Vec3[] {
 }
 
 /** Joint positions are creature-local; only terrain queries use world coordinates. */
-export function sampleCreaturePose(g: CreatureGenome, input: CreaturePoseInput): CreaturePose {
-  const anatomy=resolveCreatureAnatomy(g),movement=Math.min(1,Math.max(0,input.speed)/3);
+export function sampleCreaturePose(g: CreatureGenome, input: CreaturePoseInput, derived?: CreatureAnatomy): CreaturePose {
+  const anatomy=derived??resolveCreatureAnatomy(g),movement=Math.min(1,Math.max(0,input.speed)/3);
   const gesture=Math.min(1,Math.max(0,input.communication));
   const legAxials=g.parts.filter(part=>part.kind==='legs').map(part=>part.axial);
   const stanceMidpoint=legAxials.length?(Math.min(...legAxials)+Math.max(...legAxials))/2:0;

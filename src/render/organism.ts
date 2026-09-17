@@ -1,3 +1,4 @@
+import type { CreatureAnatomy } from '../game/creature-anatomy';
 import { creatureAttachment, resolveCreatureAnatomy } from '../game/creature-anatomy';
 import { sampleCreaturePose } from '../game/creature-motion';
 import type { CreaturePoseInput } from '../game/creature-motion';
@@ -413,12 +414,12 @@ function createPart(part: Part, angle: number, genome: Genome, p: Palette, motio
 }
 
 /** The editor and world intentionally share this constructor. No stage-specific replacement model. */
-export function createOrganism(genome: Genome): THREE.Group {
+export function createOrganism(genome: Genome, derived?: CreatureAnatomy): THREE.Group {
   const group = new THREE.Group(), visual = new THREE.Group(); group.add(visual);
   group.name = genome.name || 'Lumavora';
   const motions: Motion[] = [], p = palette(genome.hue);
   if (genome.version === 2) {
-    const anatomy = resolveCreatureAnatomy(genome);
+    const anatomy = derived ?? resolveCreatureAnatomy(genome);
     const mat = p.skin.clone(); mat.color.set(0xffffff); mat.vertexColors = true;
     mat.roughness = genome.body.skin.finish === 'smooth' ? .36 : .72;
     const surface = mesh(createCreatureSurface(genome), mat, visual); surface.name = 'organism-surface';
@@ -576,7 +577,7 @@ function foldUnderCeiling(group: THREE.Group, motions: Motion[], ceilingY: numbe
   }
 }
 
-export function animateOrganism(group: THREE.Group, time: number, speed: number, headingDelta: number, stage: Stage, feeding: number | boolean, hurt = 0, ceilingY?: number, creatureInput?: Partial<Pick<CreaturePoseInput, 'position' | 'heading' | 'groundAt' | 'airborne' | 'communication'>>): void {
+export function animateOrganism(group: THREE.Group, time: number, speed: number, headingDelta: number, stage: Stage, feeding: number | boolean, hurt = 0, ceilingY?: number, creatureInput?: Partial<Pick<CreaturePoseInput, 'position' | 'heading' | 'groundAt' | 'airborne' | 'communication'>>, derived?: CreatureAnatomy): void {
   const movement = Math.min(1, Math.max(0, speed) / 3), bite = typeof feeding === 'boolean' ? (feeding ? 1 : 0) : Math.min(1, Math.max(0, feeding));
   const motions = group.userData.motions as Motion[] | undefined;
   if (!motions) return;
@@ -586,7 +587,7 @@ export function animateOrganism(group: THREE.Group, time: number, speed: number,
       position: { x: 0, y: 0, z: 0 }, heading: 0,
       groundAt: () => -group.userData.creatureAnatomy.groundClearance,
       ...creatureInput,
-    });
+    }, derived);
     const visual = group.userData.visual as THREE.Group;
     visual.position.set(pose.bodyOffset.x, pose.bodyOffset.y, pose.bodyOffset.z);
     pose.limbs.forEach((limb, index) => poseCreatureLimb(group.userData.creatureLimbs[index], limb.points));

@@ -1,3 +1,4 @@
+import type { CreatureAnatomy } from './creature-anatomy';
 import { attachmentAngles, attachmentPoint } from './anatomy';
 import { creatureMouths, resolveCreatureAnatomy, validateCreatureStance } from './creature-anatomy';
 import { bodyVolume, bodyWidth, neutralSpine, SPINE_COUNT, spineInvestment } from './body-shape';
@@ -34,9 +35,9 @@ export const cloneGenome = <T extends Genome>(genome: T): T => structuredClone(g
  * simulation actions (pulse, photosynthesis, bonding, reflection and diet), not cosmetics.
  * Attachment size and symmetry affect investment, mass and performance together.
  */
-export function computeStats(genome: Genome): Stats {
+export function computeStats(genome: Genome, derived?: CreatureAnatomy): Stats {
   const strength = (id: AdaptationId) => genome.parts.reduce((sum, part) => sum + (part.kind === id ? part.scale * (part.mirrored ? 1.6 : 1) : 0), 0);
-  const anatomy = genome.version === 2 ? resolveCreatureAnatomy(genome) : null;
+  const anatomy = genome.version === 2 ? derived ?? resolveCreatureAnatomy(genome) : null;
   const body = anatomy ? anatomy.bodyVolume : genome.length * genome.width * genome.width * bodyVolume(genome);
   const baseMass = body + genome.parts.reduce((sum, part) => {
     const density = part.kind === 'shell' ? 0.72 : part.kind === 'reservoir' ? 0.42 : 0.11;
@@ -93,8 +94,8 @@ export interface FunctionalProfile {
 /** Smooth diminishing returns, normalized so one ordinary organ retains its baseline output. */
 const organOutput = (strength: number): number => -Math.expm1(-Math.max(0, strength) * .75) / -Math.expm1(-.75);
 
-export function functionalProfile(genome: Genome): FunctionalProfile {
-  const stats = computeStats(genome);
+export function functionalProfile(genome: Genome, derived?: CreatureAnatomy): FunctionalProfile {
+  const stats = computeStats(genome, derived);
   const strength = (kind: AdaptationId) => genome.parts.reduce((sum, part) => sum + (part.kind === kind ? part.scale * (part.mirrored ? 1.6 : 1) : 0), 0);
   let steering = 0, stabilizing = 0, finStrength = 0, tailStability = 0, leafExposure = 0;
   let mouthOrigin: Vec3 = { x: 0, y: 0, z: 0 }, feedReach = 3.3;
@@ -221,11 +222,11 @@ function validateLegacyGenome(value: unknown, stage: Stage): string[] {
 }
 
 /** Validate untrusted save/editor input before using it for prices or simulation. */
-export function validateGenome(value: unknown, stage: Stage): string[] {
+export function validateGenome(value: unknown, stage: Stage, derived?: CreatureAnatomy): string[] {
   if (record(value) && value.version === 2) {
     if (![0, 1, 2, 3, 4, 5].includes(stage)) return [GENOME_ERRORS.invalidStage];
     const errors = validateCreatureStructure(value);
-    if (!errors.length) errors.push(...validateCreatureStance(value as unknown as CreatureGenome));
+    if (!errors.length) errors.push(...(derived?.stanceErrors ?? validateCreatureStance(value as unknown as CreatureGenome)));
     if (stage < 2) errors.push(GENOME_ERRORS.stageRequired('Kloubové tělo', 3));
     if (Array.isArray(value.parts)) {
       for (let index = 0; index < Math.min(value.parts.length, 19); index++) {
@@ -241,8 +242,8 @@ export function validateGenome(value: unknown, stage: Stage): string[] {
   return validateLegacyGenome(value, stage);
 }
 
-export function validateMutation(oldGenome: Genome, nextGenome: Genome, stage: Stage, budget: number): { ok: boolean; errors: string[]; cost: number } {
-  const errors = validateGenome(nextGenome, stage);
+export function validateMutation(oldGenome: Genome, nextGenome: Genome, stage: Stage, budget: number, derived?: CreatureAnatomy): { ok: boolean; errors: string[]; cost: number } {
+  const errors = validateGenome(nextGenome, stage, derived);
   // Refuse invalid trusted-state assumptions too, instead of deriving NaN/negative prices.
   if (validateGenome(oldGenome, stage).length) errors.push(GENOME_ERRORS.invalidOriginal);
   if (!Number.isFinite(budget) || budget < 0) errors.push(GENOME_ERRORS.invalidBudget);
