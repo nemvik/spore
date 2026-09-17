@@ -1,3 +1,4 @@
+import { creaturePresentationBounds } from './creature-body';
 import { bodyWidth } from '../game/body-shape';
 import * as THREE from 'three';
 import type { GameState, Vec3 } from '../game/types';
@@ -172,7 +173,7 @@ export class SettlementPresentation {
       const group = new THREE.Group(), body = spec ? createSpeciesModel(spec) : createOrganism(state.player.genome);
       group.name = `tribe-member-${unit.id}`; group.add(body); this.group.add(group);
       if (!spec) applyLivingFinish(body, 'player');
-      const radius = spec ? Math.max(.75, spec.size * 1.2) : Math.max(1, bodyWidth(state.player.genome), state.player.genome.length * 1.5);
+      const radius = spec ? Math.max(.75, spec.size * 1.2) : state.player.genome.version === 2 ? creaturePresentationBounds(body.userData.creatureAnatomy.bounds).radius : Math.max(1, bodyWidth(state.player.genome), state.player.genome.length * 1.5);
       const ring = groundRing(group, radius + .2, COLORS.selected); ring.name = 'selection-ring';
       const shadowGeometry = new THREE.CircleGeometry(radius * .72, 24); shadowGeometry.rotateX(-Math.PI / 2);
       const shadow = mesh(group, shadowGeometry, new THREE.MeshBasicMaterial({ color: 0x152c22, transparent: true, opacity: .2, depthWrite: false, side: THREE.DoubleSide }));
@@ -203,7 +204,7 @@ export class SettlementPresentation {
     if (elapsed > 0) view.speed = Math.min(10, Math.hypot(unit.pos.x - view.previous.x, unit.pos.z - view.previous.z) / elapsed);
     const animationTime = reducedMotion ? 0 : time + unit.id * .37;
     if (spec) { animateSpeciesModel(view.body, animationTime, view.speed, spec); setPartnerActivity(view.body, unit.hunger < 70 && unit.loyalty > 0); }
-    else animateOrganism(view.body, animationTime, view.speed, unit.heading - view.heading, 2, unit.intent === 'forage' && unit.cooldown > 0 ? .65 : 0);
+    else animateOrganism(view.body, animationTime, view.speed, unit.heading - view.heading, 2, unit.intent === 'forage' && unit.cooldown > 0 ? .65 : 0, 0, undefined, state.player.genome.version === 2 ? { position: { x: unit.pos.x, y: unit.pos.y + view.body.position.y, z: unit.pos.z }, heading: unit.heading, groundAt: (x, z) => groundHeight(x, z, state.world.stage) } : undefined);
     view.previous = { ...unit.pos }; view.heading = unit.heading; view.time = time;
     this.volumes.push({ target: { kind: 'member', id: unit.id }, center: { x: unit.pos.x, y: unit.pos.y + view.body.position.y, z: unit.pos.z }, radius: view.radius });
   }

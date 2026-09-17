@@ -1,3 +1,4 @@
+import { creaturePresentationBounds } from './creature-body';
 import { bodyGroundClearance } from '../game/anatomy';
 import { selectBodySection } from './body-selection';
 import { bodyWidth, spineIndex, spineAxial } from '../game/body-shape';
@@ -140,8 +141,8 @@ export class GameRenderer {
   // Render the retained ecology in its own habitat; the control model still
   // belongs to the campaign stage. This view never changes the saved state.
   if(!isOrganismStage(s.stage))s={...s,stage:s.world.stage};
-  const key=JSON.stringify(s.player.genome);if(key!==this.playerKey){if(this.player){this.scene.remove(this.player);disposeObject(this.player);}this.player=createOrganism(s.player.genome);applyLivingFinish(this.player,'player');this.scene.add(this.player);this.playerKey=key;this.playerOcclusionRadius=Math.max(1.5,s.player.genome.length*1.76,bodyWidth(s.player.genome)*.9)+.5;}
-  const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s));this.lastHeading=p.heading;
+  const key=JSON.stringify(s.player.genome);if(key!==this.playerKey){if(this.player){this.scene.remove(this.player);disposeObject(this.player);}this.player=createOrganism(s.player.genome);applyLivingFinish(this.player,'player');this.scene.add(this.player);this.playerKey=key;if(s.player.genome.version===2){const bounds=creaturePresentationBounds(this.player.userData.creatureAnatomy.bounds);this.playerOcclusionRadius=bounds.radius+bounds.center.length();}else this.playerOcclusionRadius=Math.max(1.5,s.player.genome.length*1.76,bodyWidth(s.player.genome)*.9)+.5;}
+  const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s),p.genome.version===2?{position:p.pos,heading:p.heading,groundAt:(x,z)=>groundHeight(x,z,s.world.stage),airborne:p.pos.y>groundHeight(p.pos.x,p.pos.z,s.world.stage)+model.userData.creatureAnatomy.groundClearance+.08,communication:Math.min(1,(p.creatureActions?.communicationTime??0)/.3)}:undefined);this.lastHeading=p.heading;
   const reefOpening=s.stage===1&&s.journey.reefEvolution&&!s.journey.legacy?s.journey.reefEvolution.pumping:null;setReefFilterOpening(model,reefOpening);this.reefFilterCues?.update(s,this.settings.reducedMotion?0:t,model);
   const existing=new Set(s.world.creatures.map(c=>c.id));this.creatureMeshes.forEach((m,id)=>{if(!existing.has(id)){this.scene.remove(m);disposeObject(m);this.creatureMeshes.delete(id);}});
   for(const c of s.world.creatures){let m=this.creatureMeshes.get(c.id);const spec=speciesById(c.species);if(!m){m=createSpeciesModel(spec);if(spec.role==='predator')applyLivingFinish(m,'predator');this.creatureMeshes.set(c.id,m);this.scene.add(m);}m.position.set(c.pos.x,c.pos.y,c.pos.z);m.rotation.y=c.heading;animateSpeciesModel(m,t,Math.hypot(c.velocity.x,c.velocity.z),spec);if(spec.role==='predator')setLivingDanger(m,hunterCue(s,c.id));}
@@ -192,12 +193,27 @@ export class GameRenderer {
   }
   selectOrganismPart(this.editorModel!,this.selectedPart);
   if(!vehicle)selectBodySection(this.editorModel!,this.selectedSpine);
-  this.editorCamera.position.set(Math.sin(this.editorYaw)*this.editorZoom,2.5+Math.sin(this.editorPitch)*this.editorZoom,Math.cos(this.editorYaw)*this.editorZoom);this.editorCamera.lookAt(0,.1,0);this.renderer.render(this.editorScene,this.editorCamera);
+  this.editorCamera.position.set(Math.sin(this.editorYaw)*this.editorZoom,2.5+Math.sin(this.editorPitch)*this.editorZoom,Math.cos(this.editorYaw)*this.editorZoom);this.editorCamera.lookAt(0,.1,0);
+  if(!isVehicle(g)&&g.version===2){
+   const bounds=creaturePresentationBounds(this.editorModel!.userData.creatureAnatomy.bounds);
+   const halfFov=Math.atan(Math.tan(THREE.MathUtils.degToRad(this.editorCamera.fov/2))*Math.min(1,this.editorCamera.aspect));
+   const distance=Math.max(this.editorZoom,bounds.radius/Math.sin(halfFov)*1.08);
+   this.editorCamera.position.set(Math.sin(this.editorYaw),.25+Math.sin(this.editorPitch),Math.cos(this.editorYaw)).normalize().multiplyScalar(distance).add(bounds.center);
+   this.editorCamera.lookAt(bounds.center);
+  }
+  this.renderer.render(this.editorScene,this.editorCamera);
  }
  private renderPortrait(g:Genome){const key=JSON.stringify(g);if(key!==this.portraitKey){if(this.portraitModel){this.portraitScene.remove(this.portraitModel);disposeObject(this.portraitModel);}this.portraitModel=createOrganism(g);this.portraitScene.add(this.portraitModel);this.portraitKey=key;}
   const time=this.settings.reducedMotion?0:this.presentationTime;this.portraitTime.value=time;
   const model=this.portraitModel!;model.scale.setScalar(1.6);model.position.set(2.35,.12+Math.sin(time*.6)*.055,0);model.rotation.y=-.95+Math.sin(time*.18)*.06;
-  animateOrganism(model,time,.3,0,0,0);this.portraitCamera.position.set(0,2.1,10.4);this.portraitCamera.lookAt(0,.15,0);this.renderer.render(this.portraitScene,this.portraitCamera);
+  animateOrganism(model,time,.3,0,0,0);this.portraitCamera.position.set(0,2.1,10.4);this.portraitCamera.lookAt(0,.15,0);
+  if(g.version===2){
+   const bounds=creaturePresentationBounds(model.userData.creatureAnatomy.bounds);model.updateMatrixWorld(true);bounds.center.applyMatrix4(model.matrixWorld);
+   const halfFov=Math.atan(Math.tan(THREE.MathUtils.degToRad(this.portraitCamera.fov/2))*Math.min(1,this.portraitCamera.aspect));
+   const distance=bounds.radius*model.scale.x/Math.sin(halfFov)*1.08;
+   this.portraitCamera.position.set(-.15,.18,1).normalize().multiplyScalar(distance).add(bounds.center);this.portraitCamera.lookAt(bounds.center);
+  }
+  this.renderer.render(this.portraitScene,this.portraitCamera);
  }
  private editorRay(x:number,y:number):boolean{const rect=this.renderer.domElement.getBoundingClientRect();if(!rect.width||!rect.height)return false;this.pointer.set((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2);this.editorCamera.updateMatrixWorld(true);this.raycaster.setFromCamera(this.pointer,this.editorCamera);return true;}
  attachmentAt(x:number,y:number):{axial:number;angle:number}|null{if(!this.editorModel||!this.editorRay(x,y))return null;return this.editorModel.userData.blueprintKind==='vehicle'?machineAttachmentOnBody(this.editorModel,this.raycaster):attachmentOnBody(this.editorModel,this.raycaster);}
