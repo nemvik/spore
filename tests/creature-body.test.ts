@@ -39,12 +39,21 @@ describe('versioned creature genomes', () => {
     expect(converted.body.spine).toEqual(neutralSpine().map((node, index) => ({ id: `spine-${index}`, axial: spineAxial(index), ...node })));
     expect(converted.parts.find(part => part.kind === 'legs')?.limb).toEqual({
       joints: [
-        { id: 'legs-joint-0', offset: { x: 0.48, y: -0.34, z: -0.14 }, radius: 0.135 },
-        { id: 'legs-joint-1', offset: { x: 0.77, y: -1.14, z: 0.16 }, radius: 0.1 },
+        { id: 'joint-0', offset: { x: 0.48, y: -0.34, z: -0.14 }, radius: 0.135 },
+        { id: 'joint-1', offset: { x: 0.77, y: -1.14, z: 0.16 }, radius: 0.1 },
       ],
       end: { kind: 'foot', style: 'pad', scale: 1 },
     });
     expect(converted.parts.some(part => part.kind === 'lungs')).toBe(false);
+  });
+
+  it('upgrades a maximum-length legacy leg ID to bounded valid joint IDs', () => {
+    const old = initialGenome();
+    old.parts.push({ id: 'l'.repeat(64), kind: 'legs', axial: -0.2, angle: 1, scale: 1, mirrored: true });
+    const converted = upgradeCreatureGenome(old);
+    converted.parts.push({ id: 'lungs', kind: 'lungs', axial: 0, angle: 0, scale: 1, mirrored: false });
+    expect(converted.parts.find(part => part.kind === 'legs')!.limb!.joints.map(joint => joint.id)).toEqual(['joint-0', 'joint-1']);
+    expect(validateCreatureStructure(converted)).toEqual([]);
   });
 
   it('samples articulated sections at nodes and between them without overshoot', () => {
@@ -123,8 +132,19 @@ describe('bounded articulated structure validation', () => {
     invalid(g => { delete g.parts.find(part => part.kind === 'legs')!.limb; });
   });
 
-  it('rejects a fourth mouth and a nineteenth part', () => {
-    invalid(g => { for (let i = 0; i < 3; i++) g.parts.push({ id: `mouth-${i}`, kind: 'proboscis', axial: i / 10, angle: 0, scale: 1, mirrored: false }); });
+  it('accepts three compatible same-kind mouths and rejects the fourth', () => {
+    const g = creatureBodyFixture('biped');
+    g.parts.push(
+      { id: 'mouth-2', kind: 'jaw', axial: .7, angle: .2, scale: 1, mirrored: false },
+      { id: 'mouth-3', kind: 'jaw', axial: .6, angle: -.2, scale: 1, mirrored: false },
+    );
+    expect(validateCreatureStructure(g)).toEqual([]);
+    expect(adaptationsForGenome(2, 2).find(item => item.id === 'jaw')?.max).toBe(3);
+    g.parts.push({ id: 'mouth-4', kind: 'jaw', axial: .5, angle: 0, scale: 1, mirrored: false });
+    expect(validateCreatureStructure(g)).toContain('Tvor může mít nejvýše tři ústa.');
+  });
+
+  it('rejects a nineteenth part', () => {
     invalid(g => { while (g.parts.length < 19) g.parts.push({ id: `eye-${g.parts.length}`, kind: 'eyes', axial: 0, angle: 0, scale: 1, mirrored: false }); });
   });
 

@@ -27,11 +27,15 @@ export const ADAPTATIONS: readonly Adaptation[] = [
 ];
 
 const ARMS: Adaptation = { id: 'arms', name: 'Kloubové paže', category: 'movement', description: 'Umožní gestikulaci a práci rukama.', tradeoff: 'Kloubové údy zvyšují hmotnost a spotřebu.', cost: 18, stage: 2, max: 2 };
-export const CREATURE_ADAPTATIONS: readonly Adaptation[] = [...ADAPTATIONS, ARMS];
-const creatureMap = new Map(CREATURE_ADAPTATIONS.map(adaptation => [adaptation.id, adaptation]));
+const MOUTH_IDS = new Set<AdaptationId>(['filter', 'jaw', 'proboscis']);
+export const CREATURE_ADAPTATIONS: readonly Adaptation[] = [
+  ...ADAPTATIONS.map(adaptation => MOUTH_IDS.has(adaptation.id) ? { ...adaptation, max: 3 } : adaptation),
+  ARMS,
+];
+const legacyMap = new Map(ADAPTATIONS.map(adaptation => [adaptation.id, adaptation]));
 
 export function getAdaptation(id: AdaptationId): Adaptation {
-  const adaptation = creatureMap.get(id);
+  const adaptation = id === 'arms' ? ARMS : legacyMap.get(id);
   if (!adaptation) throw new Error(GENOME_ERRORS.unknownAdaptation(String(id)));
   return adaptation;
 }

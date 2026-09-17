@@ -42,7 +42,7 @@ export function upgradeCreatureGenome(g: LegacyGenome): CreatureGenome {
       ...structuredClone(part),
       ...(part.kind === 'legs' ? {
         limb: {
-          joints: DEFAULT_LEG.joints.map((joint, index) => ({ id: `${part.id}-joint-${index}`, ...structuredClone(joint) })),
+          joints: DEFAULT_LEG.joints.map((joint, index) => ({ id: `joint-${index}`, ...structuredClone(joint) })),
           end: { ...DEFAULT_LEG.end },
         },
       } : {}),
@@ -135,8 +135,9 @@ export function validateCreatureStructure(value: unknown): string[] {
     else {
       const count = (counts.get(adaptation.id) ?? 0) + 1;
       counts.set(adaptation.id, count);
-      if (count > adaptation.max) errors.push(`${adaptation.name}: příliš mnoho úchytů.`);
-      if (['filter', 'jaw', 'proboscis'].includes(adaptation.id)) mouths++;
+      const mouth = ['filter', 'jaw', 'proboscis'].includes(adaptation.id);
+      if (!mouth && count > adaptation.max) errors.push(`${adaptation.name}: příliš mnoho úchytů.`);
+      if (mouth) mouths++;
     }
     if (!finiteRange(part.axial, -1, 1) || !finiteRange(part.angle, -Math.PI, Math.PI) || !finiteRange(part.scale, .55, 1.65) || typeof part.mirrored !== 'boolean') errors.push('Neplatné umístění nebo měřítko části.');
     if (limbKind) {
