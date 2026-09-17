@@ -35,6 +35,7 @@ import { CANOPY_COPY, isAttachedCrust, releaseCanopyAfterMeal } from './reef-can
 import { resolveObstacleMotion } from './obstacle-geometry';
 import { reefWater } from './journey-network';
 import { reefBodyProfile, reefBodyRespiration } from './reef-body';
+import { emptyCreatureActions } from './creature-actions';
 const profileCache=new WeakMap<Genome,ReturnType<typeof functionalProfile>>();
 function profileFor(g:Genome){let p=profileCache.get(g);if(!p){p=functionalProfile(g);profileCache.set(g,p);}return p;}
 const statCache = new WeakMap<Genome,Stats>();
@@ -64,9 +65,15 @@ export function evolve(s:GameState,draft:Genome):{ok:boolean;errors:string[];cos
  if(!mutation.ok)return {...mutation,cost};
  if(s.player.bonds.length&&!has(draft,'symbiote'))return {ok:false,errors:[TEXT.occupiedSymbiote],cost};
  if(s.stage===2&&(!has(draft,'legs')||!has(draft,'lungs')))return {ok:false,errors:[TEXT.needLungs],cost};
- s.player.dna=s.journey.legacy?s.player.dna-cost:quoteJourneyEvolution(s,draft).remaining;s.player.genome=cloneGenome(draft);if(s.stage===2)s.player.pos.y=groundHeight(s.player.pos.x,s.player.pos.z,2)+organismGroundClearance(draft);s.player.generation++;s.campaign.stageReproductions++;
+ const nextGenome=cloneGenome(draft);
+ const nextDna=s.journey.legacy?s.player.dna-cost:(mutation as ReturnType<typeof quoteJourneyEvolution>).remaining;
+ const nextHeight=s.stage===2?groundHeight(s.player.pos.x,s.player.pos.z,2)+organismGroundClearance(nextGenome):s.player.pos.y;
+ const nextStats=statsFor(nextGenome);
+ s.player.dna=nextDna;s.player.genome=nextGenome;
+ if(nextGenome.version===2)s.player.creatureActions=emptyCreatureActions();else delete s.player.creatureActions;
+ if(s.stage===2){s.player.pos.y=nextHeight;if(nextGenome.version===2)s.player.velocity.y=0;}s.player.generation++;s.campaign.stageReproductions++;
  if(s.journey.reefEvolution)s.journey.reefEvolution.pumping=0;
- s.player.health=statsFor(s.player.genome).maxHealth;s.player.energy=Math.max(s.player.energy,75);s.player.oxygen=100;s.player.moisture=100;s.player.invulnerable=6;
+ s.player.health=nextStats.maxHealth;s.player.energy=Math.max(s.player.energy,75);s.player.oxygen=100;s.player.moisture=100;s.player.invulnerable=6;
  s.lineage.push({generation:s.player.generation,stage:s.stage,time:s.tick/60,name:draft.name,parts:draft.parts.map(p=>p.kind),event:TEXT.reproduction});
  s.world.patches.forEach(p=>{p.fertility=clamp(p.fertility+.02,0.15,1.5);});
  announce(s,TEXT.generationBorn(s.player.generation));makeCheckpoint(s);return {ok:true,errors:[],cost};
@@ -131,6 +138,7 @@ export function awaitingOrganismVictory(s:GameState):boolean {
 /** Explicit opt-in, including migrated old saves. No ecology is regenerated. */
 export function continueToTribeEra(s:GameState):boolean {
  if(s.stage!==LAST_ORGANISM_STAGE||!s.campaign.won||!s.campaign.finale||s.tribe||s.player.health<=0||s.deathReason)return false;
+ if(s.player.genome.version===2&&s.player.creatureActions)Object.assign(s.player.creatureActions,{jumpRecharge:0,communicationRecharge:0,communicationTime:0});
  s.stage=3;s.tribe=createTribe(s);
  s.lineage.push({generation:s.player.generation,stage:3,time:s.tick/60,name:s.player.genome.name,
   parts:s.player.genome.parts.map(p=>p.kind),event:CHAPTERS[3].title});

@@ -1,6 +1,6 @@
 import { SAVE_ERRORS } from './errors.cs';
 import type { GameState, Stage, World } from './types';
-import { ADAPTATIONS, computeStats, genomeCost, has, initialGenome, validateGenome } from './genome';
+import { CREATURE_ADAPTATIONS, computeStats, genomeCost, has, initialGenome, validateGenome } from './genome';
 import { SPECIES } from './content';
 import { emptyJourney } from './journey-types';
 import type { Journey } from './journey-types';
@@ -22,7 +22,7 @@ const MAX_BYTES = 8 * 1024 * 1024;
 const UINT32 = 0xffffffff;
 const MAX_COUNT = 1_000_000_000;
 const foods = ['algae', 'mineral', 'nectar', 'meat', 'detritus'];
-const adaptationIds: ReadonlySet<string> = new Set(ADAPTATIONS.map((item) => item.id));
+const adaptationIds: ReadonlySet<string> = new Set(CREATURE_ADAPTATIONS.map((item) => item.id));
 const knownSpecies = new Map(SPECIES.map((item) => [item.id, item]));
 type SavedEnvelope = { format: 'lumavora'; version: 3; savedAt: number; state: GameState };
 export interface SaveSummary { id: string; name: string; stage: number; generation: number; seed: number; updatedAt: number }
@@ -57,6 +57,15 @@ function gameId(value: unknown, path: string): string {
   const id = string(value, path, 96);
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) invalid(path, SAVE_ERRORS.invalidLineageId);
   return id;
+}
+
+function validateCreatureActions(value: unknown, path: string): void {
+  const actions = object(value, path, ['version', 'jumpRecharge', 'communicationRecharge', 'communicationTime', 'communicationSerial']);
+  oneOf(actions.version, [1], `${path}.version`);
+  number(actions.jumpRecharge, `${path}.jumpRecharge`, 0, 1.2);
+  number(actions.communicationRecharge, `${path}.communicationRecharge`, 0, 2);
+  number(actions.communicationTime, `${path}.communicationTime`, 0, .8);
+  number(actions.communicationSerial, `${path}.communicationSerial`, 0, MAX_COUNT, true);
 }
 
 function validateWorld(value: unknown, stage: Stage, seed: number, path: string): World {
@@ -617,12 +626,17 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   if ((version === 1 || journey.legacy) && s.player && typeof s.player === 'object' && !Array.isArray(s.player) && !Object.prototype.hasOwnProperty.call(s.player, 'scan')) (s.player as Record<string, unknown>).scan = 0;
   // Both legacy and early journey saves predate the independent ability timer.
   // Only its absence migrates; a present malformed timer or unknown field fails.
-  const missingRecharge = !!s.player && typeof s.player === 'object' && !Array.isArray(s.player) && !Object.prototype.hasOwnProperty.call(s.player, 'abilityRecharge');
-  if (missingRecharge) (s.player as Record<string, unknown>).abilityRecharge = 0;
-  const p = object(s.player, 'player', ['pos', 'velocity', 'heading', 'health', 'energy', 'oxygen', 'moisture', 'genome', 'dna', 'totalDna', 'generation', 'meals', 'kills', 'bonds', 'cooldown', 'abilityRecharge', 'scan', 'invulnerable', 'feeding', 'distance']);
-  const genomeErrors = validateGenome(p.genome, worldStage);
+  if (!s.player || typeof s.player !== 'object' || Array.isArray(s.player)) invalid('player', SAVE_ERRORS.objectRequired);
+  const rawPlayer = s.player as Record<string, unknown>;
+  const genomeErrors = validateGenome(rawPlayer.genome, worldStage);
   if (genomeErrors.length) invalid('player.genome', genomeErrors.join(' '));
-  const genome = p.genome as GameState['player']['genome'];
+  const genome = rawPlayer.genome as GameState['player']['genome'];
+  const missingRecharge = !Object.prototype.hasOwnProperty.call(rawPlayer, 'abilityRecharge');
+  if (missingRecharge) rawPlayer.abilityRecharge = 0;
+  const basePlayerKeys = ['pos', 'velocity', 'heading', 'health', 'energy', 'oxygen', 'moisture', 'genome', 'dna', 'totalDna', 'generation', 'meals', 'kills', 'bonds', 'cooldown', 'abilityRecharge', 'scan', 'invulnerable', 'feeding', 'distance'];
+  const requiredPlayerKeys = genome.version === 2 ? [...basePlayerKeys, 'creatureActions'] : basePlayerKeys;
+  const p = object(s.player, 'player', requiredPlayerKeys);
+  if (genome.version === 2) validateCreatureActions(p.creatureActions, 'player.creatureActions');
   const stats = computeStats(genome);
   vector(p.pos, 'player.pos'); vector(p.velocity, 'player.velocity', 100);
   number(p.heading, 'player.heading', -1e9, 1e9); number(p.health, 'player.health', 0, stats.maxHealth);
