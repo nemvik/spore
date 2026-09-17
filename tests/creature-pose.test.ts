@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { validateCreatureStructure } from '../src/game/creature-body';
 import { resolveCreatureAnatomy } from '../src/game/creature-anatomy';
 import { sampleCreaturePose, solveLimbPose } from '../src/game/creature-motion';
 import { creatureBodyFixture } from './fixtures/creature-bodies';
@@ -27,6 +28,29 @@ describe('articulated creature pose', () => {
     const target={x:0,y:-1,z:0},points=solveLimbPose(limb,target);
     expect(distance(points.at(-1)!,target)).toBeLessThan(.001);
     points.slice(1).forEach((p,i)=>expect(distance(p,points[i])).toBeCloseTo(limb.lengths[i],5));
+  });
+  it('plants a valid folded stance near the shorter reachable limit without stretching',()=>{
+    const g=creatureBodyFixture('quadruped'),hind=g.parts.find(p=>p.id==='hind-legs')!,front=g.parts.find(p=>p.id==='front-legs')!;
+    hind.angle=Math.PI;
+    hind.limb!.joints[0].offset={x:0,y:-.4,z:0};hind.limb!.joints[1].offset={x:0,y:-1.2,z:0};
+    front.limb!.joints[0].offset={x:.6,y:-.05,z:0};front.limb!.joints[1].offset={x:0,y:-.1,z:0};
+    expect(validateCreatureStructure(g)).toEqual([]);
+    const a=resolveCreatureAnatomy(g);expect(a.stanceErrors).toEqual([]);
+    const input={time:0,speed:0,airborne:false,feeding:0,communication:0,position:{x:0,y:a.groundClearance,z:0},heading:0,groundAt:()=>0};
+    const pose=sampleCreaturePose(g,input);
+    pose.limbs.forEach((limb,i)=>{
+      const source=a.limbs[i],foot=limb.points.at(-1)!;
+      expect(Math.abs(foot.y+a.groundClearance)).toBeLessThan(.001);
+      expect(limb.points[0]).toEqual(source.root);
+      limb.points.slice(1).forEach((p,j)=>expect(distance(p,limb.points[j])).toBeCloseTo(source.lengths[j],7));
+      if(limb.partId==='hind-legs'){
+        const goal={...source.points.at(-1)!,y:-a.groundClearance};
+        expect(distance(source.root,goal)).toBeGreaterThan(Math.abs(source.lengths[1]-source.lengths[0]));
+        expect(distance(source.root,goal)).toBeLessThan(source.lengths[0]+source.lengths[1]);
+        expect(distance(foot,goal)).toBeLessThan(.001);
+      }
+    });
+    expect(sampleCreaturePose(g,input)).toEqual(pose);
   });
   it.each(['biped','quadruped','longneck'] as const)('%s plants every sole on flat and sloping world terrain', kind => {
     const g=creatureBodyFixture(kind), anatomy=resolveCreatureAnatomy(g);

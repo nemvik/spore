@@ -197,7 +197,8 @@ export class GameRenderer {
   if(!isVehicle(g)&&g.version===2){
    const bounds=creaturePresentationBounds(this.editorModel!.userData.creatureAnatomy.bounds);
    const halfFov=Math.atan(Math.tan(THREE.MathUtils.degToRad(this.editorCamera.fov/2))*Math.min(1,this.editorCamera.aspect));
-   const distance=Math.max(this.editorZoom,bounds.radius/Math.sin(halfFov)*1.08);
+   const fittedDistance=Math.max(10,bounds.radius/Math.sin(halfFov)*1.08);
+   const distance=fittedDistance*this.editorZoom/10;
    this.editorCamera.position.set(Math.sin(this.editorYaw),.25+Math.sin(this.editorPitch),Math.cos(this.editorYaw)).normalize().multiplyScalar(distance).add(bounds.center);
    this.editorCamera.lookAt(bounds.center);
   }

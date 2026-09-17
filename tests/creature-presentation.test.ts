@@ -75,7 +75,7 @@ describe('creature framing and installed presentation',()=>{
   it.each(['editor','menu'] as const)('frames long-neck anatomy in the %s camera, including narrow viewports',mode=>{
     const game=createGame(481516);game.stage=2;game.player.genome=creatureBodyFixture('longneck');
     const renderer=Object.create(GameRenderer.prototype) as GameRenderer;
-    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,.65,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'idle',editorYaw:.65,editorPitch:.22,editorZoom:4,selectedPart:null,portraitScene:new THREE.Scene(),portraitCamera:new THREE.PerspectiveCamera(36,.65,.1,80),portraitModel:null as THREE.Group|null,portraitKey:'',portraitTime:{value:0}};
+    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,.65,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'idle',editorYaw:.65,editorPitch:.22,editorZoom:10,selectedPart:null,portraitScene:new THREE.Scene(),portraitCamera:new THREE.PerspectiveCamera(36,.65,.1,80),portraitModel:null as THREE.Group|null,portraitKey:'',portraitTime:{value:0}};
     Object.assign(renderer,fields);renderer.render(game,.1,mode,mode==='editor'?game.player.genome:undefined);
     const actual=renderer as unknown as typeof fields,model=(mode==='editor'?actual.editorModel:actual.portraitModel)!,camera=mode==='editor'?actual.editorCamera:actual.portraitCamera;
     camera.updateMatrixWorld(true);model.updateMatrixWorld(true);
@@ -85,6 +85,21 @@ describe('creature framing and installed presentation',()=>{
       expect(Math.abs(p.x)).toBeLessThan(.95);expect(Math.abs(p.y)).toBeLessThan(.95);
     }
     disposeObject(model);
+  });
+  it.each([16/9,.65])('uses the full editor zoom range relative to fitted anatomy at aspect %s',aspect=>{
+    const game=createGame(481516);game.stage=2;game.player.genome=creatureBodyFixture('longneck');
+    const renderer=Object.create(GameRenderer.prototype) as GameRenderer;
+    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,aspect,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'idle',editorYaw:.65,editorPitch:.22,editorZoom:10,selectedPart:null};
+    Object.assign(renderer,fields);const actual=renderer as unknown as typeof fields;
+    const distances=[5,10,22].map(zoom=>{
+      renderer.editorZoom=zoom;renderer.render(game,.1,'editor',game.player.genome);
+      const bounds=actual.editorModel!.userData.creatureAnatomy.bounds,center=new THREE.Vector3((bounds.min.x+bounds.max.x)/2,(bounds.min.y+bounds.max.y)/2,(bounds.min.z+bounds.max.z)/2);
+      return actual.editorCamera.position.distanceTo(center);
+    });
+    expect(distances[0]).toBeCloseTo(distances[1]*.5,7);
+    expect(distances[2]).toBeCloseTo(distances[1]*2.2,7);
+    expect(distances[0]).toBeLessThan(distances[1]);expect(distances[1]).toBeLessThan(distances[2]);
+    disposeObject(actual.editorModel!);
   });
   it('poses tribe descendants on world terrain with the same V2 limbs and genome',()=>{
     const game=createGame(481516);game.stage=3;game.world=createWorld(game.seed,2);game.player.genome=creatureBodyFixture('longneck');

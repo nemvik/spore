@@ -53,6 +53,23 @@ export function solveLimbPose(limb: ResolvedLimb, target: Vec3): Vec3[] {
     for(let i=1;i<=n;i++)points[i]=atDistance(points[i-1],points[i],limb.lengths[i-1],directions[i-1]);
     if(distance(points[n],goal)<=.001)break;
   }
+  // Near a two-bone chain's inner reach limit, FABRIK converges too slowly
+  // for the fixed pass budget. Intersect its two bone spheres in the resting
+  // bend plane as a constant-time fallback; neither length nor root changes.
+  if(n===2&&distance(points[n],goal)>.001){
+    const [a,b]=limb.lengths,d=Math.max(Math.abs(a-b),Math.min(reach,distance(limb.root,goal)));
+    if(d<1e-10){
+      points[1]=atDistance(limb.root,limb.points[1],a,directions[0]);points[2]={...limb.root};
+    }else{
+      const rest=directions[0],projection=rest.x*axis.x+rest.y*axis.y+rest.z*axis.z;
+      const perpendicular={x:rest.x-axis.x*projection,y:rest.y-axis.y*projection,z:rest.z-axis.z*projection};
+      const fallback=Math.abs(axis.x)<.9?{x:0,y:axis.z*limb.side,z:-axis.y*limb.side}:{x:-axis.z*limb.side,y:0,z:axis.x*limb.side};
+      const bend=atDistance({x:0,y:0,z:0},perpendicular,1,fallback);
+      const along=Math.max(-a,Math.min(a,(a*a-b*b+d*d)/(2*d))),height=Math.sqrt(Math.max(0,a*a-along*along));
+      points[1]={x:limb.root.x+axis.x*along+bend.x*height,y:limb.root.y+axis.y*along+bend.y*height,z:limb.root.z+axis.z*along+bend.z*height};
+      points[2]={x:limb.root.x+axis.x*d,y:limb.root.y+axis.y*d,z:limb.root.z+axis.z*d};
+    }
+  }
   return points;
 }
 
