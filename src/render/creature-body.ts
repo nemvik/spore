@@ -54,7 +54,7 @@ export function createCreatureLimb(limb: ResolvedLimb, materials: LimbMaterials)
   }
   const end=new THREE.Group();group.add(end);
   if(limb.end.kind!=='none'){
-    const size=limb.end.scale;
+    const size=limb.end.scale;end.userData.style=limb.end.style;end.userData.kind=limb.end.kind;
     if(limb.end.kind==='foot'){
       end.name='creature-foot';end.userData.style=limb.end.style;
       // The sole's lowest vertex is exactly the IK endpoint (Y=0).
@@ -67,12 +67,12 @@ export function createCreatureLimb(limb: ResolvedLimb, materials: LimbMaterials)
       }
     }else if(limb.end.style==='palm'){
       end.name='creature-hand';ellipsoid(end,materials.skin,0,-.07*size,0,.15*size,.18*size,.075*size);
-      for(let i=0;i<4;i++)ellipsoid(end,materials.detail,(i-1.5)*.067*size,-.25*size,.025*size,.035*size,.14*size,.04*size);
+      for(let i=0;i<4;i++){const finger=ellipsoid(end,materials.detail,(i-1.5)*.067*size,-.25*size,.025*size,.035*size,.14*size,.04*size);finger.userData.finger=i-1.5;}
       ellipsoid(end,materials.detail,limb.side*.17*size,-.10*size,.04*size,.065*size,.10*size,.045*size);
     }else{
       end.name='creature-pincer';ellipsoid(end,materials.skin,0,-.05*size,0,.17*size,.13*size,.10*size);
       for(const side of [-1,1]){
-        const finger=ellipsoid(end,materials.detail,side*.14*size,-.22*size,0,.085*size,.23*size,.09*size);finger.rotation.z=-side*.35;
+        const finger=ellipsoid(end,materials.detail,side*.14*size,-.22*size,0,.085*size,.23*size,.09*size);finger.rotation.z=-side*.35;finger.userData.finger=side;
       }
     }
   }
@@ -81,12 +81,14 @@ export function createCreatureLimb(limb: ResolvedLimb, materials: LimbMaterials)
   poseCreatureLimb(group,limb.points);return group;
 }
 const up=new THREE.Vector3(0,1,0);
-export function poseCreatureLimb(group:THREE.Group,points:Vec3[]):void{
+export function poseCreatureLimb(group:THREE.Group,points:Vec3[],gesture=0):void{
   const bones=group.userData.bones as THREE.Mesh[],joints=group.userData.joints as THREE.Mesh[];
   points.forEach((p,i)=>{
     joints[i].position.set(p.x,p.y+(i===points.length-1?group.userData.footRadius:0),p.z);
     if(i){const a=points[i-1],delta=new THREE.Vector3(p.x-a.x,p.y-a.y,p.z-a.z),bone=bones[i-1];bone.position.set((p.x+a.x)/2,(p.y+a.y)/2,(p.z+a.z)/2);bone.scale.y=delta.length();bone.quaternion.setFromUnitVectors(up,delta.normalize());}
   });
+  const end=group.userData.end as THREE.Group,phase=Math.min(1,Math.max(0,gesture));
+  if(end.userData.kind==='hand')for(const finger of end.children){const side=finger.userData.finger;if(side===undefined)continue;finger.rotation.z=end.userData.style==='palm'?side*.12*phase:-side*(.35+.22*phase);}
   const p=points.at(-1)!;(group.userData.end as THREE.Group).position.set(p.x,p.y,p.z);group.userData.points=points;
 }
 

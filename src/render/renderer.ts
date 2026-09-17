@@ -1,3 +1,4 @@
+import type { CreatureCapabilities } from '../game/creature-capabilities';
 import type { CreatureAnatomy } from '../game/creature-anatomy';
 import { createCreatureHandles, startCreatureDrag, creatureDragDelta, type CreatureHandle, type CreatureDrag } from './creature-handles';
 import { upgradeCreatureGenome } from '../game/creature-body';
@@ -181,7 +182,7 @@ export class GameRenderer {
  pickCommand(s:GameState,x:number,y:number):CommandTarget|null{const ray=commandRay(this.camera,x,y,this.renderer.domElement.getBoundingClientRect());return ray?pickCommandTarget(ray,this.commandVolumes(s)):null;}
  selectCommand(s:GameState,rect:ScreenRect):CommandUnitRef[]{return selectCommandUnits(this.camera,this.renderer.domElement.getBoundingClientRect(),rect,this.commandVolumes(s));}
  commandGround(s:GameState,x:number,y:number):Vec3|null{const ray=commandRay(this.camera,x,y,this.renderer.domElement.getBoundingClientRect());return ray?terrainDestination(ray,s.world):null;}
- editorAnatomy:CreatureAnatomy|undefined;creatureSelection:CreatureSelection|null=null;creatureConstruction=false;private creatureHandles:THREE.Group|null=null;private creatureHandleKey='';
+ editorCapabilities:CreatureCapabilities|undefined;editorAnatomy:CreatureAnatomy|undefined;creatureSelection:CreatureSelection|null=null;creatureConstruction=false;private creatureHandles:THREE.Group|null=null;private creatureHandleKey='';
  previewStage:Stage|null=null;
  private renderEditor(g:Genome|Blueprint,stage:Stage,legacy=false,reefEvolution=false){
   const vehicle=isVehicle(g),key=JSON.stringify(g);
@@ -191,7 +192,7 @@ export class GameRenderer {
   else{
    const phase=time%1.8,feeding=this.previewMode==='feed'&&phase<.72?Math.sin(phase/.72*Math.PI):0;
    const reef=reefEvolution&&stage===1,pumping=reef&&this.previewMode==='feed'?1:0;
-   const motion=reef?reefBodyProfile(g,pumping).motion:locomotionProfile(g,stage,legacy,this.editorAnatomy);
+   const motion=reef?reefBodyProfile(g,pumping).motion:g.version===2&&stage>=2&&this.editorCapabilities?{...this.editorCapabilities.walk,verticalThrust:0}:locomotionProfile(g,stage,legacy,this.editorAnatomy);
    if(this.creatureConstruction&&g.version===2){const anatomy=this.editorAnatomy??this.editorModel!.userData.creatureAnatomy as CreatureAnatomy;(this.editorModel!.userData.creatureLimbs as THREE.Group[]).forEach((limb,i)=>poseCreatureLimb(limb,anatomy.limbs[i].points));}
    else animateOrganism(this.editorModel!,time,this.previewMode==='move'?motion.speed:0,0,stage,feeding,0,undefined,undefined,this.editorAnatomy);
    setReefFilterOpening(this.editorModel!,reef?pumping:null);

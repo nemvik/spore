@@ -76,7 +76,20 @@ export function creatureBodyGroundClearance(g: CreatureGenome): number {
   return Math.max(0, -lowest);
 }
 
+const installedAnatomy = new WeakMap<CreatureGenome, CreatureAnatomy>();
+/** Only simulation's installed generation boundary opts into identity reuse.
+ * Deep protection is essential: plain mutable genomes must always derive afresh.
+ * Replacing/cloning a genome starts a new generation cache entry automatically.
+ */
+export function prepareInstalledCreatureAnatomy(g: CreatureGenome): CreatureAnatomy {
+  const existing = installedAnatomy.get(g); if (existing) return existing;
+  const protect = (value: object): void => { for (const child of Object.values(value)) if (child && typeof child === 'object') protect(child); Object.freeze(value); };
+  protect(g);
+  const anatomy = resolveCreatureAnatomy(g); protect(anatomy); installedAnatomy.set(g, anatomy); return anatomy;
+}
+
 export function resolveCreatureAnatomy(g: CreatureGenome): CreatureAnatomy {
+  const installed = installedAnatomy.get(g); if (installed) return installed;
   const limbs: ResolvedLimb[] = [], hull: ContactSphere[] = [];
   const bounds = { min: { x: Infinity, y: Infinity, z: Infinity }, max: { x: -Infinity, y: -Infinity, z: -Infinity } };
   const include = (p: Vec3, radius = 0) => {

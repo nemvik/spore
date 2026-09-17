@@ -9,7 +9,7 @@ export interface CreaturePoseInput {
   groundAt: (x: number, z: number) => number;
 }
 export interface CreaturePose {
-  limbs: { partId: string; side: -1 | 1; points: Vec3[] }[];
+  limbs: { partId: string; side: -1 | 1; points: Vec3[]; gesture: number }[];
   bodyOffset: Vec3; mouthOpen: number; gesture: number;
 }
 const distance = (a: Vec3, b: Vec3) => Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
@@ -84,9 +84,13 @@ export function sampleCreaturePose(g: CreatureGenome, input: CreaturePoseInput, 
   const bodyOffset={x:0,y:0,z:0},c=Math.cos(input.heading),s=Math.sin(input.heading);
   const limbs=anatomy.limbs.map(limb=>{
     const rest=limb.points.at(-1)!,target={...rest};
+    // Default .8 hands retain the original amplitude; larger resolved hands
+    // (including part scale exactly once) grow it smoothly, capped at 1.5×.
+    const handGesture=limb.end.kind==='hand'?gesture*Math.min(1.5,Math.sqrt(limb.end.scale/.8)):0;
     const part=g.parts.find(p=>p.id===limb.partId)!;
     const phase=input.time*7+(limb.side<0?Math.PI:0)+(part.axial>stanceMidpoint&&part.kind==='legs'?Math.PI:0);
-    if(!anatomy.stanceErrors.length){
+    const canPose=!anatomy.stanceErrors.length||part.kind==='arms'&&handGesture>0;
+    if(canPose){
       if(part.kind==='legs'){
         if(input.airborne){target.y+=.34;target.z-=.18;target.x+=(limb.root.x-target.x)*.18;}
         else if(limb.end.kind==='foot'){
@@ -96,11 +100,11 @@ export function sampleCreaturePose(g: CreatureGenome, input: CreaturePoseInput, 
         }
       }else{
         target.z-=Math.cos(phase)*.10*movement;
-        target.y+=gesture*(.30+.08*Math.sin(input.time*9));
-        target.x+=limb.side*gesture*.10;
+        target.y+=handGesture*(.30+.08*Math.sin(input.time*9));
+        target.x+=limb.side*handGesture*.10;
       }
     }
-    return {partId:limb.partId,side:limb.side,points:anatomy.stanceErrors.length?limb.points.map(p=>({...p})):solveLimbPose(limb,target)};
+    return {partId:limb.partId,side:limb.side,gesture:handGesture,points:canPose?solveLimbPose(limb,target):limb.points.map(p=>({...p}))};
   });
   return {limbs,bodyOffset,mouthOpen:Math.min(1,Math.max(0,input.feeding)),gesture};
 }

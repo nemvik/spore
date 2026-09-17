@@ -44,3 +44,5 @@
 .creature-panel .creature-number{display:grid;grid-template-columns:1fr 85px;align-items:center;gap:9px;font-size:12px;margin:12px 0}.creature-number input{width:85px;padding:8px}.creature-panel select{display:block;width:100%;margin-top:6px;padding:8px}.creature-panel input[data-genome=name]{width:100%;margin-top:6px}
 .creature-buttons{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.creature-buttons button{padding:8px;font-size:11px}.creature-slot{border:1px dashed var(--line);padding:10px;margin:15px 0}.creature-slot h3{font-size:18px}.creature-caption p{letter-spacing:0;font-size:11px;margin:10px 0;line-height:1.6}.creature-caption~.editor-body-name{bottom:110px;pointer-events:none}
 .creature-panel button:focus-visible,.creature-panel input:focus-visible,.creature-panel select:focus-visible{outline:2px solid #ffdf91;outline-offset:3px}.editor-tools .secondary{padding:10px;font-size:12px}
+
+.creature-ability{margin:14px 0}.creature-ability .row{align-items:baseline;gap:8px}.creature-ability b{font-size:12px;white-space:nowrap}.creature-ability em{font-style:normal;color:var(--mint);font-size:10px}.creature-ability p{margin:5px 0;color:var(--muted)}

@@ -424,7 +424,8 @@ export function createOrganism(genome: Genome, derived?: CreatureAnatomy): THREE
     mat.roughness = genome.body.skin.finish === 'smooth' ? .36 : .72;
     const surface = mesh(createCreatureSurface(genome), mat, visual); surface.name = 'organism-surface';
     group.userData.attachmentSurface = surface;
-    group.userData.creatureGenome = genome;
+    // Keep pose genes aligned with this model even if a caller edits its draft.
+    group.userData.creatureGenome = structuredClone(genome);
     group.userData.creatureAnatomy = anatomy;
     group.userData.stanceErrors = anatomy.stanceErrors;
     group.userData.creatureLimbs = anatomy.limbs.map(limb => {
@@ -587,10 +588,10 @@ export function animateOrganism(group: THREE.Group, time: number, speed: number,
       position: { x: 0, y: 0, z: 0 }, heading: 0,
       groundAt: () => -group.userData.creatureAnatomy.groundClearance,
       ...creatureInput,
-    }, derived);
+    }, derived ?? group.userData.creatureAnatomy);
     const visual = group.userData.visual as THREE.Group;
     visual.position.set(pose.bodyOffset.x, pose.bodyOffset.y, pose.bodyOffset.z);
-    pose.limbs.forEach((limb, index) => poseCreatureLimb(group.userData.creatureLimbs[index], limb.points));
+    pose.limbs.forEach((limb, index) => poseCreatureLimb(group.userData.creatureLimbs[index], limb.points, limb.gesture));
   }
   for (const m of motions) {
     const t = time * (stage === 2 ? 7 : 4.8) + m.phase;

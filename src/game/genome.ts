@@ -56,7 +56,7 @@ export function computeStats(genome: Genome, derived?: CreatureAnatomy): Stats {
     acceleration: clamp(7 + flagellum * 1.8 + fins * 1.5 + jet * 4 - mass * 0.45, 2, 22),
     turn: clamp(3.3 + fins * 0.5 + strength('antenna') * 0.08 - shell * 0.3 - tail * 0.2 - strength('recycler') * 0.12 - Math.max(0, genome.length - 1) * 0.4, 0.9, 6),
     maxHealth: Math.round(90 + genome.width * 15 + shell * 28 + legs * 6),
-    damage: Math.round(7 + strength('jaw') * 24 + strength('spines') * 5 + strength('toxin') * 3),
+    damage: Math.round(7 + (genome.version === 2 ? organOutput(strength('jaw')) : strength('jaw')) * 24 + strength('spines') * 5 + strength('toxin') * 3),
     armor: clamp(shell * 0.18 + strength('spines') * 0.035 + strength('toxin') * 0.04, 0, 0.72),
     metabolism: clamp(0.85 + body * 0.08 + flagellum * 0.08 + fins * 0.05 + tail * 0.06 + legs * 0.06 + jet * 0.2 + strength('jaw') * 0.1 + strength('filter') * 0.03 + strength('proboscis') * 0.04 + strength('eyes') * 0.035 + strength('antenna') * 0.025 + strength('sonar') * 0.07 + shell * 0.035 + strength('spines') * 0.035 + strength('toxin') * 0.09 + strength('lungs') * 0.04 + strength('symbiote') * 0.05 - strength('chloroplast') * 0.12 - strength('recycler') * 0.12, 0.45, 3.6),
     sense: 15 + strength('eyes') * 10 + strength('antenna') * 7 + strength('sonar') * 15,

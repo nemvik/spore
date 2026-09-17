@@ -1,3 +1,4 @@
+import { prepareInstalledCreatureAnatomy } from './creature-anatomy';
 import { bodyCollisionRadius } from './body-shape';
 import { stepTribeWildlife } from './tribe-wildlife';
 import { activeTribe, createTribe, stepTribe, tribeReady } from './tribe';
@@ -39,7 +40,7 @@ import { emptyCreatureActions } from './creature-actions';
 const profileCache=new WeakMap<Genome,ReturnType<typeof functionalProfile>>();
 function profileFor(g:Genome){let p=profileCache.get(g);if(!p){p=functionalProfile(g);profileCache.set(g,p);}return p;}
 const statCache = new WeakMap<Genome,Stats>();
-export function statsFor(g:Genome) { let s=statCache.get(g);if(!s){s=computeStats(g);statCache.set(g,s);}return s; }
+export function statsFor(g:Genome) { let s=statCache.get(g);if(!s){s=computeStats(g,g.version===2?prepareInstalledCreatureAnatomy(g):undefined);statCache.set(g,s);}return s; }
 export function announce(s:GameState,text:string) { if(s.messages.at(-1)?.text===text&&s.world.time-s.messages.at(-1)!.time<3)return; s.messages.push({id:Math.max(s.tick,s.messages.at(-1)?.id??0)+1,text,time:s.world.time}); if(s.messages.length>6)s.messages.shift(); }
 /** Legacy mode preserves the published benchmark fixtures; the UI explicitly starts a journey. */
 export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution=false,ecology=false):GameState {

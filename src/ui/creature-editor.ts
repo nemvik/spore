@@ -1,3 +1,6 @@
+import { locomotionProfile } from '../game/physiology';
+import { CREATURE_COPY as CC } from './creature-copy.cs';
+import { creatureCapabilities, type CreatureCapabilities } from '../game/creature-capabilities';
 import { resolveCreatureAnatomy, type CreatureAnatomy } from '../game/creature-anatomy';
 import { computeStats } from '../game/genome';
 import type { Stats } from '../game/types';
@@ -70,11 +73,26 @@ export function canAddCreaturePart(g:Genome,kind:AdaptationId):boolean {
 }
 export function defaultCreatureLimb(kind:'legs'|'arms'):LimbGene {return kind==='legs'?{joints:[{id:'knee',offset:{x:.48,y:-.34,z:-.14},radius:.135},{id:'ankle',offset:{x:.77,y:-1.14,z:.16},radius:.1}],end:{kind:'foot',style:'pad',scale:1}}:{joints:[{id:'elbow',offset:{x:.3,y:-.2,z:.08},radius:.11},{id:'wrist',offset:{x:.5,y:-.48,z:.2},radius:.08}],end:{kind:'hand',style:'palm',scale:.8}};}
 
-export interface CreaturePreview {revision:number;genome:Genome;anatomy?:CreatureAnatomy;stats:Stats;}
+export interface CreaturePreview {revision:number;genome:Genome;anatomy?:CreatureAnatomy;stats:Stats;capabilities?:CreatureCapabilities;}
 /** Editor-local content revisions: never put the mutable draft in installed runtime caches.
  * Call once from the RAF refresh after input; all consumers share this snapshot.
  */
 export function createCreaturePreviewCache():(g:Genome)=>CreaturePreview {
  let key='',revision=0,current:CreaturePreview;
- return g=>{const next=JSON.stringify(g);if(next!==key){key=next;const genome=copy(g),anatomy=genome.version===2?resolveCreatureAnatomy(genome):undefined;current={revision:++revision,genome,anatomy,stats:computeStats(genome,anatomy)};}return current;};
+ return g=>{const next=JSON.stringify(g);if(next!==key){key=next;const genome=copy(g),anatomy=genome.version===2?resolveCreatureAnatomy(genome):undefined;const stats=computeStats(genome,anatomy);current={revision:++revision,genome,anatomy,stats,capabilities:genome.version===2?creatureCapabilities(genome,anatomy,stats):undefined};}return current;};
+}
+
+
+export interface CreatureAbilityRow {key:'walk'|'jump'|'bite'|'communicate';label:string;value:number;previous:number;unit:string;detail:string;reason?:string;}
+/** Compare each version's real rules, never an upgraded imaginary original. */
+export function creatureAbilityRows(preview:CreaturePreview,original:Genome,legacy=false):CreatureAbilityRow[] {
+ const g=preview.genome,c=preview.capabilities,old=original.version===2?creatureCapabilities(original):undefined;
+ const oldWalk=old?.walk.speed??locomotionProfile(original,2,legacy).speed;
+ const oldBite=old?.bite.damage??(original.parts.some(p=>p.kind==='jaw')?computeStats(original).damage:0);
+ const walk=c?.walk??locomotionProfile(g,2,legacy),bite=c?.bite;
+ const rows:CreatureAbilityRow[]=[{key:'walk',label:CC.walk,value:walk.speed,previous:oldWalk,unit:' m/s',detail:`Zatáčení ${walk.turnRate.toFixed(1)} rad/s`,reason:c?.reasons.walk}];
+ if(c)rows.push({key:'jump',label:CC.jump,value:c.jump.velocity**2/(2*16),previous:old?old.jump.velocity**2/(2*16):0,unit:' m',detail:`${CC.jumpSupport} Obnova ${c.jump.recharge.toFixed(1)} s.`,reason:c.reasons.jump});
+ rows.push({key:'bite',label:CC.bite,value:bite?.damage??(g.parts.some(p=>p.kind==='jaw')?preview.stats.damage:0),previous:oldBite,unit:'',detail:'Poškození jednoho cíle · 1,6 energie · 0,5 s · obnova 0,65 s',reason:bite?c?.reasons.bite:g.parts.some(p=>p.kind==='jaw')?undefined:'Kousnutí potřebuje čelist.'});
+ if(c){const mode=c.communicate.mode,oldMode=old?.communicate.mode;rows.push({key:'communicate',label:mode==='gesture'?CC.gesture:CC.voice,value:c.communicate.range,previous:old?.communicate.range??0,unit:' m',detail:`${CC.signal} · 0,8 s · obnova 2 s${oldMode&&oldMode!==mode?`; původně ${oldMode==='voice'?'hlas':oldMode==='gesture'?'gesto':'bez signálu'}`:''}`,reason:c.reasons.communicate});}
+ return rows;
 }

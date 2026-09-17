@@ -1,4 +1,6 @@
 export const CREATURE_COPY={
+ abilities:'Schopnosti těla',walk:'Chůze',jump:'Skok',bite:'Kousnutí',voice:'Hlas',gesture:'Gesto',signal:'Dosah signálu',
+ jumpSupport:'Odraz vyžaduje oporu a 5 energie; za letu nelze skočit znovu.',legacyAbilities:'Skok a komunikace nejsou pro původní tělo dostupné.',
  open:'Upravit kostru',body:'Tělo',parts:'Části',skin:'Povrch',build:'Stavba',try:'Zkouška',
  spine:'Páteř',spineHelp:'Jedna spojitá páteř. Vyber obratel číslem nebo madlem; krajní obratle zůstávají na místě.',
  handleHelp:'Levé tažení upraví madlo. Šipky: výška a délka; Shift + šipky: šířka. Pravé tažení otáčí, kolečko přibližuje.',

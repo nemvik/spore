@@ -1,3 +1,4 @@
+import { creatureCapabilities } from './creature-capabilities';
 import type { CreatureAnatomy } from './creature-anatomy';
 import { bodyWidth } from './body-shape';
 import { computeStats, functionalProfile, has } from './genome';
@@ -23,6 +24,7 @@ const pairedLegOutput = -Math.expm1(-1.6 * .65);
  * what computeStats says it weighs. Sprint and exhaustion are applied by callers.
  */
 export function locomotionProfile(genome: Genome, stage: Stage, legacy = false, derived?: CreatureAnatomy): LocomotionProfile {
+  if (genome.version === 2 && stage >= 2) return { ...creatureCapabilities(genome, derived).walk, verticalThrust: 0 };
   const stats = computeStats(genome, derived), aquatic = functionalProfile(genome, derived);
   if (stage < 2 || legacy) {
     const medium = stage === 2 ? Math.max(.35, stats.walk) : Math.max(.6, stats.swim);
