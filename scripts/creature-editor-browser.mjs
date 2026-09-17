@@ -7,6 +7,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { runDomain, isAcceptanceComplete } from './creature-editor-acceptance.mjs';
 const phase=process.argv.find(a=>a.startsWith('--phase='))?.slice(8)??'all';
 assert.ok(['all','comparison','terrain','edge','earned','performance'].includes(phase),'Unknown acceptance phase');
 const base = process.env.LUMAVORA_URL ?? 'http://127.0.0.1:5183';
@@ -168,6 +169,7 @@ async function savedWorkflow(result){
   await shot(`${result.kind}-terrain`);
   result.terrainSave=await exportSave(`${result.kind}-terrain`);
   result.checks.push('full genome/cost/capability export import refresh load','native held jump/voice single edge through cooldown','native >20m slope and turns around tree163');
+  assert.deepEqual(errors,[]);
 }
 async function comparison(){
   const shots=[];
@@ -182,6 +184,7 @@ async function comparison(){
   const rows=await Promise.all(shots.map(async s=>`<section><h2>${s.kind}</h2><img src="data:image/png;base64,${(await readFile(path.join(out,s.name+'.png'))).toString('base64')}"/></section>`));
   await composed.setContent(`<style>body{margin:0;background:#102f34;color:#e2f1dc;font:16px system-ui}h1{margin:20px 28px 6px}p{margin:0 28px 20px}section{height:400px;display:grid;grid-template-columns:240px 800px;align-items:center;border-top:1px solid #456568}h2{padding-left:28px;font-size:22px}img{width:800px;height:400px}</style><h1>Three bodies built through ordinary UI</h1><p>Equal world projection: distance17, FOV40°, yaw0.95, pitch0.15; same 1440×900 viewport. Prepared coast budget.</p>${rows.join('')}`);
   await composed.screenshot({path:path.join(out,'comparison.png')});await composed.close();
+  assert.deepEqual(errors,[]);
 }
 async function offlineModules(){
   const {createServer}=await import('vite');const server=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom',logLevel:'error'});
@@ -242,10 +245,10 @@ async function earnedContinuation(){
 }
 
 try {
-  if(process.argv.includes('--saved-only')||process.argv.includes('--resume-construction')){report=JSON.parse(await readFile(path.join(out,'results.json'),'utf8'));delete report.failure;delete report.state;report.passed=false;const kinds=['biped','quadruped','longneck'];if(process.argv.includes('--resume-construction')){assert.ok(report.results.length<3);assert.deepEqual(report.results.map(r=>r.kind),kinds.slice(0,report.results.length),'Resume requires a verified construction prefix');for(const kind of kinds.slice(report.results.length))await build(kind);}else assert.deepEqual(report.results.map(r=>r.kind),kinds,'Saved-only requires the complete UI-paid matrix');}
+  if(process.argv.includes('--saved-only')||process.argv.includes('--resume-construction')){report=JSON.parse(await readFile(path.join(out,'results.json'),'utf8'));delete report.failure;delete report.state;report.passed=false;report.acceptanceComplete=false;const kinds=['biped','quadruped','longneck'];if(process.argv.includes('--resume-construction')){assert.ok(report.results.length<3);assert.deepEqual(report.results.map(r=>r.kind),kinds.slice(0,report.results.length),'Resume requires a verified construction prefix');for(const kind of kinds.slice(report.results.length))await build(kind);}else assert.deepEqual(report.results.map(r=>r.kind),kinds,'Saved-only requires the complete UI-paid matrix');}
   else for(const kind of (process.argv.includes('--red')||process.argv.includes('--production-smoke'))?['biped']:['biped','quadruped','longneck'])await build(kind);
   if(process.argv.includes('--production-smoke')){assert.equal(await page.evaluate(()=>typeof window.advanceTime),'undefined');const r=report.results[0];await importSave(r.save);await page.reload();await action('saves');await loadLatest();assert.deepEqual((await read()).player.genome,r.genome);assert.deepEqual((await read()).creatureCapabilities,r.capabilities);report.productionV2=true;report.productionResources=await page.evaluate(()=>performance.getEntriesByType('resource').map(e=>e.name).filter(name=>/\.(js|css)(\?|$)/.test(name)));}
-  else if(!process.argv.includes('--red')){if(['all','comparison'].includes(phase)&&!(process.argv.includes('--remaining')&&report.results.every(r=>r.comparisonProjection)))await comparison();if(!process.argv.includes('--construction')){if(['all','terrain'].includes(phase))for(const result of report.results)if(!(process.argv.includes('--remaining')&&result.travelDistance>=20))await savedWorkflow(result);if(['all','edge'].includes(phase))await edgeSaves();if(['all','earned'].includes(phase))await earnedContinuation();if(['all','performance'].includes(phase))await performance();}}
-  assert.deepEqual(errors,[]);report.passed=true;report.lastSuccessfulPhase=process.argv.includes('--construction')?'construction':phase;report.acceptanceComplete=report.results.length===3&&report.results.every(r=>r.travelDistance>=20&&r.comparisonProjection)&&!!report.edgeSaves?.passed&&!!report.earned?.passed&&report.performance?.results.length===4;if(phase==='all'&&!['--red','--construction','--production-smoke'].some(flag=>process.argv.includes(flag)))assert.equal(report.acceptanceComplete,true,'All acceptance domains must complete');
-} catch(error) { report.passed=false;report.failure=String(error.stack);report.state=await read().catch(()=>null);await shot('failure').catch(()=>{});console.error(error);process.exitCode=1; }
-finally {report.completedAt=new Date().toISOString();report.browser=browser.version();report.invocation=process.argv.slice(2);report.scriptSha256=createHash('sha256').update(await readFile('scripts/creature-editor-browser.mjs')).digest('hex');report.sourceHashes=sourceHashes;report.errors=errors;report.environmentWarnings=warnings;await writeFile(path.join(out,'results.json'),JSON.stringify(report,null,2));if(process.env.LUMAVORA_TRACE==='1')await context.tracing.stop({path:path.join(out,'trace.zip')});await browser.close();}
+  else if(!process.argv.includes('--red')){if(['all','comparison'].includes(phase))await runDomain(report,'comparison',comparison,{remaining:process.argv.includes('--remaining')});if(!process.argv.includes('--construction')){if(['all','terrain'].includes(phase))for(const result of report.results)await runDomain(result,'terrain',()=>savedWorkflow(result),{remaining:process.argv.includes('--remaining')});if(['all','edge'].includes(phase))await edgeSaves();if(['all','earned'].includes(phase))await earnedContinuation();if(['all','performance'].includes(phase))await performance();}}
+  assert.deepEqual(errors,[]);report.passed=true;report.lastSuccessfulPhase=process.argv.includes('--construction')?'construction':phase;report.acceptanceComplete=isAcceptanceComplete(report);if(phase==='all'&&!['--red','--construction','--production-smoke'].some(flag=>process.argv.includes(flag)))assert.equal(report.acceptanceComplete,true,'All acceptance domains must complete');
+} catch(error) { report.passed=false;report.acceptanceComplete=false;report.failure=String(error.stack);report.state=await read().catch(()=>null);await shot('failure').catch(()=>{});console.error(error);process.exitCode=1; }
+finally {report.completedAt=new Date().toISOString();report.browser=browser.version();report.invocation=process.argv.slice(2);report.scriptSha256=createHash('sha256').update(await readFile('scripts/creature-editor-browser.mjs')).digest('hex');report.completionHelperSha256=createHash('sha256').update(await readFile('scripts/creature-editor-acceptance.mjs')).digest('hex');report.sourceHashes=sourceHashes;report.errors=errors;report.environmentWarnings=warnings;await writeFile(path.join(out,'results.json'),JSON.stringify(report,null,2));if(process.env.LUMAVORA_TRACE==='1')await context.tracing.stop({path:path.join(out,'trace.zip')});await browser.close();}
