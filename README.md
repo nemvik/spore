@@ -6,6 +6,8 @@ LUMAVORA je singleplayerová 3D evoluční hra pro desktopový prohlížeč. Za�
 
 Hra běží lokálně bez účtu, backendu, placených API a runtime CDN. Grafika i zvuk vznikají procedurálně ze zdrojového kódu. Původ obsahu a licence knihoven uvádí [ASSET_CREDITS.md](ASSET_CREDITS.md).
 
+**Další vývoj směrem ke Spore:** [aktuální brief](docs/spore/BRIEF.md), [tracker 17 bodů a jejich dokončení](docs/spore/ROADMAP.md) a [audit současné implementace](docs/2026-09-17-spore-similarity-audit.md). Nový směr pokračuje za terraformaci do vesmíru a dobrodružství; níže je popsaný dosavadní hratelný rozsah.
+
 ## Spuštění
 
 Použij Node.js 22.12 nebo novější a pnpm 11.24.0, uvedený v `package.json`. Z kořene repozitáře:

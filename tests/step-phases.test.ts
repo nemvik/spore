@@ -7,6 +7,8 @@ import { createGame, statsFor, step } from '../src/game/simulation';
 import { EMPTY_INPUT } from '../src/game/types';
 import type { GameState, Input, } from '../src/game/types';
 import { createWorld, surfaceY } from '../src/game/world';
+import linuxReference from './fixtures/step-phases/linux-x64.json';
+import contactSlide from './fixtures/step-phases/contact-slide.json';
 
 const SEEDS = [481516, 20260913, 8675309];
 
@@ -64,7 +66,7 @@ function fingerprint(state: GameState): string {
 }
 
 describe('step phase ordering characterization', () => {
-  it('preserves every tick of the pre-refactor simulation in all habitats and journey modes', () => {
+  it('matches verified full simulation traces including the contact-slide correction', () => {
     const reference: Record<string, { state: string; trace: string; ecology: string }> = {};
     for (const legacy of [true, false]) for (const seed of SEEDS) for (const stage of [0, 1, 2] as const) {
       const state = fixture(seed, stage, legacy);
@@ -81,10 +83,13 @@ describe('step phase ordering characterization', () => {
         ecology: `rng=${state.world.rng}; resources=${state.world.resources.length}; depleted=${state.world.resources.filter(food => food.amount < 1).length}; creatures=${state.world.creatures.length}; meals=${state.player.meals}; births=${state.world.births}; deaths=${state.world.deaths}`,
       };
     }
-    // Recorded against the original monolithic step(). Update only when an
-    // intentional simulation behavior change has been independently reviewed.
-    expect(reference).toMatchInlineSnapshot(`
-      {
+    // The original macOS/arm64 reference remains unchanged. Math functions may
+    // differ in their last bits when compiled with fused multiply-add. The
+    // second complete profile was checked tick-by-tick against the original
+    // monolithic simulation, not recorded blindly from a failing current run.
+    // The six stage-1 cases are then explicitly updated for SP-001's contact
+    // correction in each profile. See fixtures/step-phases/README.md.
+    const historicalReference = {
         "current:20260913:0": {
           "ecology": "rng=2246381005; resources=79; depleted=2; creatures=10; meals=6; births=0; deaths=0",
           "state": "b2b18aff0f4ea85186dba7180e1957c40a0c100627f906c2f30a5c3ee90df6ae",
@@ -175,7 +180,14 @@ describe('step phase ordering characterization', () => {
           "state": "38ab1dc8cecf63dab88b1f5478898e43de766dc7cd279ef8dd97f0db01e49481",
           "trace": "a0e107459ada420f08244f0adb4d6adbbfece9c9b7a6945929220ebabe84db94",
         },
-      }
-    `);
+    };
+    // Match one entire profile: do not mix per-case hashes, round game state,
+    // drop fields, or accept arbitrary new results for another runtime.
+    const verifiedProfiles = [
+      { ...historicalReference, ...contactSlide.profiles.fma },
+      { ...linuxReference.cases, ...contactSlide.profiles.native },
+    ];
+    expect(verifiedProfiles, 'Simulation diverged from both verified post-correction numerical profiles')
+      .toContainEqual(reference);
   }, 20_000);
 });

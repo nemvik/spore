@@ -2,6 +2,21 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-001 · testové odchylky vyřešeny · 2026-09-17
+
+- Opravena ztráta pohybu podél útesového sloupu při zaokrouhlení koncového bodu. Nová přímá regrese nejprve selhala; původní uložený vstup i kontroly delšího replaye zůstaly zachované.
+- Přesné otisky simulace se lišily kvůli aproximaci matematických funkcí. Původní monolitická simulace, rodič a výchozí revize se na Linuxu shodovaly v 18 × 601 otiscích; diagnostický FMA překlad obnovil všech 18 historických průběhových i koncových otisků. Test přijímá dvě celé doložené sady s výslovnou opravou šesti útesových případů, bez zaokrouhlování stavu.
+- Finální ověření: 100 souborů / **1 957 testů**, typecheck/build, 9/9 dotčených testů také na Node 22.14.0, produkční UI přes skutečné klávesy a nezávislé review bez připomínek. Nový průchod celé kampaně ani skutečný Mac/Safari nebyly součástí této kontroly.
+- [Report a reprodukce](docs/spore/SP-001-REPORT.md), [plán](docs/superpowers/plans/2026-09-17-sp-001-test-discrepancies.md), [tracker](docs/spore/ROADMAP.md#sp-001). Změny jsou v pracovním stromu nad `4da58b6`; další bod je plán SP-002.
+
+## Směr ke Spore · brief a tracker · 2026-09-17
+
+- Přijatý směr pokračuje za terraformaci: tvorová fáze a editory, aktivní společnosti, celá planeta, vesmírná ekonomika a říše, galaktické jádro a kapitán s dobrodružstvími. Rozsah a hratelné milníky 0/A–E určuje [nový brief](docs/spore/BRIEF.md).
+- [Tracker SP-001 až SP-017](docs/spore/ROADMAP.md) je jediným přehledem stavu nové práce. Obsahuje návaznosti, podmínky dokončení, odkazy na výchozí kód a zdroje i postup pro navazující implementační plány. Nové karty jsou při založení K plánu; již implementovaný základ je uveden zvlášť.
+- Nejbližší práce: vysvětlit dvě testové odchylky SP-001, potom připravit první plán rozšíření editoru SP-002. [Audit revize 4da58b6](docs/2026-09-17-spore-similarity-audit.md) nově zaznamenal 1 954 / 1 956 úspěšných testů; starší zelené výsledky níže jsou historické.
+- Tato aktualizace připravuje dokumentaci dalšího vývoje. Herní kód, testovací očekávání ani uložené hry se nemění; konkrétní implementační plány nových bodů zatím nevznikly.
+- Ověření dokumentace: odpovídá všech 17 ID a karet, 77 akceptačních podmínek, místní odkazy a jejich kotvy; deklarované závislosti netvoří cyklus. Kontrola whitespace prošla. Herní testy se pro tuto dokumentační změnu znovu nespouštěly.
+
 ## Rozšíření P1–P3 · dokončeno · 2026-09-16
 
 - Rozsah: hratelný Kmen, Stroje a Terraformace podle spec/roadmapy. Multiplayer je výslovně mimo rozsah. Schváleno nejvýše 12 členů, čtyři nástroje, jantar, pozemní/létající stroje a katalog získaný skutečným ekologickým kontaktem. Podrobné plány jsou v `docs/superpowers/plans/2026-09-16-machine-era-*.md`.

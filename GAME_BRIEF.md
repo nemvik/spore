@@ -1,5 +1,7 @@
 # LUMAVORA — zadání autonomního vývoje evoluční webové hry
 
+> **Aktualizace směru, 17. září 2026:** pro další vývoj platí [brief podobnosti se Spore](docs/spore/BRIEF.md) a [tracker SP-001 až SP-017](docs/spore/ROADMAP.md). Prioritou je nyní co největší podobnost herních smyček, editorů a měřítka se Spore, včetně pokračování za terraformaci. Níže zůstává původní zadání; jeho omezení rozsahu a pojetí Spore pouze jako volné inspirace nový směr nahrazuje. Požadavky na vlastní obsah, funkční hru, lokální provoz a kvalitu zůstávají použitelné.
+
 ## Úkol a měřítko ambice
 
 V tomto repozitáři navrhni, implementuj, spusť, skutečně otestuj a dokonči originální singleplayerovou 3D webovou evoluční hru s pracovním názvem **LUMAVORA**. Ber ji jako ambiciózní benchmark schopnosti dodat celý produkt: herní design, funkční simulaci, vizuál, animace, zvuk, ovládání, spolehlivost a ověřitelné výsledky.

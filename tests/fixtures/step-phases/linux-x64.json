@@ -1,0 +1,101 @@
+{
+  "provenance": {
+    "recorded": "2026-09-17",
+    "referenceRevision": "86aa3abeb2b01d129922c646c81de0b4f3741b6c",
+    "comparedRevision": "4da58b6c50df31377cecf6adad34e0762d251d75",
+    "environment": "Linux x64, Node 24.15.0; independently reproduced with Node 22.14.0",
+    "method": "Original monolithic simulation and pre-fix current source agree at all 18 x 601 complete-state fingerprints. Historical profile independently reproduced using V8 fdlibm compiled with fused multiply-add. No game numbers rounded or fields omitted beyond the existing fingerprint contract."
+  },
+  "cases": {
+    "legacy:481516:0": {
+      "state": "cb7c189af11476b36c37e44e4406925458b669669f5906dc75469f8e02abdf28",
+      "trace": "c266d327fcfb094f65ccb741c66a729d2229ca847cf21fee9f956133ad5bd994",
+      "ecology": "rng=3490272948; resources=84; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+    },
+    "legacy:481516:1": {
+      "state": "19b1a540b405a858e36027a498a67bee8333b8b48df8958b0ba0228d0058f946",
+      "trace": "d71eba97a12f2c22f3d12ac94ef2429b5af6615ef8adc0d25e91da319b747a05",
+      "ecology": "rng=1466960781; resources=83; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+    },
+    "legacy:481516:2": {
+      "state": "605e143a08a0c6a7c393c23f518029d676a177ccf10941417d5f14edecf0b9e9",
+      "trace": "ff5958b63589082247ff176bc65c647714ecbd63c9b7b3f5dc40d6599126554a",
+      "ecology": "rng=3738615910; resources=88; depleted=2; creatures=33; meals=7; births=0; deaths=0"
+    },
+    "legacy:20260913:0": {
+      "state": "3ba23bb20e4bc58ba32500cc0c1f65cd37a26c0cba3b4fefa0d21093da82e573",
+      "trace": "472b341513587912076ca2e414546f630dd6af2140bdeba0e0b5a641a5aaa954",
+      "ecology": "rng=2246381005; resources=88; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+    },
+    "legacy:20260913:1": {
+      "state": "b9b007e68cd948ae8f65dd3e357797f16c0d6e3990f8af4c8c032881d1437c67",
+      "trace": "c7e4a0f331e21aa0b585ff2fb9eae5abfae4bab6a6d28414b540bcdae045bcb5",
+      "ecology": "rng=854904508; resources=85; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+    },
+    "legacy:20260913:2": {
+      "state": "366a053480e0d34d56a072c9fe0b581121bba6f532ff080fc6d2eeb286986ca7",
+      "trace": "441535d2a158c0b8d2ba14922dd2ed59183c76c94d505b12877975ee64bd3987",
+      "ecology": "rng=2558665164; resources=85; depleted=2; creatures=33; meals=7; births=0; deaths=0"
+    },
+    "legacy:8675309:0": {
+      "state": "2e713385eda636111815c19ed4e89cd6fbe6a44b1234f8d2807cdbb8a20ac592",
+      "trace": "dd0a311d5b45ee1c530bf55d1cfc161b0d7f25b1bbc7fa0c15660da0536c97ef",
+      "ecology": "rng=467170785; resources=81; depleted=2; creatures=20; meals=6; births=0; deaths=1"
+    },
+    "legacy:8675309:1": {
+      "state": "ae1747997dcc1c7e14723feb8b199a505a64d67816c2cbd48af46af94cce4040",
+      "trace": "04d9f301ecb77a97212c3f0dcb2d434b9879b030f966358df01da782daff05b8",
+      "ecology": "rng=3306720387; resources=84; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+    },
+    "legacy:8675309:2": {
+      "state": "3c39a17e54235298710a121b77a2dda787759ab84c1b6e593a56ac3c8065019c",
+      "trace": "66a1db864bee3617f3b9b1325fd610afe5d52a611664269b493a99789e2f85be",
+      "ecology": "rng=1915243890; resources=88; depleted=2; creatures=32; meals=7; births=0; deaths=1"
+    },
+    "current:481516:0": {
+      "state": "0aee0fa125347d4939521bcc807db86b5c503c980567045402291ab8c4e9b644",
+      "trace": "65412a1b801f4cfffdc315daafdb71a874b511ff7b827e5a01be4f826382c785",
+      "ecology": "rng=3490272948; resources=78; depleted=2; creatures=10; meals=6; births=0; deaths=0"
+    },
+    "current:481516:1": {
+      "state": "b70a6d1b3c4546d110331ef59c1cfe6b5589f88a0f97f572c4243099659cfcba",
+      "trace": "db90ce05e9af19992adae5bfd786278c740ad931579e4ee1eb6df456d43da5b4",
+      "ecology": "rng=1466960781; resources=88; depleted=2; creatures=11; meals=7; births=0; deaths=0"
+    },
+    "current:481516:2": {
+      "state": "b06e87b2cf996024360e1f69f464a05d98d1d3db42b17ccdf1c9a7e55e3aafca",
+      "trace": "d5a9efc92765f9b71f65f367a62230e6349cae4d2827bcf55a93ed53aad7a4b2",
+      "ecology": "rng=3738615910; resources=91; depleted=2; creatures=22; meals=7; births=0; deaths=0"
+    },
+    "current:20260913:0": {
+      "state": "276782d35cbf176a8d8e09226986c8a5b0f995570741289fbaf68ab3e8c57c46",
+      "trace": "7919daf3b17935f3f119f15ce9ce56bf8faf9d1a4e988160004701479b671e96",
+      "ecology": "rng=2246381005; resources=79; depleted=2; creatures=10; meals=6; births=0; deaths=0"
+    },
+    "current:20260913:1": {
+      "state": "7fd85341436993b07ea5f356dff7f2ca660cf3ad779f95a74cba4030363c4373",
+      "trace": "3ad363d18f07d377a098f1b44a9271cc3ccdc09274c89ca6f50f02e0683c4871",
+      "ecology": "rng=2622529124; resources=90; depleted=2; creatures=13; meals=7; births=2; deaths=0"
+    },
+    "current:20260913:2": {
+      "state": "ee512fba3087b3daacdfb9ca228529cb80c323e0b759c9b9e355798dce2ae8d7",
+      "trace": "61ee448499761f3dac275a7a47f551ab1aa5693ec51381fc82084a4443ac7eb9",
+      "ecology": "rng=2558665164; resources=88; depleted=2; creatures=22; meals=7; births=0; deaths=0"
+    },
+    "current:8675309:0": {
+      "state": "d30894bb83b4a4c5835aa59898fe72c6ebc156b1248b8b3c7b068fe53978a0ea",
+      "trace": "2c355aa5bfab0f78660d33ef340e009f9c3670eb8b092786d8adf94f883f021d",
+      "ecology": "rng=467170785; resources=75; depleted=2; creatures=10; meals=6; births=0; deaths=0"
+    },
+    "current:8675309:1": {
+      "state": "a3198ee7bc2aef6e04152f26c7675397838230587129a4e1741e91d719f9cbe4",
+      "trace": "e1092de3762c6969c99c830af204933226412ef5b945baac7b6b06ac5b740a91",
+      "ecology": "rng=3306720387; resources=89; depleted=2; creatures=11; meals=7; births=0; deaths=0"
+    },
+    "current:8675309:2": {
+      "state": "b489d8d8d439d64fcee29a3d0c158a7d4295f2a82941a1ffd199a5f21645cde4",
+      "trace": "d0d3e93ad79ae7cbe130583ed23ec996da690d6a114155bb7b1929e535a2b5ed",
+      "ecology": "rng=1915243890; resources=90; depleted=2; creatures=22; meals=7; births=0; deaths=0"
+    }
+  }
+}
