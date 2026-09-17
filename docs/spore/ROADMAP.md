@@ -6,7 +6,7 @@ Toto je backlog pro přípravu menších implementačních plánů. Při založe
 
 ## Stav a pořadí práce
 
-**Nejbližší bod: realizace SP-002.1 podle [plánu editoru tvora](../superpowers/plans/2026-09-17-sp-002-creature-editor.md).** SP-002 je rozdělené na model a ukládání, konstrukci v editoru a pohyb se zkoušením schopností; herní rozšíření zatím není implementované. SP-001 je doložené [reportem opravy](SP-001-REPORT.md). Priorita jde podle milníků 0 → A → B → C → D → E. Vizuální práce SP-017 probíhá uvnitř každého milníku. Toto pořadí nenavazuje číslováním na historické fáze P0–P3, které už mají vlastní dokončené plány.
+**SP-002 je doložené [reportem editoru tvora](SP-002-REPORT.md).** Model a ukládání, UI konstrukce, pohyb i zkoušení schopností jsou zpřístupněné v produkční souši; report zachovává výkonnostní omezení software rendereru a chybějící lidský playtest. SP-001 je doložené [reportem opravy](SP-001-REPORT.md). Priorita jde podle milníků 0 → A → B → C → D → E. Vizuální práce SP-017 probíhá uvnitř každého milníku. Toto pořadí nenavazuje číslováním na historické fáze P0–P3, které už mají vlastní dokončené plány.
 
 Stav každé karty se mění v jediné tabulce:
 
@@ -23,7 +23,7 @@ Návaznosti určují potřebné výstupy při realizaci, nikoli zákaz připravi
 | ID / bod | Milník | Stav | Návaznosti | Plán / výsledek / překážka |
 | --- | --- | --- | --- | --- |
 | [SP-001 · Testové odchylky](#sp-001) | 0 | Hotovo | — | [Plán](../superpowers/plans/2026-09-17-sp-001-test-discrepancies.md), [report a ověření](SP-001-REPORT.md); pracovní strom nad `4da58b6` |
-| [SP-002 · Plný editor tvora](#sp-002) | A | Naplánováno | SP-001 | [Implementační plán SP-002.1–SP-002.3](../superpowers/plans/2026-09-17-sp-002-creature-editor.md); implementace nezahájena |
+| [SP-002 · Plný editor tvora](#sp-002) | A | Hotovo | SP-001 | [UI konstrukce, terén, save, hraná dostupnost a produkce](SP-002-REPORT.md) |
 | [SP-003 · Život druhu a tvorová fáze](#sp-003) | A | K plánu | SP-002 | — |
 | [SP-004 · Objevování a generace](#sp-004) | A | K plánu | SP-003 | — |
 | [SP-005 · Knihovna výtvorů a společný genom](#sp-005) | A–E | K plánu | SP-002; další typy spolu s příslušnými editory | — |
@@ -79,18 +79,18 @@ Odkazy na kód jsou výchozí místa pro průzkum, nikoli příkaz vměstnat nov
 
 **Rozdělení plánů:** model těla a migrace → manipulace v editoru → animace a zkoušení schopností. Navázat na [genom](../../src/game/genome.ts), [tvar těla](../../src/game/body-shape.ts), [anatomii](../../src/game/anatomy.ts), [lokomoci](../../src/game/locomotion.ts), [výběr částí](../../src/render/body-selection.ts) a [browser kontrolu editoru](../../scripts/body-editor-browser.mjs). Reference: [manuál, str. 18–21][manual].
 
-- [ ] Páteř a řetězce kloubů umožní sestavit rozpoznatelného dvounožce, čtyřnožce a dlouhokrkého tvora; nejde jen o změnu barvy či měřítka.
-- [ ] Ruce, chodidla, ústa a další funkční části lze připojit a upravit s čitelnou symetrií, limity a cenou DNA.
-- [ ] Náhled chůze, skoku, útoku a komunikace odpovídá stejnému genomu jako tvor v krajině; rozhraní ukazuje dostupné schopnosti.
-- [ ] Všechny tři zkušební stavby se ovládají v terénu, zachovají tvar po save/load a podporují undo/redo; staré genomy se načtou.
+- [x] Páteř a řetězce kloubů umožní sestavit rozpoznatelného dvounožce, čtyřnožce a dlouhokrkého tvora; nejde jen o změnu barvy či měřítka.
+- [x] Ruce, chodidla, ústa a další funkční části lze připojit a upravit s čitelnou symetrií, limity a cenou DNA.
+- [x] Náhled chůze, skoku, útoku a komunikace odpovídá stejnému genomu jako tvor v krajině; rozhraní ukazuje dostupné schopnosti.
+- [x] Všechny tři zkušební stavby se ovládají v terénu, zachovají tvar po save/load a podporují undo/redo; staré genomy se načtou.
 
 Podúkoly podle [implementačního plánu z 17. září](../superpowers/plans/2026-09-17-sp-002-creature-editor.md):
 
 | Podúkol | Stav | Návaznost | Plán / výsledek |
 | --- | --- | --- | --- |
-| SP-002.1 — Model, anatomie, DNA a ukládání | Naplánováno | SP-001 | [Úkoly 1–3 a společná datová smlouva](../superpowers/plans/2026-09-17-sp-002-creature-editor.md#5-implementační-úkoly); bez implementace |
-| SP-002.2 — Konstrukce v editoru a model | Naplánováno | SP-002.1 | [Úkol 4: model a póza](../superpowers/plans/2026-09-17-sp-002-creature-editor.md#úkol-4--procedurální-model-klouby-a-póza), [úkol 5: ovládání](../superpowers/plans/2026-09-17-sp-002-creature-editor.md#úkol-5--přímá-konstrukce-symetrie-a-transakce-historie); bez implementace |
-| SP-002.3 — Pohyb, schopnosti, náhled a přijetí | Naplánováno | SP-002.2 | [Úkoly 6–9](../superpowers/plans/2026-09-17-sp-002-creature-editor.md#úkol-6--výkon-a-dostupnost-schopností-ze-skutečné-konstrukce), [matice přijetí](../superpowers/plans/2026-09-17-sp-002-creature-editor.md#6-matice-přijetí-a-návaznosti); bez implementace |
+| SP-002.1 — Model, anatomie, DNA a ukládání | Hotovo | SP-001 | Genom v2, společná anatomie/cena, původní v1 fixtures i aritmetika zachovány; celý finální suite 2 130/2 130. [Report](SP-002-REPORT.md). |
+| SP-002.2 — Konstrukce v editoru a model | Hotovo | SP-002.1 | Tři placené UI konstrukce, přímá madla, historie, klávesnice, společné měřítko a prohlédnuté snímky; původní editorové regrese prošly. [Report](SP-002-REPORT.md). |
+| SP-002.3 — Pohyb, schopnosti, náhled a přijetí | Hotovo | SP-002.2 | Nativní terén 66–69 m na tělo, akce/zkouška, save/recovery, hraný rozpočet, nový produkční v2 smoke a dva profilované benchmarky. Dlouhý krk má na SwiftShader p95 +92,3 % / +21,5 %; příčina z profilu počtů objektů neurčena. [Report a meze](SP-002-REPORT.md). |
 
 Příprava plánu ověřila současný základ: 580 cílených testů a načtení 11 historických save fixtures. Nejde o ověření nového editoru; rozsah a prostředí zaznamenává plán. Komunikace SP-002 je společná zkouška a hlas/gesto v krajině, vztahy druhů zůstávají v SP-003. Příslušná část vizuálu, zvuku a čitelnosti SP-017 je zahrnuta v podúkolech.
 
@@ -295,7 +295,7 @@ Příprava plánu ověřila současný základ: 580 cílených testů a načten�
 7. Krátký výsledek a meze ověření uložit do verzovaného reportu nebo plánu. Velké browser výstupy ponechat mimo Git; zachovat malou finální evidenci podle [AGENTS.md](../../AGENTS.md). Samotný odkaz na lokální ignorované `evidence/` nestačí jako jediný trvalý doklad dokončení.
 8. Přidat stručný datovaný záznam níže. Pokud se rozsah změní, uvést důvod a přesunout zbývající práci do pojmenovaného bodu; neoznačovat ji tiše za hotovou. Milník přijmout podle hratelného výsledku briefu, ne podle počtu odškrtnutých dílčích úkolů.
 
-Praktické zadání další relace: „Realizuj SP-002.1 podle `docs/superpowers/plans/2026-09-17-sp-002-creature-editor.md`, úkoly 1–3. Zachovej pracovní změny SP-001, ověř model, ceny a kompatibilitu uložených her a aktualizuj stav podúkolu v trackeru.“ SP-002.2 a SP-002.3 mají navazující úkoly v témže plánu. Tento tracker samotný není vykonatelným plánem všech 17 bodů.
+SP-002.1–SP-002.3 jsou doložené [finálním reportem](SP-002-REPORT.md). Další plán má vycházet z otevřených karet SP-003/004/005; sociální vztahy, odemykání částí ani knihovna nebyly touto dodávkou uzavřeny. Celá SP-017 zůstává otevřená, včetně chybějícího lidského testu a poslechu. Tento tracker samotný není vykonatelným plánem všech 17 bodů.
 
 ## Zdroje pro implementační návrhy
 
@@ -314,6 +314,7 @@ Zdroje byly dohledány v auditu 17. září 2026. Manuál a oficiální web tvo�
 
 | Datum | Změna | Doložení |
 | --- | --- | --- |
+| 2026-09-17 | SP-002.1–.3 dokončeno: tři UI placené konstrukce, terén/save/recovery, skutečně hraný rozpočet a produkční v2; 2 130 testů a původní browser regrese prošly. Dva SwiftShader benchmarky a lidské mezery jsou zveřejněné; SP-003/004/005/017 otevřené. | [Report přijetí](SP-002-REPORT.md) |
 | 2026-09-17 | SP-002 naplánováno ve třech navazujících podúkolech a devíti implementačních úkolech. Zahrnuje genom v2, ochranu v1 saveů, klouby a koncové části, DNA, terén, společné náhledy a příslušnou část SP-017. Herní implementace nezahájena. | [Plán a ověření výchozího stavu](../superpowers/plans/2026-09-17-sp-002-creature-editor.md) |
 | 2026-09-17 | SP-001 dokončeno: opraven tečný kontakt, vysvětleny a zachovány dva přesné numerické profily; 1 957/1 957 testů, typecheck/build, UI a review prošly. Nejbližší práce je plán SP-002. | [Report, pracovní strom nad 4da58b6](SP-001-REPORT.md) |
 | 2026-09-17 | Založen brief a tracker 17 přijatých bodů; všechny nové karty jsou K plánu. Existující implementace uvedena zvlášť. První práce je diagnostika SP-001 a následně editor SP-002. | [Výchozí audit revize 4da58b6](../2026-09-17-spore-similarity-audit.md), [brief](BRIEF.md) |

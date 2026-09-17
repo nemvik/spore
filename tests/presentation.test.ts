@@ -14,7 +14,7 @@ describe('editor selection and camera-aware surface placement', () => {
     const state=createGame(481516);state.stage=2;
     state.player.genome.parts.push({id:'walking-pair',kind:'legs',axial:0,angle:1.6,scale:1,mirrored:true});
     const renderer=Object.create(GameRenderer.prototype) as GameRenderer;
-    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,1,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'move',editorYaw:.65,editorPitch:.22,editorZoom:10,selectedPart:null};
+    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),previewTarget:new THREE.Mesh(new THREE.SphereGeometry(.24),new THREE.MeshStandardMaterial()),editorLights:[new THREE.HemisphereLight(),new THREE.DirectionalLight(),new THREE.DirectionalLight()],editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,1,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'move',editorYaw:.65,editorPitch:.22,editorZoom:10,selectedPart:null};
     Object.assign(renderer,fields);
     const time=state.world.time;
     try {
@@ -32,7 +32,7 @@ describe('editor selection and camera-aware surface placement', () => {
       state.stage=1;renderer.render(state,.1,'editor',state.player.genome);
       expect(leg.rotation.x).not.toBe(stationary);
       expect((renderer as unknown as typeof fields).editorFloor.position.y).toBe(-2);
-    } finally { const model=(renderer as unknown as typeof fields).editorModel;if(model)disposeObject(model); }
+    } finally { const model=(renderer as unknown as typeof fields).editorModel;if(model)disposeObject(model);disposeObject(fields.previewTarget); }
   });
 
   it('highlights both copies without altering another part and releases selection materials', () => {

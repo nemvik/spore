@@ -83,6 +83,7 @@ export class GameRenderer {
  private settlement=new SettlementPresentation();private fleet=new FleetPresentation();private planet=new PlanetPresentation();
  commandSelection:CommandUnitRef[]=[];commandFocus:Vec3|null=null;
  private bondMeshes:THREE.Group[]=[];private bondKey='';private contact=new ContactShadows();private partnerLight=new THREE.PointLight(0xd6f1b0,0,24,1.7);private pulse:THREE.Mesh;private marker=new THREE.Group();private markerBrackets:THREE.Mesh;private markerStem:THREE.Line;private markerTip:THREE.Mesh;private markerArrow:THREE.Mesh;private settings:Settings;private lastHeading=0;
+ private editorDistance=10;
  yaw=0; pitch=.55; zoom=25; editorYaw=.65;editorPitch=.22;editorZoom=10; selectedPart:string|null=null;selectedSpine:number|null=null;previewMode:'idle'|'move'|'feed'='idle';onSelectPart:((id:string)=>void)|null=null;
  constructor(container:HTMLElement,settings:Settings){
   this.settings=settings;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance',preserveDrawingBuffer:true});this.renderer.setClearColor(0x133f49);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.02;
@@ -224,6 +225,7 @@ export class GameRenderer {
    const halfFov=Math.atan(Math.tan(THREE.MathUtils.degToRad(this.editorCamera.fov/2))*Math.min(1,this.editorCamera.aspect));
    const fittedDistance=Math.max(10,bounds.radius/Math.sin(halfFov)*1.08);
    const distance=fittedDistance*this.editorZoom/10*(trial?1.3:1);
+   this.editorDistance=distance;
    // Keep the action/status row above the trial, including raised organs.
    if(trial)bounds.center.y+=bounds.radius*.15;
    this.editorCamera.position.set(Math.sin(this.editorYaw),.25+Math.sin(this.editorPitch),Math.cos(this.editorYaw)).normalize().multiplyScalar(distance).add(bounds.center);
@@ -369,5 +371,6 @@ export class GameRenderer {
    for(const pair of item.materials??[]){pair.display.color.copy(pair.source.color);pair.display.emissive.copy(pair.source.emissive);pair.display.emissiveIntensity=pair.source.emissiveIntensity;pair.display.opacity=pair.source.opacity*item.opacity;pair.display.depthWrite=item.opacity>.98&&pair.source.depthWrite;}
   }
  }
+ editorProjection(){return {distance:this.editorDistance,zoom:this.editorZoom,yaw:this.editorYaw,pitch:this.editorPitch,fov:this.editorCamera.fov,aspect:this.editorCamera.aspect,quaternion:this.editorCamera.quaternion.toArray()};}
  metrics(){let editorMeshes=0;const editorMaterials=new Set<THREE.Material>();this.editorScene.traverse(node=>{if(node instanceof THREE.Mesh){editorMeshes++;for(const material of Array.isArray(node.material)?node.material:[node.material])editorMaterials.add(material);}});return {editorMeshes,editorMaterials:editorMaterials.size,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,programs:this.renderer.info.programs?.length??0,pixelRatio:this.renderer.getPixelRatio(),renderer:this.renderer.getContext().getParameter(this.renderer.getContext().RENDERER)};}
 }
