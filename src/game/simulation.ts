@@ -22,6 +22,7 @@ import { bodyGroundClearance, organismGroundClearance, speciesGroundClearance } 
 import { feedTarget, bondTarget, tendTarget, lineBlocked } from './interactions';
 import { INTERACTION_COPY } from './interaction-copy.cs';
 import { advanceLocomotion } from './locomotion';
+import { advanceCreature } from './creature-motion';
 import { emptyJourney } from './journey-types';
 import { migrationTarget, carrierFearDistance, carrierHealthRate } from './migration';
 import { quoteJourneyEvolution } from './journey-evolution';
@@ -359,12 +360,20 @@ function beginStep(s:GameState,input:Input,dt:number) {
  const motionProfile=reefBody?.motion??locomotionProfile(p.genome,s.stage,s.journey.legacy);
  const speed=motionProfile.speed*(sprint?(has(p.genome,'jet')&&s.stage===1?2.1:1.55):1)*(p.energy<8?.55:1);
  const previous={...p.pos};
+ if(p.genome.version===2&&s.stage===2){
+  const next=advanceCreature(p.genome,{pos:p.pos,velocity:p.velocity,heading:p.heading,energy:p.energy,actions:p.creatureActions??emptyCreatureActions()},
+   {x:input.x,z:input.z,sprint:input.sprint,jump:!!input.jump,communicate:!!input.communicate},
+   {groundAt:(x,z)=>groundHeight(x,z,w.stage),obstacles:w.obstacles,bound:WORLD_BOUND},dt);
+  p.pos=next.pos;p.velocity=next.velocity;p.heading=next.heading;p.energy=next.energy;p.creatureActions=next.actions;
+ }else{
  const motion=advanceLocomotion(p,{x:input.x,z:input.z},speed,motionProfile,dt);p.heading=motion.heading;p.velocity.x=motion.velocity.x;p.velocity.z=motion.velocity.z;
  p.velocity.y=s.stage===1?input.vertical*motionProfile.verticalThrust+(reefBody?.buoyancy??0):0;
  // Currents are local conditions. Tail and fins help sustain a heading through them.
  const current=s.journey.legacy&&s.stage<2&&horizontalDistance(p.pos,w.patches[1].center)<24?(s.stage===1?2.2:1.25)/profile.currentResistance:0;
  const flow=environmentalFlow(s,p.pos);p.pos.x+=(p.velocity.x+current+flow.x/profile.currentResistance)*dt;p.pos.z+=(p.velocity.z+flow.z/profile.currentResistance)*dt;p.pos.y+=(p.velocity.y+flow.y/profile.currentResistance)*dt;
- constrain(p.pos,w,bodyCollisionRadius(p.genome,s.stage),organismGroundClearance(p.genome),previous,p.genome.spine?bodyGroundClearance(p.genome):0);p.distance+=horizontalDistance(previous,p.pos);
+ constrain(p.pos,w,bodyCollisionRadius(p.genome,s.stage),organismGroundClearance(p.genome),previous,p.genome.spine?bodyGroundClearance(p.genome):0);
+ }
+ p.distance+=horizontalDistance(previous,p.pos);
 
  const metabolism=Math.max(.025,stats.metabolism*.035);p.energy-=dt*(metabolism+(len>.1?.07:0)+(sprint?.7:0)+p.bonds.length*.1/Math.max(.5,profile.partnerSupport)+Math.abs(input.vertical)*.05+(reefBody?.pumpEnergy??0));
  if(has(p.genome,'chloroplast')&&w.patches[0].discovered&&horizontalDistance(p.pos,w.patches[0].center)<29)p.energy+=dt*profile.photosynthesis;

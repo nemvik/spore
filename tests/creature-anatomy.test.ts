@@ -116,3 +116,12 @@ describe('shared creature anatomy', () => {
     expect(reachableCreatureMouth(g, { x: 0, y: 0, z: 0 }, 'detritus', () => false)).toBeNull();
   });
 });
+
+it('bounds complete skin across extreme legal bends and narrow knot intervals',()=>{
+ const g=creatureBodyFixture('longneck');g.length=2.4;g.width=1.8;
+ g.body.spine=Array.from({length:15},(_,i)=>({id:`extreme-${i}`,axial:i===14?.9:-.9+i*1.8/14,width:i%2?.35:2,height:i%2?2:.35,bend:i%2?-2.5:2.5}));
+ expect(validateCreatureStructure(g)).toEqual([]);const a=resolveCreatureAnatomy(g);expect(a.hull.length).toBeLessThanOrEqual(79);
+ const axials=[...Array.from({length:1025},(_,i)=>-1+i/512),...g.body.spine.flatMap(n=>[n.axial-1e-7,n.axial,n.axial+1e-7])];let gap=0;
+ for(const axial of axials)for(let j=0;j<24;j++){const point=creatureSurfacePoint(g,axial,j*Math.PI/12);gap=Math.max(gap,Math.min(...a.hull.map(s=>Math.hypot(point.x-s.center.x,point.y-s.center.y,point.z-s.center.z)-s.radius)));}
+ expect(gap).toBeLessThanOrEqual(1e-8);
+});

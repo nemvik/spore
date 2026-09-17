@@ -49,7 +49,7 @@ export function obstacleSegmentEntry(from: Vec3, to: Vec3, obstacle: Obstacle, p
   return Math.max(0, enter);
 }
 
-function contactNormal(point: Vec3, obstacle: Obstacle, radius: number): Vec3 {
+export function contactNormal(point: Vec3, obstacle: Obstacle, radius: number): Vec3 {
   const x = point.x - obstacle.pos.x, z = point.z - obstacle.pos.z, radial = Math.hypot(x, z);
   const below = Math.abs(point.y - obstacle.pos.y + radius), above = Math.abs(point.y - obstacle.pos.y - obstacle.height - radius);
   const side = Math.abs(radial - obstacle.radius - radius);

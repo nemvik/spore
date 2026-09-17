@@ -1,9 +1,9 @@
 import type { Input } from './types';
 
-export type ActionInput = Pick<Input, 'feed' | 'bond' | 'tend' | 'pulse' | 'offer'>;
+export type ActionInput = Pick<Input, 'feed' | 'bond' | 'tend' | 'pulse' | 'offer' | 'jump' | 'communicate'>;
 type Action = keyof ActionInput;
 const ACTION_KEYS: ReadonlyMap<string, Action> = new Map([
-  ['KeyE', 'offer'], ['Space', 'feed'], ['KeyR', 'bond'], ['KeyT', 'tend'], ['KeyX', 'pulse'],
+  ['KeyQ', 'jump'], ['KeyV', 'communicate'], ['KeyE', 'offer'], ['Space', 'feed'], ['KeyR', 'bond'], ['KeyT', 'tend'], ['KeyX', 'pulse'],
 ]);
 
 /**
@@ -34,6 +34,8 @@ export class InputLatch {
       bond: this.pending.has('bond'),
       tend: this.pending.has('tend'),
       pulse: this.pending.has('pulse'),
+      ...(this.pending.has('jump') ? {jump:true} : {}),
+      ...(this.pending.has('communicate') ? {communicate:true} : {}),
       ...(this.pending.has('offer') ? {offer:true} : {}),
     };
     this.pending.clear();

@@ -88,19 +88,32 @@ export function prepareInstalledCreatureAnatomy(g: CreatureGenome): CreatureAnat
   const anatomy = resolveCreatureAnatomy(g); protect(anatomy); installedAnatomy.set(g, anatomy); return anatomy;
 }
 
+/** Conservative interval spheres for the entire trunk, including between rings.
+ * Split at authored knots so width/height/bend are monotone on each interval.
+ * Independent profile/rib maxima and the centre range bound the complete skin.
+ * At most 79 spheres; allocated before installed anatomy is deeply frozen. */
+function creatureTrunkHull(g: CreatureGenome): ContactSphere[] {
+  const cuts = [...new Set([...Array.from({length:65}, (_,i)=>-1+i/32), ...g.body.spine.map(n=>n.axial)])].sort((a,b)=>a-b);
+  return cuts.slice(1).map((high,i) => {
+    const low=cuts[i],a=sampleCreatureSection(g,low),b=sampleCreatureSection(g,high);
+    const minAxial=low<=0&&high>=0?0:Math.min(Math.abs(low),Math.abs(high));
+    const minY=Math.min(a.bend,b.bend)*g.width+.13*minAxial*minAxial;
+    const maxY=Math.max(a.bend,b.bend)*g.width+.13*Math.max(low*low,high*high);
+    const radial=Math.pow(Math.max(0,1-minAxial*minAxial),.48)*(1+.15*high)*1.035*g.width*Math.max(.69*a.width,.69*b.width,.62*a.height,.62*b.height);
+    return {center:{x:0,y:(minY+maxY)/2,z:(low+high)/2*1.76*g.length},radius:radial+Math.hypot((maxY-minY)/2,(high-low)/2*1.76*g.length)};
+  });
+}
+
 export function resolveCreatureAnatomy(g: CreatureGenome): CreatureAnatomy {
   const installed = installedAnatomy.get(g); if (installed) return installed;
-  const limbs: ResolvedLimb[] = [], hull: ContactSphere[] = [];
+  const limbs: ResolvedLimb[] = [], hull = creatureTrunkHull(g);
   const bounds = { min: { x: Infinity, y: Infinity, z: Infinity }, max: { x: -Infinity, y: -Infinity, z: -Infinity } };
   const include = (p: Vec3, radius = 0) => {
     for (const key of ['x', 'y', 'z'] as const) { bounds.min[key] = Math.min(bounds.min[key], p[key] - radius); bounds.max[key] = Math.max(bounds.max[key], p[key] + radius); }
   };
   for (let i = 0; i <= 64; i++) {
-    const a = -1 + i / 32, section = sampleCreatureSection(g, a);
-    const center = { x: 0, y: section.bend * g.width + .13 * a * a, z: a * 1.76 * g.length };
-    let radius = 0;
-    for (let j = 0; j < 24; j++) { const point = creatureSurfacePoint(g, a, j * Math.PI / 12); include(point); radius = Math.max(radius, norm(subtract(point, center))); }
-    hull.push({ center, radius });
+    const a = -1 + i / 32;
+    for (let j = 0; j < 24; j++) include(creatureSurfacePoint(g, a, j * Math.PI / 12));
   }
   let limbMass = 0;
   for (const part of g.parts) {

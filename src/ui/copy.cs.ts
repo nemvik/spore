@@ -2,6 +2,14 @@
  * Dynamic names supplied to HTML-facing formatters must already be escaped by the caller.
  * Adaptation and world catalogs remain in game/genome.ts and game/content.ts. */
 export const COPY = {
+  jump: "Skok",
+  voice: "Hlas",
+  gesture: "Gesto",
+  jumpReady: "Q · Odraz stojí 5 energie. Další skok po dopadu a dobití.",
+  jumpSupport: "Skok potřebuje oporu; ve vzduchu se znovu neodrazíš.",
+  jumpEnergy: "Skok potřebuje 5 energie.",
+  communicationReady: "V · Hlas nebo gesto bez změny vztahů a odměn.",
+  actionRecharge: (seconds: number) => `Dobíjení · ${seconds.toFixed(1)} s`,
   webglTitle: "Svět potřebuje WebGL 2",
   webglHelp: "Zapni grafickou akceleraci prohlížeče a obnov stránku.",
   all: "Vše",

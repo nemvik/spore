@@ -1,7 +1,11 @@
 import type { CreatureAnatomy } from './creature-anatomy';
 import { resolveCreatureAnatomy } from './creature-anatomy';
-import type { ResolvedLimb } from './creature-anatomy';
-import type { CreatureGenome, Vec3 } from './types';
+import type { ContactSphere, ResolvedLimb } from './creature-anatomy';
+import type { CreatureGenome, Vec3, World } from './types';
+import { advanceLocomotion } from './locomotion';
+import { creatureCapabilities } from './creature-capabilities';
+import { advanceCreatureTimers, creatureCommunicationPhase, type CreatureActionState } from './creature-actions';
+import { contactNormal, obstacleSegmentEntry } from './obstacle-geometry';
 
 export interface CreaturePoseInput {
   time: number; speed: number; airborne: boolean; feeding: number;
@@ -107,4 +111,148 @@ export function sampleCreaturePose(g: CreatureGenome, input: CreaturePoseInput, 
     return {partId:limb.partId,side:limb.side,gesture:handGesture,points:canPose?solveLimbPose(limb,target):limb.points.map(p=>({...p}))};
   });
   return {limbs,bodyOffset,mouthOpen:Math.min(1,Math.max(0,input.feeding)),gesture};
+}
+
+export interface CreatureRuntime {
+  pos: Vec3; velocity: Vec3; heading: number; energy: number; actions: CreatureActionState;
+}
+/** jump/communicate are press edges, supplied by InputLatch (never held keys). */
+export interface CreatureCommand { x: number; z: number; sprint: boolean; jump: boolean; communicate: boolean }
+export interface CreatureStepEnvironment {
+  groundAt: (x: number, z: number) => number; obstacles: World['obstacles']; bound: number;
+}
+const SUPPORT_EPSILON = .00001;
+const worldPoint = (point: Vec3, position: Vec3, heading: number): Vec3 => ({
+  x: position.x + Math.cos(heading) * point.x + Math.sin(heading) * point.z,
+  y: position.y + point.y,
+  z: position.z - Math.sin(heading) * point.x + Math.cos(heading) * point.z,
+});
+/** Finite tops are traversable only from above; a ceiling is never a floor. */
+function supportGround(environment: CreatureStepEnvironment, maximum: number): (x: number, z: number) => number {
+  return (x, z) => {
+    let height = environment.groundAt(x, z);
+    for (const obstacle of environment.obstacles) {
+      const top = obstacle.pos.y + obstacle.height;
+      if (top <= maximum + SUPPORT_EPSILON && top > height && Math.hypot(x - obstacle.pos.x, z - obstacle.pos.z) <= obstacle.radius) height = top;
+    }
+    return height;
+  };
+}
+export function creatureSupport(
+  g: CreatureGenome, runtime: Pick<CreatureRuntime, 'pos' | 'velocity' | 'heading'>,
+  environment: CreatureStepEnvironment, derived = resolveCreatureAnatomy(g), maximum = runtime.pos.y - derived.groundClearance,
+): { height: number; grounded: boolean; groundAt: (x: number, z: number) => number } {
+  const groundAt = supportGround(environment, maximum);
+  let height = -Infinity, footMaximum = maximum;
+  for (const limb of derived.limbs) if (limb.end.kind === 'foot') {
+    const foot = worldPoint(limb.points.at(-1)!, runtime.pos, runtime.heading);
+    height = Math.max(height, groundAt(foot.x, foot.z) + derived.groundClearance);
+  }
+  // Keep the trunk out of terrain even when feet straddle a ridge. Limbs are
+  // kinematic; the resolved conservative trunk spheres are the hard envelope.
+  for (const sphere of derived.hull) {
+    const center = worldPoint(sphere.center, runtime.pos, runtime.heading);
+    height = Math.max(height, groundAt(center.x, center.z) + sphere.radius - sphere.center.y);
+    // Narrow tops can support the belly while both feet overhang. Recognize
+    // the very same padded cap used by the sweep, not just the foot plane.
+    for (const obstacle of environment.obstacles) {
+      const top = obstacle.pos.y + obstacle.height, resting = top + sphere.radius - sphere.center.y;
+      if (resting <= maximum + derived.groundClearance + SUPPORT_EPSILON && Math.hypot(center.x-obstacle.pos.x,center.z-obstacle.pos.z) < obstacle.radius+sphere.radius) {
+        height = Math.max(height, resting);
+        if (Math.abs(runtime.pos.y-resting) <= SUPPORT_EPSILON) footMaximum = Math.max(footMaximum,top);
+      }
+    }
+  }
+  return { height, grounded: runtime.velocity.y <= 0 && runtime.pos.y <= height + SUPPORT_EPSILON, groundAt: supportGround(environment,footMaximum) };
+}
+/** The renderer and isolated preview consume exactly the runtime support rule. */
+export function creaturePoseContext(g: CreatureGenome, runtime: CreatureRuntime, environment: CreatureStepEnvironment, derived = resolveCreatureAnatomy(g)) {
+  const support = creatureSupport(g, runtime, environment, derived);
+  return { position: runtime.pos, heading: runtime.heading, groundAt: support.groundAt,
+    airborne: !support.grounded, communication: creatureCommunicationPhase(runtime.actions.communicationTime) };
+}
+
+/** Sweep all trunk spheres together. A cap/side correction translates the whole
+ * body. A blocked angular substep is clipped, never applied through an obstacle. */
+function sweepTrunk(hull: readonly ContactSphere[], from: Vec3, heading: number, translation: Vec3, turn: number, environment: CreatureStepEnvironment): { pos: Vec3; heading: number; ceiling: boolean; floor: boolean } {
+  let pos = { ...from }, remaining = { ...translation };
+  const angle = turn;
+  let ceiling = false, floor = false;
+  for (let iteration = 0; iteration < 6; iteration++) {
+    const to = { x: pos.x + remaining.x, y: pos.y + remaining.y, z: pos.z + remaining.z };
+    let entry = 1, normal: Vec3 | null = null, contactId = Infinity;
+    for (const sphere of hull) {
+      const start = worldPoint(sphere.center, pos, heading), end = worldPoint(sphere.center, to, heading + angle);
+      const padding = sphere.radius + Math.hypot(sphere.center.x, sphere.center.z) * (1 - Math.cos(angle / 2));
+      for (const obstacle of environment.obstacles) {
+        const hit = obstacleSegmentEntry(start, end, obstacle, padding);
+        if (hit !== null && (hit < entry - 1e-10 || Math.abs(hit - entry) <= 1e-10 && obstacle.id < contactId)) {
+          entry = hit; contactId = obstacle.id;
+          normal = contactNormal({ x: start.x + (end.x - start.x) * hit, y: start.y + (end.y - start.y) * hit, z: start.z + (end.z - start.z) * hit }, obstacle, padding);
+        }
+      }
+      // Bounds apply to every rotated sphere, not only the origin.
+      for (const key of ['x', 'z'] as const) for (const side of [-1, 1]) {
+        const limit = environment.bound - padding, delta = (end[key] - start[key]) * side;
+        if (delta > 0 && end[key] * side > limit) {
+          const hit = Math.max(0, (limit - start[key] * side) / delta);
+          if (hit < entry) { entry = hit; normal = { x: 0, y: 0, z: 0 }; normal[key] = -side; contactId = -Infinity; }
+        }
+      }
+    }
+    if (!normal) return { pos: to, heading: heading + angle, ceiling, floor };
+    if (angle !== 0) return { pos: { ...from }, heading, ceiling: false, floor: false };
+    // Translation and rotation are swept separately in every small substep.
+    // Never accept a translation at a different orientation than the one swept.
+    const fraction = Math.max(0, entry - 1e-7);
+    pos = { x: pos.x + remaining.x * fraction, y: pos.y + remaining.y * fraction, z: pos.z + remaining.z * fraction };
+    ceiling ||= normal.y < 0; floor ||= normal.y > 0;
+    remaining = { x: remaining.x * (1 - fraction), y: remaining.y * (1 - fraction), z: remaining.z * (1 - fraction) };
+    const inward = remaining.x * normal.x + remaining.y * normal.y + remaining.z * normal.z;
+    if (inward < 0) { remaining.x -= normal.x * inward; remaining.y -= normal.y * inward; remaining.z -= normal.z * inward; }
+    else break;
+  }
+  return { pos, heading, ceiling, floor };
+}
+
+/** One bounded fixed step, without world/RNG ownership or locomotion energy fees. */
+export function advanceCreature(g: CreatureGenome, runtime: CreatureRuntime, input: CreatureCommand, environment: CreatureStepEnvironment, dt: number, derived?: CreatureAnatomy): CreatureRuntime {
+  const result: CreatureRuntime = { ...runtime, pos: { ...runtime.pos }, velocity: { ...runtime.velocity }, actions: { ...runtime.actions } };
+  if (!Number.isFinite(dt) || dt <= 0) return result;
+  const step = Math.min(.05, dt), anatomy = derived ?? resolveCreatureAnatomy(g), caps = creatureCapabilities(g, anatomy), hull = anatomy.hull;
+  result.actions = advanceCreatureTimers(runtime.actions, step);
+  const support = creatureSupport(g, result, environment, anatomy);
+  if (input.jump && support.grounded && caps.jump.enabled && result.actions.jumpRecharge === 0 && result.energy >= caps.jump.energy) {
+    result.velocity.y = caps.jump.velocity; result.energy -= caps.jump.energy; result.actions.jumpRecharge = caps.jump.recharge;
+  }
+  if (input.communicate && caps.communicate.enabled && result.actions.communicationRecharge === 0) {
+    result.actions.communicationTime = caps.communicate.duration; result.actions.communicationRecharge = caps.communicate.recharge;
+    result.actions.communicationSerial = (result.actions.communicationSerial + 1) % 1_000_000_001;
+  }
+  const speed = caps.walk.speed * (input.sprint && runtime.energy > 8 ? 1.55 : 1) * (runtime.energy < 8 ? .55 : 1);
+  const motion = advanceLocomotion(result, input, speed, caps.walk, step);
+  result.velocity.x = motion.velocity.x; result.velocity.z = motion.velocity.z;
+  if (!support.grounded || result.velocity.y > 0) result.velocity.y -= 16 * step;
+  else result.velocity.y = 0;
+  const turn = Math.atan2(Math.sin(motion.heading - result.heading), Math.cos(motion.heading - result.heading));
+  const reach = Math.max(...hull.map(s => Math.hypot(s.center.x, s.center.z)));
+  const count = Math.max(1, Math.ceil(Math.abs(turn) / .05), Math.ceil((Math.hypot(result.velocity.x, result.velocity.y, result.velocity.z) * step + reach * Math.abs(turn)) / .1));
+  for (let i = 0; i < count; i++) {
+    const before = { ...result.pos }, substep = step / count;
+    let translation = { x: result.velocity.x * substep, y: result.velocity.y * substep, z: result.velocity.z * substep };
+    const destination = { ...result, pos: { x: before.x + translation.x, y: before.y + translation.y, z: before.z + translation.z }, heading: result.heading + turn / count };
+    const floor = creatureSupport(g, destination, environment, anatomy, before.y - anatomy.groundClearance);
+    if (result.velocity.y <= 0 && destination.pos.y < floor.height) translation.y = floor.height - before.y;
+    const swept = sweepTrunk(hull, before, result.heading, translation, 0, environment);
+    result.pos = swept.pos;
+    result.heading = sweepTrunk(hull, result.pos, result.heading, {x:0,y:0,z:0}, turn / count, environment).heading;
+    if (translation.y > 0 && result.velocity.y <= 0) {
+      const actualFloor = creatureSupport(g, result, environment, anatomy, before.y - anatomy.groundClearance);
+      if (actualFloor.height < result.pos.y) result.pos = sweepTrunk(hull, result.pos, result.heading, {x:0,y:actualFloor.height-result.pos.y,z:0}, 0, environment).pos;
+    }
+    if (swept.ceiling && result.velocity.y > 0 || swept.floor && result.velocity.y < 0) result.velocity.y = 0;
+    if (result.velocity.y <= 0 && result.pos.y >= floor.height - SUPPORT_EPSILON && destination.pos.y <= floor.height + SUPPORT_EPSILON) result.velocity.y = 0;
+  }
+  result.heading = Math.atan2(Math.sin(result.heading), Math.cos(result.heading));
+  return result;
 }
