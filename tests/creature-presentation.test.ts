@@ -75,7 +75,7 @@ describe('creature framing and installed presentation',()=>{
   it.each(['editor','menu'] as const)('frames long-neck anatomy in the %s camera, including narrow viewports',mode=>{
     const game=createGame(481516);game.stage=2;game.player.genome=creatureBodyFixture('longneck');
     const renderer=Object.create(GameRenderer.prototype) as GameRenderer;
-    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,.65,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'idle',editorYaw:.65,editorPitch:.22,editorZoom:10,selectedPart:null,portraitScene:new THREE.Scene(),portraitCamera:new THREE.PerspectiveCamera(36,.65,.1,80),portraitModel:null as THREE.Group|null,portraitKey:'',portraitTime:{value:0}};
+    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),previewTarget:new THREE.Mesh(new THREE.SphereGeometry(.24),new THREE.MeshStandardMaterial()),editorLights:[new THREE.HemisphereLight(),new THREE.DirectionalLight(),new THREE.DirectionalLight()],editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,.65,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'idle',editorYaw:.65,editorPitch:.22,editorZoom:10,selectedPart:null,portraitScene:new THREE.Scene(),portraitCamera:new THREE.PerspectiveCamera(36,.65,.1,80),portraitModel:null as THREE.Group|null,portraitKey:'',portraitTime:{value:0}};
     Object.assign(renderer,fields);renderer.render(game,.1,mode,mode==='editor'?game.player.genome:undefined);
     const actual=renderer as unknown as typeof fields,model=(mode==='editor'?actual.editorModel:actual.portraitModel)!,camera=mode==='editor'?actual.editorCamera:actual.portraitCamera;
     camera.updateMatrixWorld(true);model.updateMatrixWorld(true);
@@ -89,7 +89,7 @@ describe('creature framing and installed presentation',()=>{
   it.each([16/9,.65])('uses the full editor zoom range relative to fitted anatomy at aspect %s',aspect=>{
     const game=createGame(481516);game.stage=2;game.player.genome=creatureBodyFixture('longneck');
     const renderer=Object.create(GameRenderer.prototype) as GameRenderer;
-    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,aspect,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'idle',editorYaw:.65,editorPitch:.22,editorZoom:10,selectedPart:null};
+    const fields={presentationTime:0,settings:{reducedMotion:false},editorScene:new THREE.Scene(),previewTarget:new THREE.Mesh(new THREE.SphereGeometry(.24),new THREE.MeshStandardMaterial()),editorLights:[new THREE.HemisphereLight(),new THREE.DirectionalLight(),new THREE.DirectionalLight()],editorModel:null as THREE.Group|null,editorKey:'',editorCamera:new THREE.PerspectiveCamera(40,aspect,.1,200),editorFloor:new THREE.Group(),renderer:{render:()=>{}},previewMode:'idle',editorYaw:.65,editorPitch:.22,editorZoom:10,selectedPart:null};
     Object.assign(renderer,fields);const actual=renderer as unknown as typeof fields;
     const distances=[5,10,22].map(zoom=>{
       renderer.editorZoom=zoom;renderer.render(game,.1,'editor',game.player.genome);

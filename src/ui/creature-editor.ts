@@ -73,19 +73,19 @@ export function canAddCreaturePart(g:Genome,kind:AdaptationId):boolean {
 }
 export function defaultCreatureLimb(kind:'legs'|'arms'):LimbGene {return kind==='legs'?{joints:[{id:'knee',offset:{x:.48,y:-.34,z:-.14},radius:.135},{id:'ankle',offset:{x:.77,y:-1.14,z:.16},radius:.1}],end:{kind:'foot',style:'pad',scale:1}}:{joints:[{id:'elbow',offset:{x:.3,y:-.2,z:.08},radius:.11},{id:'wrist',offset:{x:.5,y:-.48,z:.2},radius:.08}],end:{kind:'hand',style:'palm',scale:.8}};}
 
-export interface CreaturePreview {revision:number;genome:Genome;anatomy?:CreatureAnatomy;stats:Stats;capabilities?:CreatureCapabilities;}
+export interface CreaturePreviewRevision {revision:number;genome:Genome;anatomy?:CreatureAnatomy;stats:Stats;capabilities?:CreatureCapabilities;}
 /** Editor-local content revisions: never put the mutable draft in installed runtime caches.
  * Call once from the RAF refresh after input; all consumers share this snapshot.
  */
-export function createCreaturePreviewCache():(g:Genome)=>CreaturePreview {
- let key='',revision=0,current:CreaturePreview;
+export function createCreaturePreviewCache():(g:Genome)=>CreaturePreviewRevision {
+ let key='',revision=0,current:CreaturePreviewRevision;
  return g=>{const next=JSON.stringify(g);if(next!==key){key=next;const genome=copy(g),anatomy=genome.version===2?resolveCreatureAnatomy(genome):undefined;const stats=computeStats(genome,anatomy);current={revision:++revision,genome,anatomy,stats,capabilities:genome.version===2?creatureCapabilities(genome,anatomy,stats):undefined};}return current;};
 }
 
 
 export interface CreatureAbilityRow {key:'walk'|'jump'|'bite'|'communicate';label:string;value:number;previous:number;unit:string;detail:string;reason?:string;}
 /** Compare each version's real rules, never an upgraded imaginary original. */
-export function creatureAbilityRows(preview:CreaturePreview,original:Genome,legacy=false):CreatureAbilityRow[] {
+export function creatureAbilityRows(preview:CreaturePreviewRevision,original:Genome,legacy=false):CreatureAbilityRow[] {
  const g=preview.genome,c=preview.capabilities,old=original.version===2?creatureCapabilities(original):undefined;
  const oldWalk=old?.walk.speed??locomotionProfile(original,2,legacy).speed;
  const oldBite=old?.bite.damage??(original.parts.some(p=>p.kind==='jaw')?computeStats(original).damage:0);
