@@ -11,17 +11,35 @@ const copy=(g:Genome)=>structuredClone(g);
 const genomeKey=(g:Genome)=>JSON.stringify(g,(_key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))):value);
 const equal=(a:Genome,b:Genome)=>genomeKey(a)===genomeKey(b);
 export const creatureEditChanged=(s:CreatureEditState):boolean=>!!s.before&&!equal(s.before,s.draft);
+/** History stores genomes, so selection must be reconciled with each restored snapshot. */
+function restoreCreatureDraft(s:CreatureEditState,genome:Genome):void {
+ const previous=s.draft,selection=s.selection;s.draft=copy(genome);if(!selection)return;
+ if(selection.kind==='spine'){
+  if(s.draft.version!==2){s.selection=null;return;}
+  const nodes=s.draft.body.spine;if(nodes.some(n=>n.id===selection.nodeId))return;
+  const old=previous.version===2?previous.body.spine.find(n=>n.id===selection.nodeId):undefined;
+  const nearest=old&&nodes.length?nodes.reduce((a,b)=>Math.abs(a.axial-old.axial)<Math.abs(b.axial-old.axial)?a:b):nodes[0];
+  s.selection=nearest?{kind:'spine',nodeId:nearest.id}:null;return;
+ }
+ const part=s.draft.parts.find(p=>p.id===selection.partId);if(!part){s.selection=null;return;}
+ if(selection.kind==='part')return;
+ if(!part.limb){s.selection={kind:'part',partId:part.id};return;}
+ if(selection.kind==='end'||part.limb.joints.some(j=>j.id===selection.jointId))return;
+ const old=previous.parts.find(p=>p.id===selection.partId)?.limb?.joints.find(j=>j.id===selection.jointId);
+ const joints=part.limb.joints,nearest=old&&joints.length?joints.reduce((a,b)=>distance(a.offset,old.offset)<distance(b.offset,old.offset)?a:b):joints[0];
+ s.selection=nearest?{kind:'joint',partId:part.id,jointId:nearest.id}:{kind:'part',partId:part.id};
+}
 export function beginCreatureEdit(s:CreatureEditState):void {s.before??=copy(s.draft);}
 export function finishCreatureEdit(s:CreatureEditState,cancel=false):void {
  const before=s.before;s.before=null;if(!before)return;
- if(cancel){s.draft=copy(before);return;}
+ if(cancel){restoreCreatureDraft(s,before);return;}
  if(equal(before,s.draft))return;
  s.undo.push(before);if(s.undo.length>40)s.undo.shift();s.redo=[];
  // Committed drafts are separate from snapshots and any preview consumer.
  s.draft=copy(s.draft);
 }
-export function undoCreatureEdit(s:CreatureEditState):void {finishCreatureEdit(s);const g=s.undo.pop();if(g){s.redo.push(copy(s.draft));s.draft=copy(g);}}
-export function redoCreatureEdit(s:CreatureEditState):void {finishCreatureEdit(s);const g=s.redo.pop();if(g){s.undo.push(copy(s.draft));s.draft=copy(g);}}
+export function undoCreatureEdit(s:CreatureEditState):void {finishCreatureEdit(s);const g=s.undo.pop();if(g){s.redo.push(copy(s.draft));restoreCreatureDraft(s,g);}}
+export function redoCreatureEdit(s:CreatureEditState):void {finishCreatureEdit(s);const g=s.redo.pop();if(g){s.undo.push(copy(s.draft));restoreCreatureDraft(s,g);}}
 /** Conversion alone is not an edit. Its snapshot remains the exact legacy genome. */
 export function editCreatureSkeleton(s:CreatureEditState,change:(g:CreatureGenome)=>void,finish=true):void {
  beginCreatureEdit(s);

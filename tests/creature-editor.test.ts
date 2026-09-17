@@ -57,3 +57,29 @@ it('shares one real anatomy derivation across pricing, stats, motion, model, pos
   expect(preview(g)).toBe(p);expect(spy).toHaveBeenCalledTimes(1);g.body.spine[3].bend=.2;preview(g);expect(spy).toHaveBeenCalledTimes(2);
  }finally{spy.mockRestore();}
 });
+
+
+describe('selection across restored drafts',()=>{
+ it('selects a nearest surviving spine after insertion undo and keeps a valid selection on redo',()=>{
+  const g=creatureBodyFixture('biped'),s=state(g),ids=createCreatureIds();let inserted='';
+  editCreatureSkeleton(s,g=>{inserted=insertCreatureSpine(g,g.body.spine[3].id,ids)!;s.selection={kind:'spine',nodeId:inserted};});
+  undoCreatureEdit(s);expect(s.selection).toEqual({kind:'spine',nodeId:g.body.spine[4].id});
+  redoCreatureEdit(s);expect(s.draft.version===2&&s.draft.body.spine.some(n=>s.selection?.kind==='spine'&&n.id===s.selection.nodeId)).toBe(true);
+  expect(s.draft.version===2&&s.draft.body.spine.some(n=>n.id===inserted)).toBe(true);
+  editCreatureSkeleton(s,g=>{removeCreatureSpine(g,inserted);});undoCreatureEdit(s);s.selection={kind:'spine',nodeId:inserted};redoCreatureEdit(s);expect(s.selection).toEqual({kind:'spine',nodeId:g.body.spine[4].id});
+  beginCreatureEdit(s);if(s.draft.version!==2)throw Error();const cancelled=insertCreatureSpine(s.draft,g.body.spine[3].id,ids)!;s.selection={kind:'spine',nodeId:cancelled};finishCreatureEdit(s,true);expect(s.selection).toEqual({kind:'spine',nodeId:g.body.spine[4].id});
+ });
+ it('selects a surviving joint after insertion undo, redo removal and cancelled insertion',()=>{
+  const s=state(),ids=createCreatureIds(),partId=s.draft.parts[2].id,jointId=s.draft.parts[2].limb!.joints[0].id;
+  const insert=()=>editCreatureSkeleton(s,g=>{const p=g.parts.find(p=>p.id===partId)!;s.selection={kind:'joint',partId,jointId:insertCreatureJoint(p,jointId,ids,g)!};});
+  insert();undoCreatureEdit(s);expect(s.selection).toEqual({kind:'joint',partId,jointId});redoCreatureEdit(s);expect(s.selection).toEqual({kind:'joint',partId,jointId});
+  const inserted=s.draft.parts[2].limb!.joints[0].id;editCreatureSkeleton(s,g=>{removeCreatureJoint(g.parts[2],inserted);});undoCreatureEdit(s);s.selection={kind:'joint',partId,jointId:inserted};redoCreatureEdit(s);expect(s.selection).toEqual({kind:'joint',partId,jointId});
+  beginCreatureEdit(s);const p=s.draft.parts[2];s.selection={kind:'joint',partId,jointId:insertCreatureJoint(p,jointId,ids,s.draft)!};finishCreatureEdit(s,true);expect(s.selection).toEqual({kind:'joint',partId,jointId});
+ });
+ it('clears skeletal selection on exact v1 restoration and removed-part selection on cancel',()=>{
+  const g:LegacyGenome={version:1,name:'old',length:1,width:1,hue:180,pattern:0,parts:[]},s=state(g),ids=createCreatureIds();
+  const insert=(finish=true)=>editCreatureSkeleton(s,g=>{s.selection={kind:'spine',nodeId:insertCreatureSpine(g,g.body.spine[3].id,ids)!};},finish);
+  insert();undoCreatureEdit(s);expect(s.draft).toEqual(g);expect(s.selection).toBeNull();redoCreatureEdit(s);expect(s.selection).toBeNull();undoCreatureEdit(s);insert(false);finishCreatureEdit(s,true);expect(s.draft).toEqual(g);expect(s.selection).toBeNull();
+  beginCreatureEdit(s);s.draft.parts.push({id:'new',kind:'eyes',axial:0,angle:0,scale:1,mirrored:false});s.selection={kind:'part',partId:'new'};finishCreatureEdit(s,true);expect(s.selection).toBeNull();
+ });
+});

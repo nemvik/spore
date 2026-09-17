@@ -117,3 +117,12 @@ describe('all existing organ attachments on the five profiles', () => {
     disposeObject(model);expect(geometries).toBe(3);expect(materials).toBe(3);
   });
 });
+
+
+it('clears highlights for invalid legacy or authored section indices without creating nonfinite geometry',()=>{
+ const model=createOrganism(initialGenome()),body=model.userData.attachmentSurface as THREE.Mesh;
+ try {for(const axials of [undefined,[-1,-.3,.2,1]])for(const invalid of [-1,7,Infinity,NaN,1.5]){
+  selectBodySection(model,1,axials);expect(body.getObjectByName('body-section-selection')).toBeDefined();
+  selectBodySection(model,invalid,axials);expect(!!body.getObjectByName('body-section-selection')).toBe(false);expect(body.userData.selectedSection).toBeNull();
+ }}finally{disposeObject(model);}
+});

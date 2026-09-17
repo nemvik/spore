@@ -237,7 +237,7 @@ function editor(){if(creatureAvailable()&&skeletonMode){creatureEditor();return;
  ui.querySelector<HTMLElement>('.editor-left')!.scrollTop=leftScroll;ui.querySelector<HTMLElement>('.editor-right')!.scrollTop=rightScroll;
 }
 function refreshEditorSelection(){
- if(creatureAvailable()&&skeletonMode){graphics.creatureSelection=creatureEdit.selection;graphics.selectedPart=creatureEdit.selection&&'partId' in creatureEdit.selection?creatureEdit.selection.partId:null;graphics.selectedSpine=creatureEdit.selection?.kind==='spine'&&draft.kind==='organism'&&draft.version===2?draft.body.spine.findIndex(n=>n.id===(creatureEdit.selection as {nodeId:string}).nodeId):null;return;}
+ if(creatureAvailable()&&skeletonMode){graphics.creatureSelection=creatureEdit.selection;graphics.selectedPart=creatureEdit.selection&&'partId' in creatureEdit.selection?creatureEdit.selection.partId:null;const index=creatureEdit.selection?.kind==='spine'&&draft.kind==='organism'&&draft.version===2?draft.body.spine.findIndex(n=>n.id===(creatureEdit.selection as {nodeId:string}).nodeId):-1;graphics.selectedSpine=index>=0?index:null;return;}
  const body=draft.kind==='organism'&&editingBody;
  graphics.selectedPart=body?null:selected;graphics.selectedSpine=body?selectedSpine:null;
  const label=ui.querySelector<HTMLElement>('[data-body-selection]');

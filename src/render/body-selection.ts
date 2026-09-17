@@ -6,6 +6,7 @@ import { spineAxial } from '../game/body-shape';
  * including bent/narrow sections and the historical 32-ring body.
  */
 export function selectBodySection(model: THREE.Group, selected: number | null, axialNodes?: readonly number[]): void {
+  if(selected!==null&&(!Number.isInteger(selected)||selected<0||selected>=(axialNodes?.length??7)))selected=null;
   const body = model.userData.attachmentSurface as THREE.Mesh | undefined;
   if (!body || body.userData.selectedSection === selected) return;
   body.userData.selectedSection = selected;
