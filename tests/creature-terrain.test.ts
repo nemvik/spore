@@ -18,7 +18,42 @@ describe.each(['biped','quadruped','longneck'] as const)('%s terrain',kind=>{
 it('substeps a long trunk rotation next to a rock',()=>{const g=creatureBodyFixture('quadruped');g.length=2.4;const a=prepareInstalledCreatureAnatomy(g);let r:CreatureRuntime={pos:{x:0,y:a.groundClearance,z:0},velocity:{x:0,y:0,z:0},heading:0,energy:50,actions:emptyCreatureActions()};const env={groundAt:()=>0,obstacles:[rock(2.4,0,.4)],bound:50};for(let i=0;i<120;i++){r=advanceCreature(g,r,{...command,x:1,z:0},env,.05);noOverlap(g,r,env);}});
 
 it('leaves a finite support and falls to terrain rather than hovering',()=>{let {g,r}=setup('biped');r.pos.y+=1;const env={groundAt:()=>0,obstacles:[rock(0,0,2,0,1)],bound:50};let airborne=false;for(let i=0;i<240;i++){r=advanceCreature(g,r,command,env,1/60);airborne ||= !creatureSupport(g,r,env).grounded;}expect(airborne).toBe(true);expect(r.pos.z).toBeGreaterThan(5);expect(creatureSupport(g,r,env).grounded).toBe(true);});
-it('keeps invalid stances unconfirmable in the world',async()=>{const {evolve}=await import('../src/game/simulation');const {parseGame}=await import('../src/game/persistence');const {readFileSync}=await import('node:fs');const s=parseGame(readFileSync('tests/fixtures/saves/won-current-coast.fixture.json','utf8'));s.player.pos={...s.world.landmarks.find(l=>l.kind==='nest')!.pos};const g=creatureBodyFixture('biped');g.parts=g.parts.filter(p=>p.kind!=='legs');const before=JSON.stringify(s);expect(evolve(s,g).ok).toBe(false);expect(JSON.stringify(s)).toBe(before);});
+it('rejects an unreachable stance specifically while preserving the entire eligible campaign', async () => {
+ const { evolve } = await import('../src/game/simulation');
+ const { parseGame } = await import('../src/game/persistence');
+ const { genomeCost, initialGenome } = await import('../src/game/genome');
+ const { validateCreatureStructure } = await import('../src/game/creature-body');
+ const { readFileSync } = await import('node:fs');
+ const s = parseGame(readFileSync('tests/fixtures/saves/won-current-coast.fixture.json', 'utf8'));
+ s.player.pos = { ...s.world.landmarks.find(l => l.kind === 'nest')!.pos };
+ const valid = creatureBodyFixture('quadruped');
+ valid.parts.push(...structuredClone(s.player.genome.parts.filter(p => p.kind === 'symbiote')));
+ expect(s.player.bonds.length).toBeGreaterThan(0);
+ expect(valid.parts.some(p => p.kind === 'symbiote')).toBe(true);
+ const available = genomeCost(initialGenome()) + s.player.totalDna;
+ expect(s.player.dna).toBe(available - genomeCost(s.player.genome));
+ expect(genomeCost(valid)).toBeLessThanOrEqual(available);
+ const control = structuredClone(s);
+ expect(evolve(control, valid).ok).toBe(true);
+ expect(control.player.genome).toEqual(valid);
+ expect(control.player.dna).toBe(available - genomeCost(valid));
+ const unreachable = structuredClone(valid);
+ unreachable.body.spine.forEach(n => { n.bend = 2.5; });
+ const leg = unreachable.parts.find(p => p.kind === 'legs')!;
+ leg.angle = 0;
+ leg.limb!.joints = [
+  { id: 'knee', offset: { x: 0, y: -.2, z: 0 }, radius: .1 },
+  { id: 'ankle', offset: { x: 0, y: -.4, z: 0 }, radius: .1 },
+ ];
+ expect(validateCreatureStructure(unreachable)).toEqual([]);
+ expect(genomeCost(unreachable)).toBeLessThanOrEqual(available);
+ const before = JSON.stringify(s), result = evolve(s, unreachable);
+ expect(result.ok).toBe(false);
+ expect(result.errors.length).toBeGreaterThan(0);
+ expect(result.errors.every(error => error.includes('nedosáhne společného postoje'))).toBe(true);
+ expect(result.errors.join(' ')).toContain(leg.id);
+ expect(JSON.stringify(s)).toBe(before);
+});
 
 it.each(['biped','quadruped','longneck'] as const)('encloses the complete %s trunk surface between sampled rings',kind=>{
  const {g,a}=setup(kind);let gap=0;

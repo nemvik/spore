@@ -40,7 +40,7 @@ Na souši otevři u kolébky **Tab → Upravit kostru**. Panely **Tělo / Část
 
 **Stavba / Zkouška** přepíná mezi konstrukcí a odděleným náhledem. Chůze, skok, kousnutí a hlas či gesto vycházejí ze stejných schopností jako tělo v krajině. Nedostupná akce ukazuje důvod; kousnutí potřebuje skutečný kontakt s terčem. Zkouška nemění kampaň ani DNA. Na souši **Q** skáče a **V** komunikuje; samotné držení klávesy neopakuje akci.
 
-První konstrukční změna převádí pouze návrh do v2; **Zrušit** ponechá instalovaný v1. Undo/redo zahrnuje celý genom, samotný výběr historii nemění. Potvrzení ověřuje postoj, vybavení a rozpočet. Zobrazená cena je celková investice těla; dostupné DNA po potvrzení jsou celková alokace minus tato cena. Obsazené partnerské lůžko nelze odstranit.
+První konstrukční změna převádí pouze návrh do v2; **Zrušit** ponechá instalovaný v1. Undo/redo zahrnuje celý genom, samotný výběr historii nemění. Potvrzení ověřuje postoj, vybavení a rozpočet. V současné kampani je zobrazená cena celková investice těla; dostupné DNA po potvrzení jsou celková alokace minus tato cena. Historické savy zachovávají původní cenu mutace a navíc poplatek 6 DNA za každou generaci. Obsazené partnerské lůžko nelze odstranit.
 
 Původní text a čísla výše popisují historický editor v1. V2 má vlastní sdílenou anatomii a konzervativní kolizní obálku celého trupu; končetiny a orgány nejsou samostatná fyzikální tělesa. Podrobnosti ověření, připravené konstrukce, skutečně získaný rozpočet a omezení jsou v [reportu SP-002](../spore/SP-002-REPORT.md).
 

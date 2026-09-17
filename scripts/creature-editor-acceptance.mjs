@@ -17,6 +17,9 @@ export function isAcceptanceComplete(report) {
   return report.results.length === 3
     && report.results.every(result => isDomainComplete(result, 'terrain'))
     && isDomainComplete(report, 'comparison')
+    && isDomainComplete(report, 'edgeSaves')
+    && isDomainComplete(report, 'earned')
+    && isDomainComplete(report, 'performance')
     && report.edgeSaves?.passed === true
     && report.earned?.passed === true
     && report.performance?.results.length === 4;

@@ -6,6 +6,8 @@ import type { GameState, Genome } from './types';
 
 export interface JourneyEvolutionQuote {
   ok: boolean;
+  /** False only when validation prevented pricing; numeric fields are then placeholders. */
+  priceAvailable?: false;
   errors: string[];
   /** Total allocation in the proposed body, not an irreversible mutation charge. */
   cost: number;
@@ -24,7 +26,7 @@ export function quoteJourneyEvolution(s: GameState, draft: Genome, derived?: Cre
   const available = validKnowledge ? primordialAllocation + s.player.totalDna : 0;
   if (!validKnowledge || !Number.isFinite(available)) errors.push(GENOME_ERRORS.invalidBudget);
   // Validate before pricing: malformed imports must never reach getAdaptation.
-  if (errors.length) return { ok: false, errors, cost: 0, available, remaining: available };
+  if (errors.length) return { ok: false, errors, priceAvailable: false, cost: 0, available, remaining: available };
   const cost = genomeCost(draft), remaining = available - cost;
   if (remaining < 0) errors.push(GENOME_ERRORS.missingDna(Math.ceil(-remaining)));
   if (s.player.bonds.length && !has(draft, 'symbiote')) errors.push(TEXT.occupiedSymbiote);

@@ -7,7 +7,7 @@ function completeReport() {
     results: ['biped', 'quadruped', 'longneck'].map(kind => ({
       kind, terrainComplete: true, travelDistance: 30, comparisonProjection: { distance: 17 },
     })),
-    comparisonComplete: true,
+    comparisonComplete: true, edgeSavesComplete: true, earnedComplete: true, performanceComplete: true,
     edgeSaves: { passed: true }, earned: { passed: true }, performance: { results: [1, 2, 3, 4] },
   };
 }
@@ -80,3 +80,45 @@ test('aggregate requires both explicit domains and every other acceptance domain
     assert.equal(isAcceptanceComplete(incomplete), false);
   }
 });
+
+for (const domain of ['edgeSaves', 'earned', 'performance']) {
+  test(`${domain}: failed explicit retry cannot be erased by another successful phase`, async () => {
+    const report = completeReport();
+    assert.equal(isAcceptanceComplete(report), true);
+    await assert.rejects(runDomain(report, domain, async () => {
+      assert.equal(isDomainComplete(report, domain), false);
+      throw new Error('required retry failed');
+    }), /required retry failed/);
+    const resumed = JSON.parse(JSON.stringify(report));
+    await runDomain(resumed, 'comparison', async () => {});
+    assert.equal(isAcceptanceComplete(resumed), false);
+    await runDomain(resumed, domain, async () => {}, { remaining: true });
+    assert.equal(isAcceptanceComplete(resumed), true);
+  });
+
+  test(`${domain}: historical records without a completion marker must retry`, async () => {
+    const report = completeReport();
+    delete report[`${domain}Complete`];
+    assert.equal(isAcceptanceComplete(report), false);
+    let attempts = 0;
+    await runDomain(report, domain, async () => { attempts++; }, { remaining: true });
+    assert.equal(attempts, 1);
+    assert.equal(isAcceptanceComplete(report), true);
+  });
+}
+
+for (const domain of ['earned', 'performance']) {
+  test(`${domain}: first record assignment followed by rejected final write stays incomplete`, async () => {
+    const report = completeReport(), record = report[domain];
+    delete report[domain]; delete report[`${domain}Complete`];
+    await assert.rejects(runDomain(report, domain, async () => {
+      report[domain] = record;
+      await Promise.reject(new Error('final JSON write failed'));
+    }), /final JSON write failed/);
+    const resumed = JSON.parse(JSON.stringify(report));
+    await runDomain(resumed, 'comparison', async () => {});
+    assert.equal(isAcceptanceComplete(resumed), false);
+    await runDomain(resumed, domain, async () => {}, { remaining: true });
+    assert.equal(isAcceptanceComplete(resumed), true);
+  });
+}

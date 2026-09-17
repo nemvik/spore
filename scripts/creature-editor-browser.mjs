@@ -64,6 +64,33 @@ async function captureJump(scope,trigger,duration=1600){
   finally{samples=await page.evaluate(()=>{const capture=window.__creatureJumpCapture;capture.recording=false;delete window.__creatureJumpCapture;return capture.samples;});report.lastJumpCapture={scope,samples};}
   return samples;
 }
+async function unavailableQuoteCheck() {
+  const exact=(await read()).editor.draft;
+  const footer=async()=>({cost:await page.locator('.editor-footer .cost').innerText(),note:await page.locator('.editor-footer small').innerText()});
+  const valid=await footer();
+  assert.equal(await page.locator('[data-action="confirm-editor"]').isEnabled(),true);
+  await action('creature-panel:parts');
+  const legs=exact.parts.filter(p=>p.kind==='legs');assert.equal(legs.length,1);
+  await action(`select:${legs[0].id}`);await action('remove');
+  const unavailable=async()=>{
+    const quote=await footer();
+    assert.match(quote.cost,/Nedostupná/);assert.match(quote.note,/Zbývající alokace: nedostupná/);
+    assert.match(await page.locator('.editor-validation').innerText(),/nejméně dvě chodidla/);
+    assert.equal(await page.locator('[data-action="confirm-editor"]').isDisabled(),true);
+    return quote;
+  };
+  const initial=await unavailable(); // remove() renders a fresh construction panel.
+  await action('creature-panel:skin');
+  const hue=page.locator('[data-creature="hue"]');await hue.focus();await hue.press('ArrowUp');await frame();
+  assert.equal((await read()).editor.history.pending,true);
+  const refreshed=await unavailable(); // focused native input runs refreshEditorValues without rebuilding the panel.
+  await shot('unavailable-quote');
+  await hue.press('Tab');await frame();await action('undo');await action('undo');
+  assert.deepEqual((await read()).editor.draft,exact);
+  assert.deepEqual(await footer(),valid);
+  assert.equal(await page.locator('[data-action="confirm-editor"]').isEnabled(),true);
+  report.unavailableQuote={passed:true,initial,refreshed,restored:valid,checks:['initial panel render','focused numeric refresh','concrete stance reason','disabled confirmation','undo exact genome and valid quote']};
+}
 async function build(kind) {
   console.log(`${kind}: starting UI construction`);
   await importSave(fixture); const imported=await read();assert.equal(imported.stage,2);assert.equal(imported.player.genome.version,1);assert.equal(imported.player.dna,119);assert.equal(imported.player.totalDna,200);
@@ -115,6 +142,7 @@ async function build(kind) {
     assert.equal(await page.locator('[data-action="trial:communicate"]').textContent(),'Gesto');assert.equal(await page.locator('[data-action="trial:attack"]').isDisabled(),true);await action('trial:communicate');await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).editor.trial.runtime.actions.communicationSerial===1);assert.equal(await page.locator('[data-action="trial:communicate"]').isDisabled(),true);
     await action('creature-view:build');await action('undo');assert.deepEqual((await read()).editor.draft,exact);
   }
+  if(kind==='biped'&&process.argv.includes('--production-smoke'))await unavailableQuoteCheck();
   // Native orbit then wheel calibration, using read-only actual camera distance.
   let proj=(await read()).editor.projection;await page.mouse.move(720,450);await page.mouse.down({button:'right'});await page.mouse.move(720+(proj.yaw-.95)/.008,450+(.15-proj.pitch)/.006,{steps:12});await page.mouse.up({button:'right'});await frame();
   proj=(await read()).editor.projection;const targetDistance=17;await page.mouse.move(720,450);await page.mouse.wheel(0,(proj.zoom*targetDistance/proj.distance-proj.zoom)/.008);await frame();
@@ -248,7 +276,7 @@ try {
   if(process.argv.includes('--saved-only')||process.argv.includes('--resume-construction')){report=JSON.parse(await readFile(path.join(out,'results.json'),'utf8'));delete report.failure;delete report.state;report.passed=false;report.acceptanceComplete=false;const kinds=['biped','quadruped','longneck'];if(process.argv.includes('--resume-construction')){assert.ok(report.results.length<3);assert.deepEqual(report.results.map(r=>r.kind),kinds.slice(0,report.results.length),'Resume requires a verified construction prefix');for(const kind of kinds.slice(report.results.length))await build(kind);}else assert.deepEqual(report.results.map(r=>r.kind),kinds,'Saved-only requires the complete UI-paid matrix');}
   else for(const kind of (process.argv.includes('--red')||process.argv.includes('--production-smoke'))?['biped']:['biped','quadruped','longneck'])await build(kind);
   if(process.argv.includes('--production-smoke')){assert.equal(await page.evaluate(()=>typeof window.advanceTime),'undefined');const r=report.results[0];await importSave(r.save);await page.reload();await action('saves');await loadLatest();assert.deepEqual((await read()).player.genome,r.genome);assert.deepEqual((await read()).creatureCapabilities,r.capabilities);report.productionV2=true;report.productionResources=await page.evaluate(()=>performance.getEntriesByType('resource').map(e=>e.name).filter(name=>/\.(js|css)(\?|$)/.test(name)));}
-  else if(!process.argv.includes('--red')){if(['all','comparison'].includes(phase))await runDomain(report,'comparison',comparison,{remaining:process.argv.includes('--remaining')});if(!process.argv.includes('--construction')){if(['all','terrain'].includes(phase))for(const result of report.results)await runDomain(result,'terrain',()=>savedWorkflow(result),{remaining:process.argv.includes('--remaining')});if(['all','edge'].includes(phase))await edgeSaves();if(['all','earned'].includes(phase))await earnedContinuation();if(['all','performance'].includes(phase))await performance();}}
+  else if(!process.argv.includes('--red')){if(['all','comparison'].includes(phase))await runDomain(report,'comparison',comparison,{remaining:process.argv.includes('--remaining')});if(!process.argv.includes('--construction')){if(['all','terrain'].includes(phase))for(const result of report.results)await runDomain(result,'terrain',()=>savedWorkflow(result),{remaining:process.argv.includes('--remaining')});if(['all','edge'].includes(phase))await runDomain(report,'edgeSaves',async()=>{await edgeSaves();assert.deepEqual(errors,[]);},{remaining:process.argv.includes('--remaining')});if(['all','earned'].includes(phase))await runDomain(report,'earned',async()=>{await earnedContinuation();assert.deepEqual(errors,[]);},{remaining:process.argv.includes('--remaining')});if(['all','performance'].includes(phase))await runDomain(report,'performance',async()=>{await performance();assert.deepEqual(errors,[]);},{remaining:process.argv.includes('--remaining')});}}
   assert.deepEqual(errors,[]);report.passed=true;report.lastSuccessfulPhase=process.argv.includes('--construction')?'construction':phase;report.acceptanceComplete=isAcceptanceComplete(report);if(phase==='all'&&!['--red','--construction','--production-smoke'].some(flag=>process.argv.includes(flag)))assert.equal(report.acceptanceComplete,true,'All acceptance domains must complete');
 } catch(error) { report.passed=false;report.acceptanceComplete=false;report.failure=String(error.stack);report.state=await read().catch(()=>null);await shot('failure').catch(()=>{});console.error(error);process.exitCode=1; }
 finally {report.completedAt=new Date().toISOString();report.browser=browser.version();report.invocation=process.argv.slice(2);report.scriptSha256=createHash('sha256').update(await readFile('scripts/creature-editor-browser.mjs')).digest('hex');report.completionHelperSha256=createHash('sha256').update(await readFile('scripts/creature-editor-acceptance.mjs')).digest('hex');report.sourceHashes=sourceHashes;report.errors=errors;report.environmentWarnings=warnings;await writeFile(path.join(out,'results.json'),JSON.stringify(report,null,2));if(process.env.LUMAVORA_TRACE==='1')await context.tracing.stop({path:path.join(out,'trace.zip')});await browser.close();}

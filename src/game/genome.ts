@@ -242,12 +242,12 @@ export function validateGenome(value: unknown, stage: Stage, derived?: CreatureA
   return validateLegacyGenome(value, stage);
 }
 
-export function validateMutation(oldGenome: Genome, nextGenome: Genome, stage: Stage, budget: number, derived?: CreatureAnatomy): { ok: boolean; errors: string[]; cost: number } {
+export function validateMutation(oldGenome: Genome, nextGenome: Genome, stage: Stage, budget: number, derived?: CreatureAnatomy): { ok: boolean; errors: string[]; cost: number; priceAvailable?: false } {
   const errors = validateGenome(nextGenome, stage, derived);
   // Refuse invalid trusted-state assumptions too, instead of deriving NaN/negative prices.
   if (validateGenome(oldGenome, stage).length) errors.push(GENOME_ERRORS.invalidOriginal);
   if (!Number.isFinite(budget) || budget < 0) errors.push(GENOME_ERRORS.invalidBudget);
-  if (errors.length) return { ok: false, errors, cost: 0 };
+  if (errors.length) return { ok: false, errors, cost: 0, priceAvailable: false };
   const cost = mutationCost(oldGenome, nextGenome);
   if (cost > budget) errors.push(GENOME_ERRORS.missingDna(Math.ceil(cost - budget)));
   return { ok: errors.length === 0, errors, cost };
