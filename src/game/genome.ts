@@ -1,8 +1,10 @@
-import { attachmentAngles, attachmentPoint, bodyVolume, bodyWidth, neutralSpine, SPINE_COUNT, spineInvestment } from './body-profile';
+import { attachmentAngles, attachmentPoint } from './anatomy';
+import { creatureMouths, resolveCreatureAnatomy, validateCreatureStance } from './creature-anatomy';
+import { bodyVolume, bodyWidth, neutralSpine, SPINE_COUNT, spineInvestment } from './body-shape';
 import { GENOME_ERRORS } from './errors.cs';
 import { ADAPTATIONS, CREATURE_ADAPTATIONS, getAdaptation } from './adaptation-catalog';
-import { validateCreatureStructure } from './creature-body';
-import type { AdaptationId, Genome, LegacyGenome, Part, Stage, Stats, Vec3 } from './types';
+import { creatureInvestment, creatureMutationInvestment, upgradeCreatureGenome, validateCreatureStructure } from './creature-body';
+import type { AdaptationId, CreatureGenome, Genome, LegacyGenome, Part, Stage, Stats, Vec3 } from './types';
 export { ADAPTATIONS, CREATURE_ADAPTATIONS, adaptationsForGenome, getAdaptation } from './adaptation-catalog';
 
 /** Costs are DNA; each paired attachment costs and contributes 1.6 times one part. */
@@ -34,18 +36,20 @@ export const cloneGenome = <T extends Genome>(genome: T): T => structuredClone(g
  */
 export function computeStats(genome: Genome): Stats {
   const strength = (id: AdaptationId) => genome.parts.reduce((sum, part) => sum + (part.kind === id ? part.scale * (part.mirrored ? 1.6 : 1) : 0), 0);
-  const body = genome.length * genome.width * genome.width * bodyVolume(genome);
-  const mass = body + genome.parts.reduce((sum, part) => {
+  const anatomy = genome.version === 2 ? resolveCreatureAnatomy(genome) : null;
+  const body = anatomy ? anatomy.bodyVolume : genome.length * genome.width * genome.width * bodyVolume(genome);
+  const baseMass = body + genome.parts.reduce((sum, part) => {
     const density = part.kind === 'shell' ? 0.72 : part.kind === 'reservoir' ? 0.42 : 0.11;
     return sum + density * part.scale * (part.mirrored ? 1.6 : 1);
   }, 0);
+  const mass = anatomy ? baseMass + anatomy.limbMass : baseMass;
   const flagellum = strength('flagellum'), fins = strength('fins'), tail = strength('tail');
   const legs = strength('legs'), jet = strength('jet'), shell = strength('shell');
   const shapeDrag = Math.max(0, bodyWidth(genome) - 0.85) * 0.45;
   const movement = 4.8 + flagellum * 0.8 + fins * 0.4 + tail * 1.1 + jet * 0.5;
-  const diet = new Set<string>(has(genome, 'jaw') ? ['meat', 'detritus'] : ['algae', 'detritus']);
-  if (has(genome, 'filter') || has(genome, 'recycler')) diet.add('mineral');
-  if (has(genome, 'proboscis')) diet.add('nectar');
+  const diet = new Set<string>(genome.version === 2 ? creatureMouths(genome).flatMap(m => m.diet) : has(genome, 'jaw') ? ['meat', 'detritus'] : ['algae', 'detritus']);
+  if (genome.version === 1 && (has(genome, 'filter') || has(genome, 'recycler'))) diet.add('mineral');
+  if (genome.version === 1 && has(genome, 'proboscis')) diet.add('nectar');
   return {
     speed: clamp(movement / (1 + Math.max(0, mass - 1) * 0.09 + shapeDrag + legs * 0.04), 1.8, 11),
     acceleration: clamp(7 + flagellum * 1.8 + fins * 1.5 + jet * 4 - mass * 0.45, 2, 22),
@@ -106,7 +110,7 @@ export function functionalProfile(genome: Genome): FunctionalProfile {
     }
     if (part.kind === 'tail') tailStability += tissue * (.7 + .6 * (1 - part.axial) / 2);
     if (part.kind === 'chloroplast') leafExposure += tissue * (.7 + .3 * (1 + Math.cos(part.angle)) / 2);
-    if (part.kind === 'filter' || part.kind === 'jaw' || part.kind === 'proboscis') {
+    if (genome.version === 1 && (part.kind === 'filter' || part.kind === 'jaw' || part.kind === 'proboscis')) {
       const reach = 3.1 + (part.kind === 'proboscis' ? 2.9 : 1.2) * organOutput(tissue);
       if (reach > feedReach) {
         const points = attachmentAngles(part).map(angle => attachmentPoint(part.axial, angle, genome.length, genome.width, genome.spine));
@@ -115,10 +119,12 @@ export function functionalProfile(genome: Genome): FunctionalProfile {
       }
     }
   }
+  const mouths = genome.version === 2 ? creatureMouths(genome) : null;
+  if (mouths) { mouthOrigin = mouths[0]?.mouthOrigin ?? { x: 0, y: 0, z: 0 }; feedReach = mouths[0]?.feedReach ?? 0; }
   const turningPlacement = 1 + .8 * (organOutput(steering) - organOutput(finStrength));
   const toxin = organOutput(strength('toxin'));
   return {
-    mouthOrigin, feedReach: Math.max(feedReach, Math.hypot(mouthOrigin.x, mouthOrigin.y, mouthOrigin.z) + .8),
+    mouthOrigin, feedReach: genome.version === 2 ? feedReach : Math.max(feedReach, Math.hypot(mouthOrigin.x, mouthOrigin.y, mouthOrigin.z) + .8),
     turnRate: clamp(stats.turn * 1.45 * turningPlacement / (1 + Math.max(0, stats.mass - 2) * .1), 1.35, 8),
     acceleration: stats.acceleration,
     steeringGrip: stats.acceleration + 2 * organOutput(stabilizing),
@@ -136,11 +142,13 @@ const partInvestment = (part: Part): number => getAdaptation(part.kind).cost * p
 const bodyInvestment = (genome: Genome): number => Math.abs(genome.length - 1) * 12 + Math.abs(genome.width - 1) * 10 + spineInvestment(genome);
 
 export function genomeCost(genome: Genome): number {
+  if (genome.version === 2) return roundCost(creatureInvestment(genome));
   return roundCost(genome.parts.reduce((sum, part) => sum + partInvestment(part), bodyInvestment(genome)));
 }
 
 /** Removal salvages half its investment against this mutation only, never paying DNA. */
 export function mutationCost(oldGenome: Genome, nextGenome: Genome): number {
+  if (oldGenome.version === 2 || nextGenome.version === 2) return roundCost(creatureMutationInvestment(oldGenome.version === 2 ? oldGenome : upgradeCreatureGenome(oldGenome), nextGenome.version === 2 ? nextGenome : upgradeCreatureGenome(nextGenome)));
   const previous = new Map(oldGenome.parts.map((part) => [part.id, part]));
   let added = 0, removed = 0;
   for (const part of nextGenome.parts) {
@@ -217,6 +225,7 @@ export function validateGenome(value: unknown, stage: Stage): string[] {
   if (record(value) && value.version === 2) {
     if (![0, 1, 2, 3, 4, 5].includes(stage)) return [GENOME_ERRORS.invalidStage];
     const errors = validateCreatureStructure(value);
+    if (!errors.length) errors.push(...validateCreatureStance(value as unknown as CreatureGenome));
     if (stage < 2) errors.push(GENOME_ERRORS.stageRequired('Kloubové tělo', 3));
     if (Array.isArray(value.parts)) {
       for (let index = 0; index < Math.min(value.parts.length, 19); index++) {

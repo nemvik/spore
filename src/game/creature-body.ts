@@ -1,7 +1,7 @@
-import { CREATURE_ADAPTATIONS } from './adaptation-catalog';
+import { getAdaptation, CREATURE_ADAPTATIONS } from './adaptation-catalog';
 import { neutralSpine, spineAxial } from './body-profile';
 import { GENOME_ERRORS } from './errors.cs';
-import type { CreatureGenome, LegacyGenome, SpineNode, Vec3 } from './types';
+import type { CreatureGenome, LegacyGenome, Part, SpineNode, Vec3 } from './types';
 
 export interface CreatureSpineNode {
   id: string;
@@ -172,4 +172,50 @@ export function validateCreatureStructure(value: unknown): string[] {
   if (!counts.has('lungs')) errors.push('Suchozemský tvor potřebuje plíce.');
   if (physicalFeet < 2) errors.push(GENOME_ERRORS.physicalFeetRequired);
   return [...new Set(errors)];
+}
+
+/** The same 64 axial samples drive construction and legacy reshaping prices. */
+export const creatureSections = (g: CreatureGenome): SpineNode[] => Array.from({ length: 64 }, (_, i) => sampleCreatureSection(g, -.9 + 1.8 * i / 63));
+
+/** Unscaled bone tissue units; geometry and DNA share this normalization. */
+export function limbTissue(limb: LimbGene): number {
+  let previous: Vec3 = { x: 0, y: 0, z: 0 }, tissue = 0;
+  for (const joint of limb.joints) {
+    tissue += distance(previous, joint.offset) / .6 * (joint.radius / .12) ** 2;
+    previous = joint.offset;
+  }
+  return tissue;
+}
+
+export function creaturePartInvestment(part: Part): number {
+  const limb = part.limb;
+  const tissue = limb ? 4 * limbTissue(limb) + (limb.end.kind === 'none' ? 0 : 6 * limb.end.scale) : 0;
+  return (getAdaptation(part.kind).cost + tissue) * part.scale * (part.mirrored ? 1.6 : 1);
+}
+
+export function creatureInvestment(g: CreatureGenome): number {
+  const shape = creatureSections(g).reduce((sum, node) => sum + Math.abs(node.width - 1) + Math.abs(node.height - 1) + Math.abs(node.bend), 0) * 3 / 64;
+  const body = 12 * Math.abs(g.length - 1) + 10 * Math.abs(g.width - 1) + shape + 2 * Math.max(0, g.body.spine.length - 7);
+  return g.parts.reduce((sum, part) => sum + creaturePartInvestment(part), body);
+}
+
+export function creatureMutationInvestment(old: CreatureGenome, next: CreatureGenome): number {
+  const previous = new Map(old.parts.map(part => [part.id, part]));
+  let added = 0, removed = 0;
+  for (const part of next.parts) {
+    const before = previous.get(part.id);
+    if (before && before.kind === part.kind) {
+      const delta = creaturePartInvestment(part) - creaturePartInvestment(before);
+      added += Math.max(0, delta); removed += Math.max(0, -delta);
+    } else {
+      added += creaturePartInvestment(part);
+      if (before) removed += creaturePartInvestment(before);
+    }
+    previous.delete(part.id);
+  }
+  for (const part of previous.values()) removed += creaturePartInvestment(part);
+  const oldSections = creatureSections(old);
+  const sculpting = creatureSections(next).reduce((sum, node, i) => sum + Math.abs(node.width - oldSections[i].width) + Math.abs(node.height - oldSections[i].height) + Math.abs(node.bend - oldSections[i].bend), 0) * 3 / 64;
+  const extraNodes = 2 * Math.abs(Math.max(0, next.body.spine.length - 7) - Math.max(0, old.body.spine.length - 7));
+  return Math.max(0, added - removed * .5) + sculpting + extraNodes + 12 * Math.abs(next.length - old.length) + 10 * Math.abs(next.width - old.width);
 }
