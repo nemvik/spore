@@ -141,3 +141,10 @@ describe('fixed simulation clock independent of visible frame rate', () => {
     }
   });
 });
+
+it.each([['KeyQ','jump'],['KeyV','communicate']] as const)('latches %s once and omits absent optional edges', (code,action)=>{
+ const latch=new InputLatch();latch.keyDown(code);expect(latch.consume()).toEqual({...noActions,[action]:true});
+ for(let i=0;i<120;i++){latch.keyDown(code);expect(latch.consume()).toEqual(noActions);}
+ latch.keyUp(code);latch.keyDown(code);latch.clear();expect(latch.consume()).toEqual(noActions);
+ latch.keyDown(code);latch.keyUp(code);expect(latch.consume()).toEqual({...noActions,[action]:true});
+});

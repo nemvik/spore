@@ -1,46 +1,21 @@
+import type { CreatureAnatomy } from './creature-anatomy';
+import { attachmentAngles, attachmentPoint } from './anatomy';
+import { creatureMouths, resolveCreatureAnatomy, validateCreatureStance } from './creature-anatomy';
 import { bodyVolume, bodyWidth, neutralSpine, SPINE_COUNT, spineInvestment } from './body-shape';
 import { GENOME_ERRORS } from './errors.cs';
-import { attachmentAngles, attachmentPoint } from './anatomy';
-import type { Adaptation, AdaptationId, Genome, Part, Stage, Stats, Vec3 } from './types';
+import { ADAPTATIONS, CREATURE_ADAPTATIONS, getAdaptation } from './adaptation-catalog';
+import { creatureInvestment, creatureMutationInvestment, upgradeCreatureGenome, validateCreatureStructure } from './creature-body';
+import type { AdaptationId, CreatureGenome, Genome, LegacyGenome, Part, Stage, Stats, Vec3 } from './types';
+export { ADAPTATIONS, CREATURE_ADAPTATIONS, adaptationsForGenome, getAdaptation } from './adaptation-catalog';
 
 /** Costs are DNA; each paired attachment costs and contributes 1.6 times one part. */
-export const ADAPTATIONS: Adaptation[] = [
-  { id: 'flagellum', name: 'Vlnivý bičík', category: 'movement', description: 'Pružný pohon pro rychlé plavání a rozjezd.', tradeoff: 'Vyšší spotřeba energie za rychlost.', cost: 10, stage: 0, max: 3 },
-  { id: 'fins', name: 'Vějířové ploutve', category: 'movement', description: 'Přesné zatáčení, stoupání a plavání v proudu.', tradeoff: 'Přidávají hmotnost a spotřebu.', cost: 16, stage: 1, max: 3 },
-  { id: 'tail', name: 'Kýlový ocas', category: 'movement', description: 'Silný trvalý pohon ve vodě.', tradeoff: 'Ve vodě vyšší rychlost, ale větší poloměr zatáčení. Na souši zůstává jen hmotnost.', cost: 20, stage: 1, max: 1 },
-  { id: 'legs', name: 'Pružné končetiny', category: 'movement', description: 'Umožní chůzi a nesou tělo na souši.', tradeoff: 'Ve vodě přidávají odpor; souš také vyžaduje plíce.', cost: 24, stage: 1, max: 3 },
-  { id: 'jet', name: 'Pulzní vak', category: 'movement', description: 'Zesiluje vodní sprint a zrychlení.', tradeoff: 'Drahý, energeticky náročný pohon.', cost: 24, stage: 1, max: 1 },
-  { id: 'filter', name: 'Filtrační věnec', category: 'feeding', description: 'Zpracuje řasy, detrit a minerální živiny.', tradeoff: 'Nelze kombinovat s dravou čelistí.', cost: 12, stage: 0, max: 1 },
-  { id: 'jaw', name: 'Srpková čelist', category: 'feeding', description: 'Loví tvory a tráví maso i detrit.', tradeoff: 'Ztrácí trávení řas; nelze kombinovat s filtrem.', cost: 18, stage: 0, max: 1 },
-  { id: 'proboscis', name: 'Nektarová sosna', category: 'feeding', description: 'Otevírá přístup k nektaru bez lovu.', tradeoff: 'Lehce zvyšuje spotřebu a hmotnost.', cost: 14, stage: 0, max: 1 },
-  { id: 'eyes', name: 'Čočkové oči', category: 'senses', description: 'Odhalí vzdálenější tvory a zdroje.', tradeoff: 'Citlivá tkáň potřebuje energii.', cost: 12, stage: 0, max: 2 },
-  { id: 'antenna', name: 'Chemická tykadla', category: 'senses', description: 'Zlepší dosah vnímání a stopování živin.', tradeoff: 'Mírná metabolická režie.', cost: 12, stage: 0, max: 2 },
-  { id: 'sonar', name: 'Ozvěnová koruna', category: 'senses', description: 'Pulz odhaluje život i ve tmě a za úkryty.', tradeoff: 'Aktivní pulz stojí energii.', cost: 24, stage: 1, max: 1 },
-  { id: 'shell', name: 'Mozaikový krunýř', category: 'defense', description: 'Tlumení zásahů a větší zásoba zdraví.', tradeoff: 'Hmotnost snižuje rychlost i obratnost.', cost: 18, stage: 0, max: 2 },
-  { id: 'spines', name: 'Pružné ostny', category: 'defense', description: 'Odrazují lovce a zraňují při kontaktu.', tradeoff: 'Přidávají odpor a náklady na údržbu.', cost: 14, stage: 0, max: 3 },
-  { id: 'toxin', name: 'Hořké žlázy', category: 'defense', description: 'Obranný pulz odežene blízké predátory.', tradeoff: 'Pulz spotřebuje energii; žlázy mají stálou režii.', cost: 20, stage: 0, max: 1 },
-  { id: 'gills', name: 'Korálové žábry', category: 'metabolism', description: 'Zvyšují zásobu kyslíku a účinnost plavání.', tradeoff: 'V čisté vodě doplňují dech, ale také vstřebávají plyn průduchů. Na souši nenahrazují plíce.', cost: 16, stage: 1, max: 2 },
-  { id: 'lungs', name: 'Vzdušné komory', category: 'metabolism', description: 'Umožní dýchat mimo vodu.', tradeoff: 'Na souši potřebují končetiny a dostatek vláhy.', cost: 24, stage: 1, max: 1 },
-  { id: 'bladder', name: 'Vztlaková perla', category: 'metabolism', description: 'Zlepšuje stoupání a vznášení v hloubce.', tradeoff: 'Zvětšuje tělo a jeho hmotnost.', cost: 16, stage: 1, max: 1 },
-  { id: 'reservoir', name: 'Rosný zásobník', category: 'metabolism', description: 'Uchová více vody pro delší výpravy po souši.', tradeoff: 'Plný zásobník zatěžuje tělo.', cost: 22, stage: 1, max: 2 },
-  { id: 'chloroplast', name: 'Světelné lístky', category: 'symbiosis', description: 'Získávají energii ze světla a snižují hlad.', tradeoff: 'Ve tmě fotosyntéza nepomáhá; zpomalují tělo.', cost: 20, stage: 0, max: 2 },
-  { id: 'symbiote', name: 'Partnerské lůžko', category: 'symbiosis', description: 'Umožní navázat vztah s pomocným druhem.', tradeoff: 'Partner potřebuje krmení a část tvé energie.', cost: 18, stage: 0, max: 1 },
-  { id: 'recycler', name: 'Recyklační uzel', category: 'symbiosis', description: 'Zpracuje detrit a minerály, účinněji využije živiny.', tradeoff: 'Snižuje obratnost a zatěžuje tělo.', cost: 20, stage: 1, max: 1 },
-];
-
 const adaptationMap = new Map(ADAPTATIONS.map((adaptation) => [adaptation.id, adaptation]));
 const GENOME_KEYS = ['version', 'name', 'length', 'width', 'hue', 'pattern', 'parts'];
 const PART_KEYS = ['id', 'kind', 'axial', 'angle', 'scale', 'mirrored'];
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const roundCost = (value: number) => Math.max(0, Math.ceil(value - 1e-8));
 
-export function getAdaptation(id: AdaptationId): Adaptation {
-  const adaptation = adaptationMap.get(id);
-  if (!adaptation) throw new Error(GENOME_ERRORS.unknownAdaptation(String(id)));
-  return adaptation;
-}
-
-export function initialGenome(): Genome {
+export function initialGenome(): LegacyGenome {
   return {
     version: 1, name: 'Luma', length: 1, width: 1, hue: 168, pattern: 0,
     parts: [
@@ -51,7 +26,7 @@ export function initialGenome(): Genome {
 }
 
 export const has = (genome: Genome, id: AdaptationId): boolean => genome.parts.some((part) => part.kind === id);
-export const cloneGenome = (genome: Genome): Genome => ({ ...genome, ...(genome.spine ? { spine: genome.spine.map(node => ({ ...node })) } : {}), parts: genome.parts.map((part) => ({ ...part })) });
+export const cloneGenome = <T extends Genome>(genome: T): T => structuredClone(genome);
 
 /**
  * speed: world units/s; acceleration: units/s²; turn: radians/s; armor: damage fraction.
@@ -60,26 +35,28 @@ export const cloneGenome = (genome: Genome): Genome => ({ ...genome, ...(genome.
  * simulation actions (pulse, photosynthesis, bonding, reflection and diet), not cosmetics.
  * Attachment size and symmetry affect investment, mass and performance together.
  */
-export function computeStats(genome: Genome): Stats {
+export function computeStats(genome: Genome, derived?: CreatureAnatomy): Stats {
   const strength = (id: AdaptationId) => genome.parts.reduce((sum, part) => sum + (part.kind === id ? part.scale * (part.mirrored ? 1.6 : 1) : 0), 0);
-  const body = genome.length * genome.width * genome.width * bodyVolume(genome);
-  const mass = body + genome.parts.reduce((sum, part) => {
+  const anatomy = genome.version === 2 ? derived ?? resolveCreatureAnatomy(genome) : null;
+  const body = anatomy ? anatomy.bodyVolume : genome.length * genome.width * genome.width * bodyVolume(genome);
+  const baseMass = body + genome.parts.reduce((sum, part) => {
     const density = part.kind === 'shell' ? 0.72 : part.kind === 'reservoir' ? 0.42 : 0.11;
     return sum + density * part.scale * (part.mirrored ? 1.6 : 1);
   }, 0);
+  const mass = anatomy ? baseMass + anatomy.limbMass : baseMass;
   const flagellum = strength('flagellum'), fins = strength('fins'), tail = strength('tail');
   const legs = strength('legs'), jet = strength('jet'), shell = strength('shell');
   const shapeDrag = Math.max(0, bodyWidth(genome) - 0.85) * 0.45;
   const movement = 4.8 + flagellum * 0.8 + fins * 0.4 + tail * 1.1 + jet * 0.5;
-  const diet = new Set<string>(has(genome, 'jaw') ? ['meat', 'detritus'] : ['algae', 'detritus']);
-  if (has(genome, 'filter') || has(genome, 'recycler')) diet.add('mineral');
-  if (has(genome, 'proboscis')) diet.add('nectar');
+  const diet = new Set<string>(genome.version === 2 ? creatureMouths(genome).flatMap(m => m.diet) : has(genome, 'jaw') ? ['meat', 'detritus'] : ['algae', 'detritus']);
+  if (genome.version === 1 && (has(genome, 'filter') || has(genome, 'recycler'))) diet.add('mineral');
+  if (genome.version === 1 && has(genome, 'proboscis')) diet.add('nectar');
   return {
     speed: clamp(movement / (1 + Math.max(0, mass - 1) * 0.09 + shapeDrag + legs * 0.04), 1.8, 11),
     acceleration: clamp(7 + flagellum * 1.8 + fins * 1.5 + jet * 4 - mass * 0.45, 2, 22),
     turn: clamp(3.3 + fins * 0.5 + strength('antenna') * 0.08 - shell * 0.3 - tail * 0.2 - strength('recycler') * 0.12 - Math.max(0, genome.length - 1) * 0.4, 0.9, 6),
     maxHealth: Math.round(90 + genome.width * 15 + shell * 28 + legs * 6),
-    damage: Math.round(7 + strength('jaw') * 24 + strength('spines') * 5 + strength('toxin') * 3),
+    damage: Math.round(7 + (genome.version === 2 ? organOutput(strength('jaw')) : strength('jaw')) * 24 + strength('spines') * 5 + strength('toxin') * 3),
     armor: clamp(shell * 0.18 + strength('spines') * 0.035 + strength('toxin') * 0.04, 0, 0.72),
     metabolism: clamp(0.85 + body * 0.08 + flagellum * 0.08 + fins * 0.05 + tail * 0.06 + legs * 0.06 + jet * 0.2 + strength('jaw') * 0.1 + strength('filter') * 0.03 + strength('proboscis') * 0.04 + strength('eyes') * 0.035 + strength('antenna') * 0.025 + strength('sonar') * 0.07 + shell * 0.035 + strength('spines') * 0.035 + strength('toxin') * 0.09 + strength('lungs') * 0.04 + strength('symbiote') * 0.05 - strength('chloroplast') * 0.12 - strength('recycler') * 0.12, 0.45, 3.6),
     sense: 15 + strength('eyes') * 10 + strength('antenna') * 7 + strength('sonar') * 15,
@@ -117,8 +94,8 @@ export interface FunctionalProfile {
 /** Smooth diminishing returns, normalized so one ordinary organ retains its baseline output. */
 const organOutput = (strength: number): number => -Math.expm1(-Math.max(0, strength) * .75) / -Math.expm1(-.75);
 
-export function functionalProfile(genome: Genome): FunctionalProfile {
-  const stats = computeStats(genome);
+export function functionalProfile(genome: Genome, derived?: CreatureAnatomy): FunctionalProfile {
+  const stats = computeStats(genome, derived);
   const strength = (kind: AdaptationId) => genome.parts.reduce((sum, part) => sum + (part.kind === kind ? part.scale * (part.mirrored ? 1.6 : 1) : 0), 0);
   let steering = 0, stabilizing = 0, finStrength = 0, tailStability = 0, leafExposure = 0;
   let mouthOrigin: Vec3 = { x: 0, y: 0, z: 0 }, feedReach = 3.3;
@@ -134,7 +111,7 @@ export function functionalProfile(genome: Genome): FunctionalProfile {
     }
     if (part.kind === 'tail') tailStability += tissue * (.7 + .6 * (1 - part.axial) / 2);
     if (part.kind === 'chloroplast') leafExposure += tissue * (.7 + .3 * (1 + Math.cos(part.angle)) / 2);
-    if (part.kind === 'filter' || part.kind === 'jaw' || part.kind === 'proboscis') {
+    if (genome.version === 1 && (part.kind === 'filter' || part.kind === 'jaw' || part.kind === 'proboscis')) {
       const reach = 3.1 + (part.kind === 'proboscis' ? 2.9 : 1.2) * organOutput(tissue);
       if (reach > feedReach) {
         const points = attachmentAngles(part).map(angle => attachmentPoint(part.axial, angle, genome.length, genome.width, genome.spine));
@@ -143,10 +120,12 @@ export function functionalProfile(genome: Genome): FunctionalProfile {
       }
     }
   }
+  const mouths = genome.version === 2 ? creatureMouths(genome) : null;
+  if (mouths) { mouthOrigin = mouths[0]?.mouthOrigin ?? { x: 0, y: 0, z: 0 }; feedReach = mouths[0]?.feedReach ?? 0; }
   const turningPlacement = 1 + .8 * (organOutput(steering) - organOutput(finStrength));
   const toxin = organOutput(strength('toxin'));
   return {
-    mouthOrigin, feedReach: Math.max(feedReach, Math.hypot(mouthOrigin.x, mouthOrigin.y, mouthOrigin.z) + .8),
+    mouthOrigin, feedReach: genome.version === 2 ? feedReach : Math.max(feedReach, Math.hypot(mouthOrigin.x, mouthOrigin.y, mouthOrigin.z) + .8),
     turnRate: clamp(stats.turn * 1.45 * turningPlacement / (1 + Math.max(0, stats.mass - 2) * .1), 1.35, 8),
     acceleration: stats.acceleration,
     steeringGrip: stats.acceleration + 2 * organOutput(stabilizing),
@@ -164,11 +143,13 @@ const partInvestment = (part: Part): number => getAdaptation(part.kind).cost * p
 const bodyInvestment = (genome: Genome): number => Math.abs(genome.length - 1) * 12 + Math.abs(genome.width - 1) * 10 + spineInvestment(genome);
 
 export function genomeCost(genome: Genome): number {
+  if (genome.version === 2) return roundCost(creatureInvestment(genome));
   return roundCost(genome.parts.reduce((sum, part) => sum + partInvestment(part), bodyInvestment(genome)));
 }
 
 /** Removal salvages half its investment against this mutation only, never paying DNA. */
 export function mutationCost(oldGenome: Genome, nextGenome: Genome): number {
+  if (oldGenome.version === 2 || nextGenome.version === 2) return roundCost(creatureMutationInvestment(oldGenome.version === 2 ? oldGenome : upgradeCreatureGenome(oldGenome), nextGenome.version === 2 ? nextGenome : upgradeCreatureGenome(nextGenome)));
   const previous = new Map(oldGenome.parts.map((part) => [part.id, part]));
   let added = 0, removed = 0;
   for (const part of nextGenome.parts) {
@@ -199,8 +180,7 @@ const record = (value: unknown): value is Record<string, unknown> => {
 const finiteRange = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
 
-/** Validate untrusted save/editor input before using it for prices or simulation. */
-export function validateGenome(value: unknown, stage: Stage): string[] {
+function validateLegacyGenome(value: unknown, stage: Stage): string[] {
   const errors: string[] = [];
   if (![0, 1, 2].includes(stage)) return [GENOME_ERRORS.invalidStage];
   if (!record(value)) return [GENOME_ERRORS.objectRequired];
@@ -241,12 +221,33 @@ export function validateGenome(value: unknown, stage: Stage): string[] {
   return [...new Set(errors)];
 }
 
-export function validateMutation(oldGenome: Genome, nextGenome: Genome, stage: Stage, budget: number): { ok: boolean; errors: string[]; cost: number } {
-  const errors = validateGenome(nextGenome, stage);
+/** Validate untrusted save/editor input before using it for prices or simulation. */
+export function validateGenome(value: unknown, stage: Stage, derived?: CreatureAnatomy): string[] {
+  if (record(value) && value.version === 2) {
+    if (![0, 1, 2, 3, 4, 5].includes(stage)) return [GENOME_ERRORS.invalidStage];
+    const errors = validateCreatureStructure(value);
+    if (!errors.length) errors.push(...(derived?.stanceErrors ?? validateCreatureStance(value as unknown as CreatureGenome)));
+    if (stage < 2) errors.push(GENOME_ERRORS.stageRequired('Kloubové tělo', 3));
+    if (Array.isArray(value.parts)) {
+      for (let index = 0; index < Math.min(value.parts.length, 19); index++) {
+        const part = value.parts[index];
+        if (!record(part) || typeof part.kind !== 'string') continue;
+        const adaptation = CREATURE_ADAPTATIONS.find(item => item.id === part.kind);
+        if (!adaptation) continue;
+        if (adaptation.stage > stage) errors.push(GENOME_ERRORS.stageRequired(adaptation.name, adaptation.stage + 1));
+      }
+    }
+    return [...new Set(errors)];
+  }
+  return validateLegacyGenome(value, stage);
+}
+
+export function validateMutation(oldGenome: Genome, nextGenome: Genome, stage: Stage, budget: number, derived?: CreatureAnatomy): { ok: boolean; errors: string[]; cost: number; priceAvailable?: false } {
+  const errors = validateGenome(nextGenome, stage, derived);
   // Refuse invalid trusted-state assumptions too, instead of deriving NaN/negative prices.
   if (validateGenome(oldGenome, stage).length) errors.push(GENOME_ERRORS.invalidOriginal);
   if (!Number.isFinite(budget) || budget < 0) errors.push(GENOME_ERRORS.invalidBudget);
-  if (errors.length) return { ok: false, errors, cost: 0 };
+  if (errors.length) return { ok: false, errors, cost: 0, priceAvailable: false };
   const cost = mutationCost(oldGenome, nextGenome);
   if (cost > budget) errors.push(GENOME_ERRORS.missingDna(Math.ceil(cost - budget)));
   return { ok: errors.length === 0, errors, cost };

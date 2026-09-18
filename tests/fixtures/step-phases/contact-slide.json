@@ -1,0 +1,75 @@
+{
+  "provenance": {
+    "recorded": "2026-09-17",
+    "change": "SP-001: preserve obstacle-tangent movement after world-coordinate rounding",
+    "baselineRevision": "4da58b6c50df31377cecf6adad34e0762d251d75",
+    "method": "Compare all 18 x 601 fingerprints before and after the collision fix in each verified numerical profile. Only the six stage-1 cases change; the first changed fields are NPC positions. Ecology summaries remain identical.",
+    "report": "docs/spore/SP-001-REPORT.md"
+  },
+  "profiles": {
+    "native": {
+      "current:20260913:1": {
+        "state": "1eb0cb89995f839c325bbf1cfa1277e4f68670db8a9bea442d4e0e4c7f766d7b",
+        "trace": "48c709485eceeea19bb31e4b7f671081b5f5b9784e6c12a4fb2bc48fdcd91245",
+        "ecology": "rng=2622529124; resources=90; depleted=2; creatures=13; meals=7; births=2; deaths=0"
+      },
+      "current:481516:1": {
+        "state": "e82fb4a1ecfe151373fd384bdb54340f93d5ea12b518329b02785235282b123c",
+        "trace": "7edbfc3aedd5e99bca54fd2fbd680bb15282661ce90dd3ae27bff4395ed47995",
+        "ecology": "rng=1466960781; resources=88; depleted=2; creatures=11; meals=7; births=0; deaths=0"
+      },
+      "current:8675309:1": {
+        "state": "de023e87c7f58dbb30879d27253b6fe5a64838dc45bf50f408cb4b0f0d04d5f0",
+        "trace": "639521fff996160f679224ab65b793e8af2e49bee09296f99700f5ce1f5fe0ae",
+        "ecology": "rng=3306720387; resources=89; depleted=2; creatures=11; meals=7; births=0; deaths=0"
+      },
+      "legacy:20260913:1": {
+        "state": "04ae5a23d301b5e43e088452cfbb7eb9a96fec3f1c11d4c1411ceff6c59f9dfd",
+        "trace": "8533e6129508d042d49718ae92c6610efcc7f3034ae7a153236e438657a8067f",
+        "ecology": "rng=854904508; resources=85; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+      },
+      "legacy:481516:1": {
+        "state": "3befc25677cc86ebb21c8be5b96bd0e2ccf89fa4d1eaa3396b25261a03e9a156",
+        "trace": "5aef28928fe53694e0cbc10f6a6f82612dacebaf65ac56fac0c3660a01bcaf26",
+        "ecology": "rng=1466960781; resources=83; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+      },
+      "legacy:8675309:1": {
+        "state": "429353e92067b3b4be9ac8658cba6f5a789c33962ee9f03d77ca74dd3cc885fe",
+        "trace": "e0fba741a6a12dcaa23fb13d6824746223dd2770cf842813a7667622b3adae78",
+        "ecology": "rng=3306720387; resources=84; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+      }
+    },
+    "fma": {
+      "current:20260913:1": {
+        "state": "78b00469e0e91f703775455f1931afadec440f8cd2abec8c2d0e770ef1145d5f",
+        "trace": "f3b5ae2c89c10705156e33101478a36586c384f6615a2470c8ce64ac74858c61",
+        "ecology": "rng=2622529124; resources=90; depleted=2; creatures=13; meals=7; births=2; deaths=0"
+      },
+      "current:481516:1": {
+        "state": "01b5bff96a457285cd03930be12cc44c649f32f8a380c20c0c1cec18a6cb476e",
+        "trace": "a38ae01685c96d9fe09c49d4c01b107f7854b4c39a33c6987cd0de06dd8a3af1",
+        "ecology": "rng=1466960781; resources=88; depleted=2; creatures=11; meals=7; births=0; deaths=0"
+      },
+      "current:8675309:1": {
+        "state": "c121356e46d6728fa21519f67e506d5d558fbda37f1dcce023374a02e7db7557",
+        "trace": "99f5b42d00c1987a9c0144c02bf95f22a08c197558db7d158715208870c1c7ba",
+        "ecology": "rng=3306720387; resources=89; depleted=2; creatures=11; meals=7; births=0; deaths=0"
+      },
+      "legacy:20260913:1": {
+        "state": "bcd2af55363cffd2991b57ff9aa6c3a883f42c5ef08a3d7431054f6ad1196db7",
+        "trace": "d3e965a11f09604c04010e891fcf7fe117dd3c5292ee36e691edcc670d48aed0",
+        "ecology": "rng=854904508; resources=85; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+      },
+      "legacy:481516:1": {
+        "state": "43a91402e27814cc7c848c6f49cfc70231f23d823db434636b9419572431367d",
+        "trace": "a6a820f097b01b2ffa60a938a61db940191b54780f2cfc96ca5531b5f0478eb3",
+        "ecology": "rng=1466960781; resources=83; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+      },
+      "legacy:8675309:1": {
+        "state": "617448b2f7f4e8add755e5a0e09bd6c57855f8ba477cb831ebf0a4dc44dd76f2",
+        "trace": "b0c9dff8c9f46011a57ad4ab7c55fb6d81e5eb6b40cdfbde178e031acbb51a5f",
+        "ecology": "rng=3306720387; resources=84; depleted=2; creatures=21; meals=6; births=0; deaths=0"
+      }
+    }
+  }
+}

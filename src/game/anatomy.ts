@@ -1,26 +1,18 @@
-import { bodySection } from './body-shape';
-import type { Genome, Part, Vec3, Species, SpineNode } from './types';
+import type { Genome, Species, SpineNode, Vec3 } from './types';
+import { attachmentAngles, attachmentPoint as legacyAttachmentPoint } from './body-profile';
+import { creatureAttachment, creatureBodyGroundClearance, resolveCreatureAnatomy } from './creature-anatomy';
+export { attachmentAngles } from './body-profile';
+
+export function attachmentPoint(axial: number, angle: number, genome: Genome): Vec3;
+export function attachmentPoint(axial: number, angle: number, length: number, width: number, spine?: readonly SpineNode[]): Vec3;
+export function attachmentPoint(axial: number, angle: number, genomeOrLength: Genome | number, width?: number, spine?: readonly SpineNode[]): Vec3 {
+  if (typeof genomeOrLength === 'number') return legacyAttachmentPoint(axial, angle, genomeOrLength, width!, spine);
+  const g = genomeOrLength;
+  return g.version === 2 ? creatureAttachment(g, axial, angle).point : legacyAttachmentPoint(axial, angle, g.length, g.width, g.spine);
+}
 
 /** The closed sole plane of an unscaled, relaxed limb, below its attachment. */
 export const LEG_SOLE_REACH = 1.16;
-const SEAM_HALF_ANGLE = .22;
-
-/** Mirrored dorsal/ventral organs straddle the seam rather than occupying one slot. */
-export function attachmentAngles(part: Pick<Part, 'angle' | 'mirrored'>): number[] {
-  if (!part.mirrored) return [part.angle];
-  const radial = Math.abs(Math.atan2(Math.sin(part.angle), Math.cos(part.angle)));
-  const separated = Math.min(Math.PI - SEAM_HALF_ANGLE, Math.max(SEAM_HALF_ANGLE, radial));
-  const first = Math.sin(part.angle) < 0 ? -separated : separated;
-  return [first, -first];
-}
-
-/** Shared analytical attachment surface, independent of rendering or simulation. */
-export function attachmentPoint(axial: number, angle: number, length: number, width: number, spine?: readonly SpineNode[]): Vec3 {
-  const a = Math.min(.93, Math.max(-.93, axial));
-  const profile = Math.pow(Math.max(.001, 1 - a * a), .48) * (1 + .15 * a);
-  const section = bodySection(a, spine);
-  return { x: Math.sin(angle) * .68 * width * profile * section.width, y: Math.cos(angle) * .61 * width * profile * section.height + .13 * a * a + section.bend * width, z: a * 1.76 * length };
-}
 
 /** A forgiving contact volume around each visible jaw, independent of other mouths.
  * The jaws project .82 local metres forward; centring on their middle permits
@@ -29,6 +21,10 @@ export function attachmentPoint(axial: number, angle: number, length: number, wi
  */
 export function jawContacts(genome: Genome): { mouthOrigin: Vec3; reach: number }[] {
   return genome.parts.filter(part => part.kind === 'jaw').flatMap(part => attachmentAngles(part).map(angle => {
+    if (genome.version === 2) {
+      const { point, tangent } = creatureAttachment(genome, part.axial, angle), advance = .41 * part.scale;
+      return { mouthOrigin: { x: point.x + tangent.x * advance, y: point.y + tangent.y * advance, z: point.z + tangent.z * advance }, reach: .55 * part.scale + .45 };
+    }
     const origin = attachmentPoint(part.axial, angle, genome.length, genome.width, genome.spine);
     return { mouthOrigin: { ...origin, z: origin.z + .41 * part.scale }, reach: .55 * part.scale + .45 };
   }));
@@ -40,6 +36,7 @@ export function jawContacts(genome: Genome): { mouthOrigin: Vec3; reach: number 
  * Physics and the rendered stance must both use this same function.
  */
 export function organismGroundClearance(genome: Genome): number {
+  if (genome.version === 2) return resolveCreatureAnatomy(genome).groundClearance;
   let clearance = bodyGroundClearance(genome);
   for (const part of genome.parts) {
     if (part.kind !== 'legs') continue;
@@ -53,6 +50,7 @@ export function organismGroundClearance(genome: Genome): number {
 
 /** Soft trunk clearance, independent of long legs that fold while swimming. */
 export function bodyGroundClearance(genome: Genome): number {
+  if (genome.version === 2) return creatureBodyGroundClearance(genome);
   return genome.spine ? Math.max(...genome.spine.map(node => genome.width * (.66 * node.height - node.bend))) : .66 * genome.width;
 }
 

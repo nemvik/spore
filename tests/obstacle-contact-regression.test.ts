@@ -36,6 +36,22 @@ describe('a recorded cylinder-side contact preserves tangential and vertical mov
       expect(resolveObstacleMotion(w, stuck, desired, body)).toEqual(desired);
   });
 
+  it('preserves the climb when world-coordinate rounding makes a projected tangent appear inward', () => {
+    // Recorded public-input continuation: leg A+Q, frame 33, tick 2709.
+    // Reconstructing the tangent endpoint loses low bits at these coordinates;
+    // it must not become a second t=0 collision that discards vertical motion.
+    const from = { x: 25.05625121256072, y: -2.4174600486512094, z: -20.696123755172334 };
+    const to = { x: 24.925073572339482, y: -2.354469806845311, z: -20.69712503566037 };
+    const column: Obstacle = { id: 184, kind: 'rock', pos: { x: 24, y: -5.708647100492898, z: -23.05 }, radius: 1.9, height: 7.208647100492898 };
+    const w = world([column]);
+    const actual = resolveObstacleMotion(w, from, to, body);
+    expect(actual.y).toBeCloseTo(to.y, 12);
+    expect(actual.x).toBeLessThan(from.x - .1);
+    expect(actual.z).toBeGreaterThan(from.z + .04);
+    expect(distance(from, actual)).toBeLessThanOrEqual(distance(from, to) + 1e-12);
+    clear(w, actual, body);
+  });
+
   it('still stops exact inward movement and a complete crossing at the cylinder boundary', () => {
     const w = world([pillar]), surface = { x: pillar.pos.x + pillar.radius + body, y: -3, z: pillar.pos.z };
     expect(resolveObstacleMotion(w, surface, { ...surface, x: surface.x - .1 }, body)).toEqual(surface);

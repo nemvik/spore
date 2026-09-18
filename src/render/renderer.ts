@@ -1,3 +1,13 @@
+import { creaturePreviewTarget, PREVIEW_ENVIRONMENT, type CreaturePreview } from '../ui/creature-preview';
+import { creaturePoseContext } from '../game/creature-motion';
+import { emptyCreatureActions } from '../game/creature-actions';
+import { WORLD_BOUND } from '../game/world';
+import type { CreatureCapabilities } from '../game/creature-capabilities';
+import type { CreatureAnatomy } from '../game/creature-anatomy';
+import { createCreatureHandles, startCreatureDrag, creatureDragDelta, type CreatureHandle, type CreatureDrag } from './creature-handles';
+import { upgradeCreatureGenome } from '../game/creature-body';
+import type { CreatureSelection } from '../ui/creature-editor';
+import { creaturePresentationBounds, poseCreatureLimb } from './creature-body';
 import { bodyGroundClearance } from '../game/anatomy';
 import { selectBodySection } from './body-selection';
 import { bodyWidth, spineIndex, spineAxial } from '../game/body-shape';
@@ -63,6 +73,8 @@ export class GameRenderer {
  private journey = new JourneyPresentation(this.scene);private rootDispersal = new RootDispersalPresentation(this.scene);private worldGroup:THREE.Group|null=null;private lastStage=-1;private worldRef:unknown=null;private creatureMeshes=new Map<number,THREE.Group>();private resources=new Map<number,THREE.Group>();
  private player:THREE.Group|null=null;private playerKey='';private target=new THREE.Vector3();private focus=new THREE.Vector3();private sun:THREE.DirectionalLight;
  private editorScene=new THREE.Scene();private editorCamera=new THREE.PerspectiveCamera(40,1,.1,200);private editorModel:THREE.Group|null=null;private editorKey='';private editorFloor=new THREE.Group();
+ private previewTarget=new THREE.Mesh(new THREE.SphereGeometry(.24,16,10),new THREE.MeshStandardMaterial({color:0xeac887,roughness:.6}));
+ private editorLights:THREE.Light[]=[];
  private portraitScene=new THREE.Scene();private portraitCamera=new THREE.PerspectiveCamera(36,1,.1,80);private portraitModel:THREE.Group|null=null;private portraitKey='';private portraitTime={value:0};
  private presentationTime=0;private cameraReady=false;private cameraDestination=new THREE.Vector3();private raycaster=new THREE.Raycaster();private pointer=new THREE.Vector2();private occlusionRay=new THREE.Ray();private occlusionPoint=new THREE.Vector3();private occlusionRight=new THREE.Vector3();private occlusionUp=new THREE.Vector3();private occlusionTargets=Array.from({length:5},()=>new THREE.Vector3());private playerOcclusionRadius=2;private occluders:Occluder[]=[];private nextBoundsUpdate=0;
  private obstacleContours:ObstacleContours|null=null;
@@ -71,6 +83,7 @@ export class GameRenderer {
  private settlement=new SettlementPresentation();private fleet=new FleetPresentation();private planet=new PlanetPresentation();
  commandSelection:CommandUnitRef[]=[];commandFocus:Vec3|null=null;
  private bondMeshes:THREE.Group[]=[];private bondKey='';private contact=new ContactShadows();private partnerLight=new THREE.PointLight(0xd6f1b0,0,24,1.7);private pulse:THREE.Mesh;private marker=new THREE.Group();private markerBrackets:THREE.Mesh;private markerStem:THREE.Line;private markerTip:THREE.Mesh;private markerArrow:THREE.Mesh;private settings:Settings;private lastHeading=0;
+ private editorDistance=10;
  yaw=0; pitch=.55; zoom=25; editorYaw=.65;editorPitch=.22;editorZoom=10; selectedPart:string|null=null;selectedSpine:number|null=null;previewMode:'idle'|'move'|'feed'='idle';onSelectPart:((id:string)=>void)|null=null;
  constructor(container:HTMLElement,settings:Settings){
   this.settings=settings;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance',preserveDrawingBuffer:true});this.renderer.setClearColor(0x133f49);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.02;
@@ -78,7 +91,7 @@ export class GameRenderer {
   this.camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,260);this.scene.add(new THREE.HemisphereLight(0xd6f2e6,0x274556,1.6));this.sun=new THREE.DirectionalLight(0xffdfb2,2.0);this.sun.position.set(-25,60,25);this.sun.castShadow=true;this.sun.shadow.camera.left=-60;this.sun.shadow.camera.right=60;this.sun.shadow.camera.top=60;this.sun.shadow.camera.bottom=-60;this.sun.shadow.normalBias=.04;this.scene.add(this.sun);
   this.scene.add(this.settlement.group,this.fleet.group,this.planet.group);
   const rim=new THREE.DirectionalLight(0x5abcc6,1.4);rim.position.set(20,10,-40);this.scene.add(rim);
-  this.editorScene.background=new THREE.Color(0x112d38);this.editorScene.fog=new THREE.FogExp2(0x112d38,.045);this.editorScene.add(new THREE.HemisphereLight(0xe4fff7,0x243b4d,1.6));const a=new THREE.DirectionalLight(0xffe9c4,2.4);a.position.set(-6,10,8);this.editorScene.add(a);const b=new THREE.DirectionalLight(0x67ccd9,1.7);b.position.set(5,2,-6);this.editorScene.add(b);
+  this.editorScene.background=new THREE.Color(0x112d38);this.editorScene.fog=new THREE.FogExp2(0x112d38,.045);this.editorScene.add(new THREE.HemisphereLight(0xe4fff7,0x243b4d,1.6));const a=new THREE.DirectionalLight(0xffe9c4,2.4);a.position.set(-6,10,8);this.editorScene.add(a);const b=new THREE.DirectionalLight(0x67ccd9,1.7);b.position.set(5,2,-6);this.editorScene.add(b);this.editorLights=this.editorScene.children.filter((node):node is THREE.Light=>node instanceof THREE.Light);this.previewTarget.visible=false;this.editorScene.add(this.previewTarget);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(18,80),new THREE.MeshStandardMaterial({color:0x16353e,roughness:.92}));floor.rotation.x=-Math.PI/2;this.editorFloor.add(floor);this.editorFloor.position.y=-2;this.editorScene.add(this.editorFloor);
   for(let i=1;i<=3;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(2+i*1.5,.013,4,100),new THREE.MeshBasicMaterial({color:0x386067,transparent:true,opacity:.5}));ring.rotation.x=-Math.PI/2;ring.position.y=.02;this.editorFloor.add(ring);}
   this.portraitScene.background=new THREE.Color(0x102d3b);
@@ -140,8 +153,8 @@ export class GameRenderer {
   // Render the retained ecology in its own habitat; the control model still
   // belongs to the campaign stage. This view never changes the saved state.
   if(!isOrganismStage(s.stage))s={...s,stage:s.world.stage};
-  const key=JSON.stringify(s.player.genome);if(key!==this.playerKey){if(this.player){this.scene.remove(this.player);disposeObject(this.player);}this.player=createOrganism(s.player.genome);applyLivingFinish(this.player,'player');this.scene.add(this.player);this.playerKey=key;this.playerOcclusionRadius=Math.max(1.5,s.player.genome.length*1.76,bodyWidth(s.player.genome)*.9)+.5;}
-  const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s));this.lastHeading=p.heading;
+  const key=JSON.stringify(s.player.genome);if(key!==this.playerKey){if(this.player){this.scene.remove(this.player);disposeObject(this.player);}this.player=createOrganism(s.player.genome);applyLivingFinish(this.player,'player');this.scene.add(this.player);this.playerKey=key;if(s.player.genome.version===2){const bounds=creaturePresentationBounds(this.player.userData.creatureAnatomy.bounds);this.playerOcclusionRadius=bounds.radius+bounds.center.length();}else this.playerOcclusionRadius=Math.max(1.5,s.player.genome.length*1.76,bodyWidth(s.player.genome)*.9)+.5;}
+  const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s),p.genome.version===2?creaturePoseContext(p.genome,{...p,actions:p.creatureActions??emptyCreatureActions()},{groundAt:(x,z)=>groundHeight(x,z,s.world.stage),obstacles:s.world.obstacles,bound:WORLD_BOUND},model.userData.creatureAnatomy):undefined);this.lastHeading=p.heading;
   const reefOpening=s.stage===1&&s.journey.reefEvolution&&!s.journey.legacy?s.journey.reefEvolution.pumping:null;setReefFilterOpening(model,reefOpening);this.reefFilterCues?.update(s,this.settings.reducedMotion?0:t,model);
   const existing=new Set(s.world.creatures.map(c=>c.id));this.creatureMeshes.forEach((m,id)=>{if(!existing.has(id)){this.scene.remove(m);disposeObject(m);this.creatureMeshes.delete(id);}});
   for(const c of s.world.creatures){let m=this.creatureMeshes.get(c.id);const spec=speciesById(c.species);if(!m){m=createSpeciesModel(spec);if(spec.role==='predator')applyLivingFinish(m,'predator');this.creatureMeshes.set(c.id,m);this.scene.add(m);}m.position.set(c.pos.x,c.pos.y,c.pos.z);m.rotation.y=c.heading;animateSpeciesModel(m,t,Math.hypot(c.velocity.x,c.velocity.z),spec);if(spec.role==='predator')setLivingDanger(m,hunterCue(s,c.id));}
@@ -176,30 +189,70 @@ export class GameRenderer {
  pickCommand(s:GameState,x:number,y:number):CommandTarget|null{const ray=commandRay(this.camera,x,y,this.renderer.domElement.getBoundingClientRect());return ray?pickCommandTarget(ray,this.commandVolumes(s)):null;}
  selectCommand(s:GameState,rect:ScreenRect):CommandUnitRef[]{return selectCommandUnits(this.camera,this.renderer.domElement.getBoundingClientRect(),rect,this.commandVolumes(s));}
  commandGround(s:GameState,x:number,y:number):Vec3|null{const ray=commandRay(this.camera,x,y,this.renderer.domElement.getBoundingClientRect());return ray?terrainDestination(ray,s.world):null;}
+ creaturePreview:CreaturePreview|null=null;editorCapabilities:CreatureCapabilities|undefined;editorAnatomy:CreatureAnatomy|undefined;creatureSelection:CreatureSelection|null=null;creatureConstruction=false;private creatureHandles:THREE.Group|null=null;private creatureHandleKey='';
  previewStage:Stage|null=null;
  private renderEditor(g:Genome|Blueprint,stage:Stage,legacy=false,reefEvolution=false){
   const vehicle=isVehicle(g),key=JSON.stringify(g);
-  if(key!==this.editorKey){if(this.editorModel){this.editorScene.remove(this.editorModel);disposeObject(this.editorModel);}this.editorModel=isVehicle(g)?createMachine(g):createOrganism(g);this.editorModel.userData.blueprintKind=vehicle?'vehicle':'organism';this.editorScene.add(this.editorModel);this.editorKey=key;}
+  if(key!==this.editorKey){if(this.editorModel){this.editorScene.remove(this.editorModel);disposeObject(this.editorModel);}this.editorModel=isVehicle(g)?createMachine(g):createOrganism(g,this.editorAnatomy);this.editorModel.userData.blueprintKind=vehicle?'vehicle':'organism';this.editorScene.add(this.editorModel);this.editorKey=key;}
+  const trial=!vehicle&&g.version===2&&!this.creatureConstruction?this.creaturePreview:null;
   const time=this.settings.reducedMotion&&this.previewMode==='idle'?0:this.presentationTime;
+  this.editorModel!.position.set(0,0,0);this.editorModel!.rotation.y=0;this.previewTarget.visible=!!trial;
+  const neutral=!vehicle&&g.version===2;
+  this.editorLights.forEach((light,index)=>light.color.setHex(neutral?0xffffff:[0xe4fff7,0xffe9c4,0x67ccd9][index]));
+  const fill=this.editorLights[0] as THREE.HemisphereLight;fill.groundColor.setHex(neutral?0x404040:0x243b4d);
   if(isVehicle(g)){animateMachine(this.editorModel!,time,this.previewMode==='move'?vehicleStats(g).speed:0,this.previewMode==='feed');this.editorFloor.position.y=-this.editorModel!.userData.groundClearance;}
   else{
    const phase=time%1.8,feeding=this.previewMode==='feed'&&phase<.72?Math.sin(phase/.72*Math.PI):0;
    const reef=reefEvolution&&stage===1,pumping=reef&&this.previewMode==='feed'?1:0;
-   const motion=reef?reefBodyProfile(g,pumping).motion:locomotionProfile(g,stage,legacy);
-   animateOrganism(this.editorModel!,time,this.previewMode==='move'?motion.speed:0,0,stage,feeding);
+   const motion=reef?reefBodyProfile(g,pumping).motion:g.version===2&&stage>=2&&this.editorCapabilities?{...this.editorCapabilities.walk,verticalThrust:0}:locomotionProfile(g,stage,legacy,this.editorAnatomy);
+   if(this.creatureConstruction&&g.version===2){animateOrganism(this.editorModel!,0,0,0,stage,0,0,undefined,undefined,this.editorAnatomy);const anatomy=this.editorAnatomy??this.editorModel!.userData.creatureAnatomy as CreatureAnatomy;(this.editorModel!.userData.creatureLimbs as THREE.Group[]).forEach((limb,i)=>poseCreatureLimb(limb,anatomy.limbs[i].points));}
+   else if(trial&&g.version===2){
+    const a=this.editorAnatomy!,r=trial.runtime,stationary=Math.hypot(r.velocity.x,r.velocity.z)<.001&&r.velocity.y===0&&!r.actions.communicationTime&&!trial.feeding;
+    this.editorModel!.position.y=r.pos.y-a.groundClearance;this.editorModel!.rotation.y=r.heading;
+    animateOrganism(this.editorModel!,this.settings.reducedMotion&&stationary?0:trial.time,Math.hypot(r.velocity.x,r.velocity.z),0,stage,trial.feeding,0,undefined,creaturePoseContext(g,r,PREVIEW_ENVIRONMENT,a),a);
+    const target=creaturePreviewTarget(g,a);this.previewTarget.position.set(target.pos.x-r.pos.x,target.pos.y-a.groundClearance,target.pos.z-r.pos.z);
+    this.previewTarget.material.color.setHex(trial.feeding>0?0xd6ffb1:0xeac887);
+    this.previewTarget.material.emissive.setHex(trial.feeding>0?0x426020:0x000000);
+   }else animateOrganism(this.editorModel!,time,this.previewMode==='move'?motion.speed:0,0,stage,feeding,0,undefined,undefined,this.editorAnatomy);
    setReefFilterOpening(this.editorModel!,reef?pumping:null);
-   this.editorFloor.position.y=stage===2?-organismGroundClearance(g):-Math.max(2,bodyGroundClearance(g)+.2);
+   this.editorFloor.position.y=stage===2?-(this.editorAnatomy?.groundClearance??organismGroundClearance(g)):-Math.max(2,bodyGroundClearance(g)+.2);
   }
-  selectOrganismPart(this.editorModel!,this.selectedPart);
-  if(!vehicle)selectBodySection(this.editorModel!,this.selectedSpine);
-  this.editorCamera.position.set(Math.sin(this.editorYaw)*this.editorZoom,2.5+Math.sin(this.editorPitch)*this.editorZoom,Math.cos(this.editorYaw)*this.editorZoom);this.editorCamera.lookAt(0,.1,0);this.renderer.render(this.editorScene,this.editorCamera);
+  selectOrganismPart(this.editorModel!,trial?null:this.selectedPart);
+  if(!vehicle)selectBodySection(this.editorModel!,trial?null:this.selectedSpine,!isVehicle(g)&&g.version===2?g.body.spine.map(n=>n.axial):undefined);
+  this.editorCamera.position.set(Math.sin(this.editorYaw)*this.editorZoom,2.5+Math.sin(this.editorPitch)*this.editorZoom,Math.cos(this.editorYaw)*this.editorZoom);this.editorCamera.lookAt(0,.1,0);
+  if(!isVehicle(g)&&g.version===2){
+   const bounds=creaturePresentationBounds(this.editorModel!.userData.creatureAnatomy.bounds);
+   const halfFov=Math.atan(Math.tan(THREE.MathUtils.degToRad(this.editorCamera.fov/2))*Math.min(1,this.editorCamera.aspect));
+   const fittedDistance=Math.max(10,bounds.radius/Math.sin(halfFov)*1.08);
+   const distance=fittedDistance*this.editorZoom/10*(trial?1.3:1);
+   this.editorDistance=distance;
+   // Keep the action/status row above the trial, including raised organs.
+   if(trial)bounds.center.y+=bounds.radius*.15;
+   this.editorCamera.position.set(Math.sin(this.editorYaw),.25+Math.sin(this.editorPitch),Math.cos(this.editorYaw)).normalize().multiplyScalar(distance).add(bounds.center);
+   this.editorCamera.lookAt(bounds.center);
+  }
+  const handleKey=this.creatureConstruction&&!vehicle?JSON.stringify([g,this.creatureSelection]):'';
+  if(handleKey!==this.creatureHandleKey){if(this.creatureHandles){this.creatureHandles.traverse(n=>{if(n instanceof THREE.Sprite){n.material.map?.dispose();n.material.dispose();}});disposeObject(this.creatureHandles);this.creatureHandles.removeFromParent();this.creatureHandles=null;}if(handleKey&&!isVehicle(g)){this.creatureHandles=createCreatureHandles(g.version===2?g:upgradeCreatureGenome(g),this.creatureSelection,this.editorAnatomy);this.editorScene.add(this.creatureHandles);}this.creatureHandleKey=handleKey;}
+  if(this.creatureHandles)for(const node of this.creatureHandles.children){node.children[0].quaternion.copy(this.editorCamera.quaternion);}
+  this.renderer.render(this.editorScene,this.editorCamera);
  }
  private renderPortrait(g:Genome){const key=JSON.stringify(g);if(key!==this.portraitKey){if(this.portraitModel){this.portraitScene.remove(this.portraitModel);disposeObject(this.portraitModel);}this.portraitModel=createOrganism(g);this.portraitScene.add(this.portraitModel);this.portraitKey=key;}
   const time=this.settings.reducedMotion?0:this.presentationTime;this.portraitTime.value=time;
   const model=this.portraitModel!;model.scale.setScalar(1.6);model.position.set(2.35,.12+Math.sin(time*.6)*.055,0);model.rotation.y=-.95+Math.sin(time*.18)*.06;
-  animateOrganism(model,time,.3,0,0,0);this.portraitCamera.position.set(0,2.1,10.4);this.portraitCamera.lookAt(0,.15,0);this.renderer.render(this.portraitScene,this.portraitCamera);
+  animateOrganism(model,time,.3,0,0,0);this.portraitCamera.position.set(0,2.1,10.4);this.portraitCamera.lookAt(0,.15,0);
+  if(g.version===2){
+   const bounds=creaturePresentationBounds(model.userData.creatureAnatomy.bounds);model.updateMatrixWorld(true);bounds.center.applyMatrix4(model.matrixWorld);
+   const halfFov=Math.atan(Math.tan(THREE.MathUtils.degToRad(this.portraitCamera.fov/2))*Math.min(1,this.portraitCamera.aspect));
+   const distance=bounds.radius*model.scale.x/Math.sin(halfFov)*1.08;
+   this.portraitCamera.position.set(-.15,.18,1).normalize().multiplyScalar(distance).add(bounds.center);this.portraitCamera.lookAt(bounds.center);
+  }
+  this.renderer.render(this.portraitScene,this.portraitCamera);
  }
  private editorRay(x:number,y:number):boolean{const rect=this.renderer.domElement.getBoundingClientRect();if(!rect.width||!rect.height)return false;this.pointer.set((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2);this.editorCamera.updateMatrixWorld(true);this.raycaster.setFromCamera(this.pointer,this.editorCamera);return true;}
+ pickCreatureHandle(x:number,y:number):CreatureHandle|null {if(!this.creatureHandles||!this.editorRay(x,y))return null;this.creatureHandles.updateMatrixWorld(true);for(const hit of this.raycaster.intersectObject(this.creatureHandles,true)){let n:THREE.Object3D|null=hit.object;while(n){if(n.userData.creatureHandle)return n.userData.creatureHandle as CreatureHandle;n=n.parent;}}return null;}
+ beginCreatureDrag(x:number,y:number,h:CreatureHandle):CreatureDrag|null {if(!this.editorRay(x,y))return null;return startCreatureDrag(this.raycaster.ray,new THREE.Vector3(h.point.x,h.point.y,h.point.z),this.editorCamera.getWorldDirection(new THREE.Vector3()),new THREE.Matrix4(),h.side);}
+ creatureHandleDelta(drag:CreatureDrag,x:number,y:number){return this.editorRay(x,y)?creatureDragDelta(drag,this.raycaster.ray):null;}
+ creatureHandleTargets(){if(!this.creatureHandles)return [];const rect=this.renderer.domElement.getBoundingClientRect();return this.creatureHandles.children.map(n=>{const p=n.getWorldPosition(new THREE.Vector3()).project(this.editorCamera);return {...n.userData.creatureHandle,x:rect.left+(p.x+1)*rect.width/2,y:rect.top+(1-p.y)*rect.height/2};});}
  attachmentAt(x:number,y:number):{axial:number;angle:number}|null{if(!this.editorModel||!this.editorRay(x,y))return null;return this.editorModel.userData.blueprintKind==='vehicle'?machineAttachmentOnBody(this.editorModel,this.raycaster):attachmentOnBody(this.editorModel,this.raycaster);}
  /** Read-only visible pick locations for the seven editor sections. */
  editorSectionTargets():({index:number;x:number;y:number}|null)[]{
@@ -318,5 +371,6 @@ export class GameRenderer {
    for(const pair of item.materials??[]){pair.display.color.copy(pair.source.color);pair.display.emissive.copy(pair.source.emissive);pair.display.emissiveIntensity=pair.source.emissiveIntensity;pair.display.opacity=pair.source.opacity*item.opacity;pair.display.depthWrite=item.opacity>.98&&pair.source.depthWrite;}
   }
  }
- metrics(){return {drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,programs:this.renderer.info.programs?.length??0,pixelRatio:this.renderer.getPixelRatio(),renderer:this.renderer.getContext().getParameter(this.renderer.getContext().RENDERER)};}
+ editorProjection(){return {distance:this.editorDistance,zoom:this.editorZoom,yaw:this.editorYaw,pitch:this.editorPitch,fov:this.editorCamera.fov,aspect:this.editorCamera.aspect,quaternion:this.editorCamera.quaternion.toArray()};}
+ metrics(){let editorMeshes=0;const editorMaterials=new Set<THREE.Material>();this.editorScene.traverse(node=>{if(node instanceof THREE.Mesh){editorMeshes++;for(const material of Array.isArray(node.material)?node.material:[node.material])editorMaterials.add(material);}});return {editorMeshes,editorMaterials:editorMaterials.size,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,programs:this.renderer.info.programs?.length??0,pixelRatio:this.renderer.getPixelRatio(),renderer:this.renderer.getContext().getParameter(this.renderer.getContext().RENDERER)};}
 }

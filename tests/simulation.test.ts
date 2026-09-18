@@ -18,7 +18,7 @@ function attach(genome: Genome, kind: AdaptationId): Genome {
   return draft;
 }
 function withParts(...kinds: AdaptationId[]): Genome {
-  let genome = initialGenome();
+  let genome: Genome = initialGenome();
   if (kinds.includes('jaw')) genome.parts = genome.parts.filter(p => p.kind !== 'filter');
   for (const kind of kinds) genome = attach(genome, kind);
   return genome;

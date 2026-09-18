@@ -14,7 +14,15 @@ export function obstacleSegmentEntry(from: Vec3, to: Vec3, obstacle: Obstacle, p
   // A rounded contact can be reported again at t=0 after its inward
   // component was removed. A tangent/outward ray cannot re-enter this convex
   // side; skip only this cylinder so other walls and finite caps still resolve.
-  const dot = x * dx + z * dz, tangentRoundoff = 8 * Number.EPSILON * (Math.abs(x * dx) + Math.abs(z * dz));
+  // Include the cancellation error of to - from: a projected tangent is first
+  // added to world coordinates, then subtracted here. Its low bits can be lost
+  // before the dot product, especially far from the origin.
+  const dot = x * dx + z * dz;
+  const tangentRoundoff = 8 * Number.EPSILON * (
+    Math.abs(x * dx) + Math.abs(z * dz)
+    + Math.abs(x) * (Math.abs(from.x) + Math.abs(to.x))
+    + Math.abs(z) * (Math.abs(from.z) + Math.abs(to.z))
+  );
   if (radial2 >= radius * radius - EPSILON && dot >= -tangentRoundoff) return null;
   let enter = 0, leave = 1;
   if (speed2 < EPSILON * EPSILON) {
@@ -41,7 +49,7 @@ export function obstacleSegmentEntry(from: Vec3, to: Vec3, obstacle: Obstacle, p
   return Math.max(0, enter);
 }
 
-function contactNormal(point: Vec3, obstacle: Obstacle, radius: number): Vec3 {
+export function contactNormal(point: Vec3, obstacle: Obstacle, radius: number): Vec3 {
   const x = point.x - obstacle.pos.x, z = point.z - obstacle.pos.z, radial = Math.hypot(x, z);
   const below = Math.abs(point.y - obstacle.pos.y + radius), above = Math.abs(point.y - obstacle.pos.y - obstacle.height - radius);
   const side = Math.abs(radial - obstacle.radius - radius);

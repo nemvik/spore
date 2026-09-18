@@ -1,3 +1,5 @@
+import { creatureMouths } from './creature-anatomy';
+import { queryCreatureBite } from './creature-capabilities';
 import type { Creature, FeedSelection, GameState, Vec3 } from './types';
 import { computeStats, functionalProfile, has } from './genome';
 import { mouthWorldPosition } from './locomotion';
@@ -48,11 +50,11 @@ export function lineBlocked(s: GameState, start: Vec3, end: Vec3): boolean {
   });
 }
 
-function projected(s: GameState, origin: Vec3, target: Omit<InteractionTarget, 'distance' | 'ready' | 'reason'>, requirement?: InteractionReason): InteractionTarget {
+function projected(s: GameState, origin: Vec3, target: Omit<InteractionTarget, 'distance' | 'ready' | 'reason'>, requirement?: InteractionReason, blockFromBody = true): InteractionTarget {
   const d = distance(origin, target.pos);
   let reason: InteractionReason = requirement ?? 'ready';
   if (reason === 'ready' && d > target.range) reason = s.stage === 1 && target.pos.y - origin.y > 2.5 ? 'above' : s.stage === 1 && origin.y - target.pos.y > 2.5 ? 'below' : 'distance';
-  if (reason === 'ready' && (lineBlocked(s, origin, target.pos) || lineBlocked(s, s.player.pos, target.pos))) reason = 'blocked';
+  if (reason === 'ready' && (lineBlocked(s, origin, target.pos) || blockFromBody && lineBlocked(s, s.player.pos, target.pos))) reason = 'blocked';
   if (reason === 'ready' && s.player.cooldown > 0) reason = 'cooldown';
   return { ...target, distance: d, ready: reason === 'ready', reason };
 }
@@ -66,6 +68,7 @@ function targetOrder(a: InteractionTarget, b: InteractionTarget): number {
 
 /** The chosen target is also used by simulation; HUD/marker cannot promise another meal. */
 export function feedTarget(s: GameState, selection?: FeedSelection | null): InteractionTarget | null {
+  if (s.player.genome.version === 2) return creatureFeedTarget(s, selection);
   const p = s.player, profile = functionalProfile(p.genome), stats = computeStats(p.genome);
   const origin = mouthWorldPosition(profile, p.pos, p.heading);
   const jaws = !s.journey.legacy ? jawContacts(p.genome) : [];
@@ -103,6 +106,32 @@ export function feedTarget(s: GameState, selection?: FeedSelection | null): Inte
   if (targets[0] && targets[0].distance < Math.max(12, profile.feedReach + 5)) return targets[0];
   const incompatible = s.world.resources.filter(r => r.amount >= 1 && !stats.diet.includes(r.kind)).sort((a, b) => distance(a.pos, origin) - distance(b.pos, origin))[0];
   return incompatible && distance(incompatible.pos, origin) < 9 ? projected(s, origin, { action: 'feed', kind: 'food', id: incompatible.id, pos: incompatible.pos, range: profile.feedReach }, 'diet') : null;
+}
+
+/** V2 keeps each mouth's origin and diet together for both hints and actual feeding. */
+function creatureFeedTarget(s: GameState, selection?: FeedSelection | null): InteractionTarget | null {
+  const p=s.player,g=p.genome;if(g.version!==2)return null;
+  const mouths=creatureMouths(g);
+  const foodTarget=(r:GameState['world']['resources'][number],deliberate=false):InteractionTarget=>{
+    const target={action:'feed' as const,kind:'food' as const,id:r.id,pos:r.pos,...(deliberate?{deliberate:true}:{})};
+    const compatible=mouths.filter(m=>m.diet.includes(r.kind));
+    if(!compatible.length)return projected(s,p.pos,{...target,range:0},r.amount<1?'depleted':mouths.length?'diet':'mouth');
+    return compatible.map(m=>projected(s,mouthWorldPosition(m,p.pos,p.heading),{...target,range:m.feedReach},r.amount<1?'depleted':undefined,false)).sort(targetOrder)[0];
+  };
+  const preyTarget=(c:Creature,deliberate=false):InteractionTarget=>{
+    const contact=queryCreatureBite(g,p.pos,p.heading,{pos:c.pos,radius:speciesById(c.species).size*.6},(from,to)=>lineBlocked(s,from,to));
+    const reason:InteractionReason=contact.reason==='mouth'?'mouth':p.energy<1.6?'energy':contact.reason??(p.cooldown>0?'cooldown':'ready');
+    return {action:'feed',kind:'prey',id:c.id,pos:c.pos,range:contact.range,distance:contact.distance,ready:reason==='ready',reason,...(reason==='distance'?{detail:SELECTION_COPY.jawApproach(contact.distance)}:{}),...(deliberate?{deliberate:true}:{})};
+  };
+  if(selection){
+    if(selection.stage!==s.stage)return null;
+    if(selection.kind==='creature'){const c=s.world.creatures.find(c=>c.id===selection.id&&c.health>0);return c?preyTarget(c,true):null;}
+    const r=s.world.resources.find(r=>r.id===selection.id);return r?foodTarget(r,true):null;
+  }
+  const searchRange=Math.max(12,...mouths.map(m=>m.feedReach+5));
+  const targets=s.world.resources.filter(r=>r.amount>=1).map(r=>foodTarget(r)).filter(t=>t.distance<searchRange);
+  if(g.parts.some(p=>p.kind==='jaw'))targets.push(...s.world.creatures.filter(c=>c.health>0).map(c=>preyTarget(c)).filter(t=>t.distance<searchRange));
+  return targets.sort(targetOrder)[0]??null;
 }
 
 export function bondTarget(s: GameState): InteractionTarget | null {

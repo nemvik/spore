@@ -6,6 +6,8 @@ LUMAVORA je singleplayerová 3D evoluční hra pro desktopový prohlížeč. Za�
 
 Hra běží lokálně bez účtu, backendu, placených API a runtime CDN. Grafika i zvuk vznikají procedurálně ze zdrojového kódu. Původ obsahu a licence knihoven uvádí [ASSET_CREDITS.md](ASSET_CREDITS.md).
 
+**Další vývoj směrem ke Spore:** [aktuální brief](docs/spore/BRIEF.md), [tracker 17 bodů a jejich dokončení](docs/spore/ROADMAP.md) a [audit současné implementace](docs/2026-09-17-spore-similarity-audit.md). Nový směr pokračuje za terraformaci do vesmíru a dobrodružství; níže je popsaný dosavadní hratelný rozsah.
+
 ## Spuštění
 
 Použij Node.js 22.12 nebo novější a pnpm 11.24.0, uvedený v `package.json`. Z kořene repozitáře:
@@ -40,6 +42,8 @@ Build vznikne v `dist/`. Hru servíruj přes HTTP; neotvírej `index.html` pomoc
 Nová chuť, poznané místo a skutečná změna ekologického vztahu přinášejí DNA jednou. Další jídlo udržuje tělo a partnery, ale nezvyšuje nekonečně evoluční rozpočet. Panel vpravo ukazuje konkrétní další krok, tlačítko, směr a vzdálenost k cíli i podmínku dokončení. Zlatý kroužek na mapě označuje aktuální cíl. Deník nabízí příběh a alternativní postupy. U prvního porostu T nejprve prozkoumá místo, další T odebere kulturu a T u kořenového kruhu ji zasadí; běžné sousto ani samotná výsadba automaticky nedokončí návštěvu závojníka.
 
 V mikrosvětě a útesu po vytvoření obyvatelného výstupu vyhledej severní proud označený na kompasu a použij **G**. Genom, symbionti a historie linie pokračují do další etapy. Úplný průchod všemi šesti etapami od normální Nové linie po planetární finále byl ověřen běžnými vstupy bez importu či zrychlení času: **15 min 59,35 s simulace**, pět generací, 92 jídel a žádný lov. Šlo o asistované hraní se znalostí pravidel, nikoli první lidský playtest. Návrhových 20–30 minut na etapu ani starších 45–90 minut tím není doloženo. [Aktuální report](BENCHMARK_REPORT.md) odděluje skutečný průchod, připravené scénáře a poslední izolované opravy. Historická v14 zůstává [reprodukovatelnou baseline](evidence/reef-body/v14-baseline/README.md); [srovnání v14–v15c](evidence/reef-body/REEF_COMPARISON.md) zachycuje dřívější útesové varianty.
+
+Na souši u kolébky otevře **Tab → Upravit kostru** editor páteře, kloubových končetin, rukou, chodidel, úst a povrchu. Změny mají společný genom, cenu a schopnosti; oddělená **Zkouška** ukáže chůzi, skok, kousnutí a hlas či gesto před potvrzením. **Q** skáče a **V** komunikuje. Undo/redo zachová celou konstrukci; zrušení převodu ponechá starý genom. [Ovládání a kompatibilita](docs/body-editor/README.md#sp-002-konstrukce-suchozemského-tvora-genom-v2), [ověření SP-002](docs/spore/SP-002-REPORT.md).
 
 V nové útesové linii drž **Mezerník** nebo tlačítko krmení pro otevření filtru; puštěním jej zavřeš a získáš zpět rychlost. V kolébce použij **Tab** a v editoru porovnej dech, pohyb a spotřebu skutečně sestaveného těla. Starší uložené linie zůstávají na svých původních pravidlech; novou smyčku má nově založená linie.
 

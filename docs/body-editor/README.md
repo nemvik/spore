@@ -33,3 +33,19 @@ pnpm build
 ```
 
 Browser skript zapisuje nové důkazy do ignorovaného `evidence/body-editor/browser/`. `LUMAVORA_URL` mění server, `BODY_EDITOR_OUTPUT` výstupní složku. Browser scénáře používají DEV krokování času světa; nejde o nový úplný průchod kampaní nebo test Safari/telefonu. Kolize zachovávají původní zjednodušený objem podle příčného průřezu, nikoli přesné kolize celé délky těla a orgánů. Starší genomy bez profilu zůstávají kompatibilní; migrace není potřeba.
+
+## SP-002: konstrukce suchozemského tvora (genom v2)
+
+Na souši otevři u kolébky **Tab → Upravit kostru**. Panely **Tělo / Části / Povrch** umožňují upravovat obratle, končetiny, klouby, chodidla, ruce a více úst. Klik vybere skutečné madlo; levé tažení nebo šipky jej upraví, pravé tažení otáčí pohled a kolečko přibližuje. Číselná pole podporují klávesnici. Zrcadlený pár je jeden záznam a jeho cena zahrnuje oba členy. Povrch je kosmetický.
+
+**Stavba / Zkouška** přepíná mezi konstrukcí a odděleným náhledem. Chůze, skok, kousnutí a hlas či gesto vycházejí ze stejných schopností jako tělo v krajině. Nedostupná akce ukazuje důvod; kousnutí potřebuje skutečný kontakt s terčem. Zkouška nemění kampaň ani DNA. Na souši **Q** skáče a **V** komunikuje; samotné držení klávesy neopakuje akci.
+
+První konstrukční změna převádí pouze návrh do v2; **Zrušit** ponechá instalovaný v1. Undo/redo zahrnuje celý genom, samotný výběr historii nemění. Potvrzení ověřuje postoj, vybavení a rozpočet. V současné kampani je zobrazená cena celková investice těla; dostupné DNA po potvrzení jsou celková alokace minus tato cena. Historické savy zachovávají původní cenu mutace a navíc poplatek 6 DNA za každou generaci. Obsazené partnerské lůžko nelze odstranit.
+
+Původní text a čísla výše popisují historický editor v1. V2 má vlastní sdílenou anatomii a konzervativní kolizní obálku celého trupu; končetiny a orgány nejsou samostatná fyzikální tělesa. Podrobnosti ověření, připravené konstrukce, skutečně získaný rozpočet a omezení jsou v [reportu SP-002](../spore/SP-002-REPORT.md).
+
+```sh
+LUMAVORA_URL=http://127.0.0.1:5183 pnpm test:creature-editor
+```
+
+Výstup je `evidence/sp-002/browser`, přepis `CREATURE_EDITOR_OUTPUT`; trace se ukládá pouze s `LUMAVORA_TRACE=1`. Skript používá běžné UI a skutečný browser čas. Připravená konstrukční/performance data jsou označena odděleně od hraného checkpointu. Lidský test bez instrukcí ani poslech dosud neproběhl.

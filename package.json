@@ -24,7 +24,8 @@
     "test:fixtures": "node scripts/fixtures-test.mjs",
     "test:climate": "node scripts/climate-browser.mjs",
     "test:performance": "node scripts/performance.mjs",
-    "test:production": "node scripts/production-test.mjs"
+    "test:production": "node scripts/production-test.mjs",
+    "test:creature-editor": "node scripts/creature-editor-browser.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

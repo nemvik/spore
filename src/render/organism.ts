@@ -1,3 +1,8 @@
+import type { CreatureAnatomy } from '../game/creature-anatomy';
+import { creatureAttachment, resolveCreatureAnatomy } from '../game/creature-anatomy';
+import { sampleCreaturePose } from '../game/creature-motion';
+import type { CreaturePoseInput } from '../game/creature-motion';
+import { createCreatureSurface, createCreatureLimb, poseCreatureLimb } from './creature-body';
 import { bodySection } from '../game/body-shape';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -186,8 +191,10 @@ function addBody(parent: THREE.Group, length: number, width: number, p: Palette,
 }
 function createPart(part: Part, angle: number, genome: Genome, p: Palette, motions: Motion[], copy: number): THREE.Group {
   const root = new THREE.Group();
+  if (genome.version === 2) root.name = `part-${part.id}`;
   root.userData.partId = part.id; root.userData.kind = part.kind;
-  root.position.copy(surface(part.axial, angle, genome.length, genome.width, genome.spine));
+  const frame = genome.version === 2 ? creatureAttachment(genome, part.axial, angle) : null;
+  root.position.copy(frame ? v(frame.point.x, frame.point.y, frame.point.z) : surface(part.axial, angle, genome.length, genome.width, genome.spine));
   root.rotation.z = -angle;
   root.scale.setScalar(part.scale);
   const phase = part.axial * 4 + copy * Math.PI;
@@ -395,21 +402,62 @@ function createPart(part: Part, angle: number, genome: Genome, p: Palette, motio
       }
       motion(motions, root, 'pulse', phase); break;
     }
-    default: { const exhaustive: never = part.kind; void exhaustive; }
+    default: { if (part.kind !== 'arms') { const exhaustive: never = part.kind; void exhaustive; } }
+  }
+  if (frame) {
+    const z = v(frame.tangent.x, frame.tangent.y, frame.tangent.z);
+    const x = v(frame.normal.x, frame.normal.y, frame.normal.z).cross(z).normalize();
+    const y = z.clone().cross(x).normalize();
+    root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
   }
   return root;
 }
 
 /** The editor and world intentionally share this constructor. No stage-specific replacement model. */
-export function createOrganism(genome: Genome): THREE.Group {
+export function createOrganism(genome: Genome, derived?: CreatureAnatomy): THREE.Group {
   const group = new THREE.Group(), visual = new THREE.Group(); group.add(visual);
   group.name = genome.name || 'Lumavora';
   const motions: Motion[] = [], p = palette(genome.hue);
-  group.userData.attachmentSurface = addBody(visual, genome.length, genome.width, p, genome.hue, genome.pattern, motions, true, genome.spine);
+  if (genome.version === 2) {
+    const anatomy = derived ?? resolveCreatureAnatomy(genome);
+    const mat = p.skin.clone(); mat.color.set(0xffffff); mat.vertexColors = true;
+    mat.roughness = genome.body.skin.finish === 'smooth' ? .36 : .72;
+    const surface = mesh(createCreatureSurface(genome), mat, visual); surface.name = 'organism-surface';
+    group.userData.attachmentSurface = surface;
+    // Keep pose genes aligned with this model even if a caller edits its draft.
+    group.userData.creatureGenome = structuredClone(genome);
+    group.userData.creatureAnatomy = anatomy;
+    group.userData.stanceErrors = anatomy.stanceErrors;
+    group.userData.creatureLimbs = anatomy.limbs.map(limb => {
+      const node = createCreatureLimb(limb, { skin: p.skin, detail: p.light, sole: p.dark });
+      node.userData.kind = genome.parts.find(part => part.id === limb.partId)!.kind;
+      visual.add(node); return node;
+    });
+    eyes(visual, p, 0, 0, 0, .165 * genome.width, motions);
+    motions.filter(m => m.kind === 'eye').forEach((m, i) => {
+      // A rising neck puts the ordinary cheek on its backward-facing slope.
+      // Move the face onto the cap as that slope steepens.
+      const rise = creatureAttachment(genome, .79, 0).tangent.y;
+      const head = THREE.MathUtils.smoothstep(rise, .35, .75);
+      const frame = creatureAttachment(genome, .79 + .12 * head, (i ? 1 : -1) * (.68 + .22 * head));
+      const normal = v(frame.normal.x, frame.normal.y, frame.normal.z);
+      m.node.name = 'creature-eye';
+      m.node.position.set(frame.point.x, frame.point.y, frame.point.z).addScaledVector(normal, .06 * genome.width);
+      m.node.quaternion.setFromUnitVectors(v(0, 0, 1), normal);
+    });
+    if (anatomy.stanceErrors.length) {
+      const warning = new THREE.MeshBasicMaterial({ color: 0xff895c, wireframe: true, transparent: true, opacity: .35 });
+      const outline = mesh(createCreatureSurface(genome), warning, visual); outline.name = 'invalid-stance';
+      outline.userData.reason = anatomy.stanceErrors.join(' ');
+    }
+  } else {
+    group.userData.attachmentSurface = addBody(visual, genome.length, genome.width, p, genome.hue, genome.pattern, motions, true, genome.spine);
+  }
   for (const part of genome.parts) {
+    if (genome.version === 2 && (part.kind === 'legs' || part.kind === 'arms')) continue;
     attachmentAngles(part).forEach((angle, copy) => visual.add(createPart(part, angle, genome, p, motions, copy)));
   }
-  motion(motions, visual, 'body');
+  if (genome.version === 1) motion(motions, visual, 'body');
   group.userData.motions = motions; group.userData.visual = visual;
   // Materials are owned by this model, including those not selected by its particular genome.
   group.userData.ownedMaterials = Object.values(p);
@@ -530,10 +578,21 @@ function foldUnderCeiling(group: THREE.Group, motions: Motion[], ceilingY: numbe
   }
 }
 
-export function animateOrganism(group: THREE.Group, time: number, speed: number, headingDelta: number, stage: Stage, feeding: number | boolean, hurt = 0, ceilingY?: number): void {
+export function animateOrganism(group: THREE.Group, time: number, speed: number, headingDelta: number, stage: Stage, feeding: number | boolean, hurt = 0, ceilingY?: number, creatureInput?: Partial<Pick<CreaturePoseInput, 'position' | 'heading' | 'groundAt' | 'airborne' | 'communication'>>, derived?: CreatureAnatomy): void {
   const movement = Math.min(1, Math.max(0, speed) / 3), bite = typeof feeding === 'boolean' ? (feeding ? 1 : 0) : Math.min(1, Math.max(0, feeding));
   const motions = group.userData.motions as Motion[] | undefined;
   if (!motions) return;
+  if (group.userData.creatureGenome) {
+    const pose = sampleCreaturePose(group.userData.creatureGenome, {
+      time, speed, airborne: false, feeding: bite, communication: 0,
+      position: { x: 0, y: 0, z: 0 }, heading: 0,
+      groundAt: () => -group.userData.creatureAnatomy.groundClearance,
+      ...creatureInput,
+    }, derived ?? group.userData.creatureAnatomy);
+    const visual = group.userData.visual as THREE.Group;
+    visual.position.set(pose.bodyOffset.x, pose.bodyOffset.y, pose.bodyOffset.z);
+    pose.limbs.forEach((limb, index) => poseCreatureLimb(group.userData.creatureLimbs[index], limb.points, limb.gesture));
+  }
   for (const m of motions) {
     const t = time * (stage === 2 ? 7 : 4.8) + m.phase;
     const wave = Math.sin(t), node = m.node;

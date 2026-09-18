@@ -73,7 +73,7 @@ describe('reversible new-journey construction allocation', () => {
   it('can have more free DNA than learned DNA by reallocating the original body', () => {
     const s = createGame(481516, false), stripped = cloneGenome(s.player.genome);
     stripped.parts = [];
-    expect(applyQuote(s, stripped).remaining).toBe(36); expect(s.player.totalDna).toBe(14);
+    const zero = applyQuote(s, stripped); expect(zero.cost).toBe(0); expect(zero.priceAvailable).not.toBe(false); expect(zero.remaining).toBe(36); expect(s.player.totalDna).toBe(14);
     expect(applyQuote(s, initialGenome()).remaining).toBe(14);
   });
 
@@ -105,9 +105,10 @@ describe('reversible new-journey construction allocation', () => {
   it('rejects malformed genomes and nonfinite budgets without pricing exceptions', () => {
     const s = createGame(481516, false);
     const malformed = { ...initialGenome(), parts: [{ ...part('eyes'), kind: 'unknown' }] } as unknown as Genome;
-    expect(() => quoteJourneyEvolution(s, malformed)).not.toThrow(); expect(quoteJourneyEvolution(s, malformed).ok).toBe(false);
+    expect(validateMutation(initialGenome(), malformed, 0, 20)).toMatchObject({ ok: false, priceAvailable: false });
+    expect(() => quoteJourneyEvolution(s, malformed)).not.toThrow(); expect(quoteJourneyEvolution(s, malformed)).toMatchObject({ ok: false, priceAvailable: false });
     s.player.totalDna = Number.NaN;
-    expect(quoteJourneyEvolution(s, initialGenome())).toMatchObject({ ok: false, available: 0, remaining: 0 });
+    expect(quoteJourneyEvolution(s, initialGenome())).toMatchObject({ ok: false, available: 0, remaining: 0, priceAvailable: false });
   });
 
   it('leaves legacy half-salvage mutation pricing unchanged', () => {

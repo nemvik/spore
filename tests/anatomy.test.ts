@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import { attachmentAngles, organismGroundClearance } from '../src/game/anatomy';
 import { createOrganism, animateOrganism, createSpeciesModel, disposeObject } from '../src/render/organism';
 import { SPECIES } from '../src/game/content';
-import type { Genome, Part } from '../src/game/types';
+import type { Genome, LegacyGenome, Part } from '../src/game/types';
 
-function genome(overrides: Partial<Genome> = {}, legOverrides: Partial<Part> = {}): Genome {
+function genome(overrides: Partial<LegacyGenome> = {}, legOverrides: Partial<Part> = {}): Genome {
   return { version: 1, name: 'Anatomie', length: 1, width: 1, hue: 168, pattern: 0,
     parts: [{ id: 'limbs', kind: 'legs', axial: -.1, angle: 1.25, scale: 1, mirrored: true, ...legOverrides }], ...overrides };
 }
