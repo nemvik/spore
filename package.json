@@ -18,6 +18,7 @@
     "test:machine-retirement": "node scripts/machine-retirement-browser.mjs",
     "test:machines": "node scripts/machines-browser.mjs",
     "test:body-editor": "node scripts/body-editor-browser.mjs",
+    "test:feedback": "node scripts/player-feedback-browser.mjs",
     "test:editor": "node scripts/editor-characterization.mjs",
     "test:soak": "node scripts/soak.mjs",
     "test:fixtures": "node scripts/fixtures-test.mjs",

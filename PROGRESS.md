@@ -259,6 +259,23 @@ Odstraněno 87 zastaralých browser traces a 1403 nepoužívaných průběžnýc
 - This is not an engagement success or duration extension claim. A proposed extra grazer meal after the same short reef kill was explicitly rejected as passive waiting. Current high-value hypothesis is restoring an existing combat decision, not adding stages, health sponges, costs or gates. Next: independent contact tests, full checks/build/freeze, actual Chromium combat, then a complete fresh campaign on accepted source.45–90minutes remains unmet and goal active.
 
 
+## Připomínky z hraní · 2026-09-16 · dokončeno
+
+- Zadání: srozumitelnější questy, vysvětlení kyslíku, zmatení v první lokaci, kontrola seedu 67 a individuální tvar těla. Uživatel upřesnil, že první lokace mate hlavně popisy úkolů; význam „chopped“ nezná.
+- Kritéria: konkrétní další krok a dokončení úkolu; zásoba dechu s příčinou změny a obnovou; sedm nezávisle tvarovaných článků (šířka, výška, ohyb) ve 3D i s orgány, historií editoru a save/load; zachování starých genomů a strojového editoru; cílené testy, browser a kontrola diffu.
+- Zvolen volitelný přísně validovaný profil páteře. Původní genom bez profilu zachovává hodnoty, tvar i serializaci. Nová silueta má dopad na tkáň, hmotnost, spotřebu, odpor, kolize a polohu orgánů. Žádné nové dependencies.
+- Dostupný disk před browser ověřením: 14 GiB. Jen milníkové snímky; trace vypnutý.
+
+- Hotovo: konkrétní kroky questů, zlatý aktuální cíl a podmínka dokončení; zejména první zahrada, rozdíl běžného sousta/kultury, přenesení a skutečný návštěvník. Příběh a alternativy zůstávají v deníku. Dech má procenta, trend, aktuální příčinu, obnovu přes Q a kritický stav; zohledňuje kořeny, energii kolébky i hladinu.
+- Editor: 7 článků, šířka/výška/ohyb, 3 tvarové předvolby a reset, nezávislá historie; povrch, oči, orgány, náklad, stín a potomci používají výslednou siluetu. Doplněna vůle u dna a průchod pod stropy pro vysoká/ohnutá těla. Přísná validace zachovává starý sedmipoložkový formát, když profil chybí.
+- Finální sada **100 souborů / 1951 testů** prošla, stejně jako typecheck, build a diff-check. 38 nových regresí. Původních 18×600 tickových charakterizací zůstává přesně shodných; pokus změnit uvítací toast změnil textový hash, proto byl vrácen pouze tento kosmetický zásah bez úpravy snapshotů. Questové instrukce v HUD i deníku zůstávají nové.
+- Browser: nová linie seed67, předvolby, tři posuvníky, Zpět/Znovu, potvrzení, pohyb, export/import, zrušení a 1280×720; připravená zahrada s následnými skutečnými vstupy T/pohybem/výsadbou; připravený nízký dech s výstupem Q a pozorovaným doplněním. Bez browser chyb. Původní charakterizační editor **5/5** prošel beze změny. Původní skill klient spuštěn z byte-identické lokální kopie kvůli chybějícímu importu Playwrightu u skillu; macOS vyžadoval schválené spuštění Chromium mimo sandbox. Screenshoty skutečně prohlédnuty.
+- Seed67: samostatné místní nativní měření 12 s po zahřátí, 1440×900 / medium / ANGLE Metal. p50/p95 16,7 ms, žádný snímek nad 50 ms, žádná chyba; referenční seed481516 stejné hodnoty. Neurčité „chopped“ se nepodařilo reprodukovat. Není to důkaz plynulosti celé kampaně na uživatelově stroji.
+- Nezávislý review prověřil datové cesty a našel odstup od dna a tři nesoulady nápovědy; opraveny s regresními testy, follow-up bez nálezů. Vlastní závěrečný review dokončen. Žádné dependencies, změny lockfilu, commit, push ani deploy.
+- Důkazy a reprodukce: `evidence/player-feedback/REPORT.md`, `browser-final/`, `editor-regression/result.json`, `seed-performance.json`, `skill-final/`. Zastaralé vlastní PNG odstraněny s manifestem `cleanup.json`. Nový příkaz `pnpm test:feedback`.
+- Zbývající meze: nejde o nový celý kampaňový průchod nebo lidský test srozumitelnosti. Pokud se „chopped“ opakuje, potřebujeme konkrétní místo/projev a prostředí. Další implementační úkol z těchto připomínek nezůstává.
+
+
 ## Přímé tvarování těla · 2026-09-16 · dokončeno
 
 - Zadání: přímý výběr sedmi článků ve 3D, jasná aktivní oblast a zachování přesných posuvníků; pět odlišných siluet se stejnou výbavou; orgány, oči, animace, kolize, historie a save/load; žádné nové orgány/etapy.

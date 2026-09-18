@@ -423,6 +423,13 @@ pnpm test:performance
 Pro `pnpm test:production` nejprve vytvoř build a spusť `pnpm preview`. K otevření časové osy použij například `pnpm exec playwright show-trace evidence/campaign/campaign.trace.zip`. Velké trace a dočasné předchozí pokusy zůstávají lokálními důkazy; nejsou součástí automatického commitu ani deploye.
 
 
+## Připomínky hráče · 2026-09-16
+
+Sedm nezávisle tvarovaných článků (šířka/výška/ohyb), předvolby, přizpůsobené orgány a serializace; konkrétní další krok questů a cíl na mapě; vysvětlení skutečné zásoby dechu. Finální **1951/1951 testů**, typecheck/build/diff-check. Historické tickové snapshoty beze změn. Původní editor **5/5** a cílený browser nového editoru, zahrady a dechu prošly, chyby 0. Screenshoty včetně 1280×720 prohlédnuty. Nezávislý review opravených datových cest a instrukcí dokončen.
+
+Krátké nativní měření seedu67 vs481516: oba p95 **16,7 ms**, žádné snímky >50 ms v 12sekundových vzorcích, Chromium/ANGLE Metal, 1440×900 medium. Nespecifikované „chopped“ se nereprodukovalo; bez tvrzení o celé kampani nebo jiném hardwaru. Připravené zahradní/útesové importy nejsou vydávané za získanou progresi. Podrobnosti, přiznané počáteční chyby testovacího ovladače a reprodukce: [report připomínek](evidence/player-feedback/REPORT.md). Bez commitu, push/deploy a nových dependencies.
+
+
 ## Přímý výběr článků a srovnání pěti siluet · 2026-09-16
 
 Povrch 3D těla nyní vybírá jeden ze sedmi článků, zlatý pás sleduje skutečnou geometrii i animaci a panel ukazuje stejnou oblast. Přesné posuvníky zachovány. Pět těl se stejnými parametry filtru a bičíku vzniklo běžným UI v počátečním rozpočtu 36 DNA; rozsahy nebylo nutné rozšiřovat. [Srovnání](evidence/body-editor/browser/comparison.png) a [rozsah ověření](evidence/body-editor/REPORT.md).
