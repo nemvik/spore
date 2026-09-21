@@ -24,7 +24,7 @@ Návaznosti určují potřebné výstupy při realizaci, nikoli zákaz připravi
 | --- | --- | --- | --- | --- |
 | [SP-001 · Testové odchylky](#sp-001) | 0 | Hotovo | — | [Plán](../superpowers/plans/2026-09-17-sp-001-test-discrepancies.md), [report a ověření](SP-001-REPORT.md); pracovní strom nad `4da58b6` |
 | [SP-002 · Plný editor tvora](#sp-002) | A | Hotovo | SP-001 | [UI konstrukce, terén, save, hraná dostupnost a produkce](SP-002-REPORT.md) |
-| [SP-003 · Život druhu a tvorová fáze](#sp-003) | A | K plánu | SP-002 | — |
+| [SP-003 · Život druhu a tvorová fáze](#sp-003) | A | Hotovo | SP-002 | [Hnízda, setkání, smečka a tři cesty](SP-003-REPORT.md); připravené browser průchody, meze lidského playtestu v reportu |
 | [SP-004 · Objevování a generace](#sp-004) | A | K plánu | SP-003 | — |
 | [SP-005 · Knihovna výtvorů a společný genom](#sp-005) | A–E | K plánu | SP-002; další typy spolu s příslušnými editory | — |
 | [SP-006 · Buněčný růst a přestavba](#sp-006) | A | K plánu | SP-001 | — |
@@ -101,11 +101,13 @@ Příprava plánu ověřila současný základ: 580 cílených testů a načten�
 
 **Rozdělení plánů:** hnízda a vztahy → sociální/bojová setkání → smečka a postup. Výchozí místa: [AI setkání](../../src/game/encounter-ai.ts), [interakce](../../src/game/interactions.ts), [postup linie](../../src/game/journey.ts), [obsah druhů](../../src/game/content.ts). Reference: [archetypy schopností][archetypes], [manuál, str. 32–36][manual].
 
-- [ ] Vlastní i cizí druhy mají hnízda; vztah přetrvá mezi setkáními i po načtení hry.
-- [ ] Zpěv, tanec, okouzlení a póza tvoří ovladatelné sociální setkání s čitelnou reakcí protivníka; schopnosti závisejí na těle.
-- [ ] Kousnutí, výpad, úder a plivnutí mají odlišný účinek, dosah a odezvu, včetně reakcí ostatních tvorů.
-- [ ] Růst inteligence a smečky vychází z hraní; členové se pohybují se skupinou a účastní se setkání.
-- [ ] Fázi lze dokončit přátelstvím, predací i smíšeně. Ověření zachytí dvě odlišná těla a všechny tři cesty; ekologie zůstává použitelná.
+- [x] Vlastní i cizí druhy mají hnízda; vztah přetrvá mezi setkáními i po načtení hry.
+- [x] Zpěv, tanec, okouzlení a póza tvoří ovladatelné sociální setkání s čitelnou reakcí protivníka; schopnosti závisejí na těle.
+- [x] Kousnutí, výpad, úder a plivnutí mají odlišný účinek, dosah a odezvu, včetně reakcí ostatních tvorů.
+- [x] Růst inteligence a smečky vychází z hraní; členové se pohybují se skupinou a účastní se setkání.
+- [x] Fázi lze dokončit přátelstvím, predací i smíšeně. Ověření zachytí dvě odlišná těla a všechny tři cesty; ekologie zůstává použitelná.
+
+Podúkoly SP-003.1 (hnízda/vztahy a save), SP-003.2 (čtyři sociální a čtyři bojové akce) a SP-003.3 (smečka/inteligence/postup) dokončeny podle [plánu](../superpowers/plans/2026-09-21-sp-003-creature-life.md). Ověření dvou těl a všech tří cest rozlišuje šest cílených simulačních kombinací a tři běžně ovládané browser scénáře; [report](SP-003-REPORT.md) uvádí přesný původ a meze. Příslušná čitelnost/animace/zvuk SP-017 je zahrnuta, celá průřezová karta SP-017 zůstává otevřená.
 
 <a id="sp-004"></a>
 ### SP-004 — Objevování částí a životní události druhu

@@ -10,7 +10,7 @@ import { jawContacts } from './anatomy';
 import { obstacleSegmentEntry } from './obstacle-geometry';
 import { SELECTION_COPY } from './selection-copy.cs';
 
-export type InteractionReason = 'ready' | 'distance' | 'above' | 'below' | 'blocked' | 'cooldown' | 'diet' | 'mouth' | 'symbiote' | 'capacity' | 'energy' | 'complete' | 'depleted';
+export type InteractionReason = 'ready' | 'distance' | 'above' | 'below' | 'blocked' | 'cooldown' | 'diet' | 'mouth' | 'symbiote' | 'capacity' | 'energy' | 'complete' | 'depleted' | 'ally';
 export interface InteractionTarget {
   action: 'feed' | 'bond' | 'tend';
   kind: 'food' | 'prey' | 'partner' | 'spring' | 'culture';
@@ -66,6 +66,9 @@ function targetOrder(a: InteractionTarget, b: InteractionTarget): number {
   return targetRank(a) - targetRank(b) || a.distance - b.distance;
 }
 
+const packMember=(s:GameState,id:number)=>s.stage===2&&!!s.creatureStage?.pack.includes(id);
+const autoPreyAllowed=(s:GameState,c:Creature)=>!packMember(s,c.id)&&!(s.stage===2&&s.creatureStage?.nests.some(n=>n.species===c.species&&n.relationship>=60));
+
 /** The chosen target is also used by simulation; HUD/marker cannot promise another meal. */
 export function feedTarget(s: GameState, selection?: FeedSelection | null): InteractionTarget | null {
   if (s.player.genome.version === 2) return creatureFeedTarget(s, selection);
@@ -73,7 +76,7 @@ export function feedTarget(s: GameState, selection?: FeedSelection | null): Inte
   const origin = mouthWorldPosition(profile, p.pos, p.heading);
   const jaws = !s.journey.legacy ? jawContacts(p.genome) : [];
   const preyTarget = (c: Creature, deliberate = false): InteractionTarget => {
-    const requirement = !has(p.genome, 'jaw') ? 'mouth' : p.energy < 1.6 ? 'energy' : undefined;
+    const requirement = packMember(s,c.id)?'ally':!has(p.genome, 'jaw') ? 'mouth' : p.energy < 1.6 ? 'energy' : undefined;
     const target = { action: 'feed' as const, kind: 'prey' as const, id: c.id, pos: c.pos, ...(deliberate ? { deliberate: true } : {}) };
     if (!jaws.length) return projected(s, origin, { ...target, range: profile.feedReach + 1 }, requirement);
     const contact = jaws.map(jaw => projected(s, mouthWorldPosition(jaw, p.pos, p.heading), {
@@ -95,7 +98,7 @@ export function feedTarget(s: GameState, selection?: FeedSelection | null): Inte
   const searchRange = Math.max(12, profile.feedReach + 5);
   const foods = s.world.resources.filter(r => r.amount >= 1 && stats.diet.includes(r.kind) && distance(origin, r.pos) < searchRange);
   const targets: InteractionTarget[] = foods.map(r => projected(s, origin, { action: 'feed', kind: 'food', id: r.id, pos: r.pos, range: profile.feedReach }));
-  if (has(p.genome, 'jaw')) for (const c of s.world.creatures.filter(c => s.journey.legacy ? distance(origin, c.pos) < searchRange : c.health > 0)) {
+  if (has(p.genome, 'jaw')) for (const c of s.world.creatures.filter(c => autoPreyAllowed(s,c)&&(s.journey.legacy ? distance(origin, c.pos) < searchRange : c.health > 0))) {
     const prey = preyTarget(c);
     // Filter in the jaw's frame before ranking: a distant unobstructed animal
     // must not hide a nearby blocked contact just because distance ranks first.
@@ -120,7 +123,7 @@ function creatureFeedTarget(s: GameState, selection?: FeedSelection | null): Int
   };
   const preyTarget=(c:Creature,deliberate=false):InteractionTarget=>{
     const contact=queryCreatureBite(g,p.pos,p.heading,{pos:c.pos,radius:speciesById(c.species).size*.6},(from,to)=>lineBlocked(s,from,to));
-    const reason:InteractionReason=contact.reason==='mouth'?'mouth':p.energy<1.6?'energy':contact.reason??(p.cooldown>0?'cooldown':'ready');
+    const reason:InteractionReason=packMember(s,c.id)?'ally':contact.reason==='mouth'?'mouth':p.energy<1.6?'energy':contact.reason??(p.cooldown>0?'cooldown':'ready');
     return {action:'feed',kind:'prey',id:c.id,pos:c.pos,range:contact.range,distance:contact.distance,ready:reason==='ready',reason,...(reason==='distance'?{detail:SELECTION_COPY.jawApproach(contact.distance)}:{}),...(deliberate?{deliberate:true}:{})};
   };
   if(selection){
@@ -130,14 +133,14 @@ function creatureFeedTarget(s: GameState, selection?: FeedSelection | null): Int
   }
   const searchRange=Math.max(12,...mouths.map(m=>m.feedReach+5));
   const targets=s.world.resources.filter(r=>r.amount>=1).map(r=>foodTarget(r)).filter(t=>t.distance<searchRange);
-  if(g.parts.some(p=>p.kind==='jaw'))targets.push(...s.world.creatures.filter(c=>c.health>0).map(c=>preyTarget(c)).filter(t=>t.distance<searchRange));
+  if(g.parts.some(p=>p.kind==='jaw'))targets.push(...s.world.creatures.filter(c=>c.health>0&&autoPreyAllowed(s,c)).map(c=>preyTarget(c)).filter(t=>t.distance<searchRange));
   return targets.sort(targetOrder)[0]??null;
 }
 
 export function bondTarget(s: GameState): InteractionTarget | null {
   const p = s.player;
   const requirement = !has(p.genome, 'symbiote') ? 'symbiote' : p.bonds.length >= 2 ? 'capacity' : p.energy < 25 ? 'energy' : undefined;
-  return s.world.creatures.filter(c => speciesById(c.species).role === 'partner' && distance(c.pos, p.pos) < 13)
+  return s.world.creatures.filter(c => speciesById(c.species).role === 'partner' && !(s.stage===2&&s.creatureStage?.nests.some(n=>n.residents.includes(c.id))) && distance(c.pos, p.pos) < 13)
     .map(c => projected(s, p.pos, { action: 'bond', kind: 'partner', id: c.id, pos: c.pos, range: 7 }, requirement)).sort(targetOrder)[0] ?? null;
 }
 

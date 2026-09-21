@@ -1,3 +1,4 @@
+import { CreatureStagePresentation, animateSpeciesResponse } from './creature-stage';
 import { creaturePreviewTarget, PREVIEW_ENVIRONMENT, type CreaturePreview } from '../ui/creature-preview';
 import { creaturePoseContext } from '../game/creature-motion';
 import { emptyCreatureActions } from '../game/creature-actions';
@@ -80,7 +81,7 @@ export class GameRenderer {
  private obstacleContours:ObstacleContours|null=null;
  private migrationCues:MigrationCues|null=null;
  private foodCues=new FoodCues();private reefFilterCues:ReefFilterCues|null=null;
- private settlement=new SettlementPresentation();private fleet=new FleetPresentation();private planet=new PlanetPresentation();
+ private creatureLife=new CreatureStagePresentation();private settlement=new SettlementPresentation();private fleet=new FleetPresentation();private planet=new PlanetPresentation();
  commandSelection:CommandUnitRef[]=[];commandFocus:Vec3|null=null;
  private bondMeshes:THREE.Group[]=[];private bondKey='';private contact=new ContactShadows();private partnerLight=new THREE.PointLight(0xd6f1b0,0,24,1.7);private pulse:THREE.Mesh;private marker=new THREE.Group();private markerBrackets:THREE.Mesh;private markerStem:THREE.Line;private markerTip:THREE.Mesh;private markerArrow:THREE.Mesh;private settings:Settings;private lastHeading=0;
  private editorDistance=10;
@@ -89,7 +90,7 @@ export class GameRenderer {
   this.settings=settings;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance',preserveDrawingBuffer:true});this.renderer.setClearColor(0x133f49);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.02;
   this.renderer.domElement.id='world';this.renderer.domElement.setAttribute('aria-label','Trojrozměrný svět LUMAVORA');container.append(this.renderer.domElement);
   this.camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,260);this.scene.add(new THREE.HemisphereLight(0xd6f2e6,0x274556,1.6));this.sun=new THREE.DirectionalLight(0xffdfb2,2.0);this.sun.position.set(-25,60,25);this.sun.castShadow=true;this.sun.shadow.camera.left=-60;this.sun.shadow.camera.right=60;this.sun.shadow.camera.top=60;this.sun.shadow.camera.bottom=-60;this.sun.shadow.normalBias=.04;this.scene.add(this.sun);
-  this.scene.add(this.settlement.group,this.fleet.group,this.planet.group);
+  this.scene.add(this.creatureLife.group,this.settlement.group,this.fleet.group,this.planet.group);
   const rim=new THREE.DirectionalLight(0x5abcc6,1.4);rim.position.set(20,10,-40);this.scene.add(rim);
   this.editorScene.background=new THREE.Color(0x112d38);this.editorScene.fog=new THREE.FogExp2(0x112d38,.045);this.editorScene.add(new THREE.HemisphereLight(0xe4fff7,0x243b4d,1.6));const a=new THREE.DirectionalLight(0xffe9c4,2.4);a.position.set(-6,10,8);this.editorScene.add(a);const b=new THREE.DirectionalLight(0x67ccd9,1.7);b.position.set(5,2,-6);this.editorScene.add(b);this.editorLights=this.editorScene.children.filter((node):node is THREE.Light=>node instanceof THREE.Light);this.previewTarget.visible=false;this.editorScene.add(this.previewTarget);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(18,80),new THREE.MeshStandardMaterial({color:0x16353e,roughness:.92}));floor.rotation.x=-Math.PI/2;this.editorFloor.add(floor);this.editorFloor.position.y=-2;this.editorScene.add(this.editorFloor);
@@ -149,6 +150,7 @@ export class GameRenderer {
   this.settlement.update(s,this.commandSelection,s.world.time,this.settings.reducedMotion);
   this.fleet.update(s,vehicle?[{kind:'machine',id:vehicle.id}]:this.commandSelection,s.world.time,this.settings.reducedMotion);
   this.planet.update(s,s.world.time,this.settings.reducedMotion);
+  this.creatureLife?.update(s,this.settings.reducedMotion);
   if(commanding&&!this.commandFocus)this.commandFocus={...tribeHome(tribe!)};
   // Render the retained ecology in its own habitat; the control model still
   // belongs to the campaign stage. This view never changes the saved state.
@@ -157,7 +159,7 @@ export class GameRenderer {
   const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s),p.genome.version===2?creaturePoseContext(p.genome,{...p,actions:p.creatureActions??emptyCreatureActions()},{groundAt:(x,z)=>groundHeight(x,z,s.world.stage),obstacles:s.world.obstacles,bound:WORLD_BOUND},model.userData.creatureAnatomy):undefined);this.lastHeading=p.heading;
   const reefOpening=s.stage===1&&s.journey.reefEvolution&&!s.journey.legacy?s.journey.reefEvolution.pumping:null;setReefFilterOpening(model,reefOpening);this.reefFilterCues?.update(s,this.settings.reducedMotion?0:t,model);
   const existing=new Set(s.world.creatures.map(c=>c.id));this.creatureMeshes.forEach((m,id)=>{if(!existing.has(id)){this.scene.remove(m);disposeObject(m);this.creatureMeshes.delete(id);}});
-  for(const c of s.world.creatures){let m=this.creatureMeshes.get(c.id);const spec=speciesById(c.species);if(!m){m=createSpeciesModel(spec);if(spec.role==='predator')applyLivingFinish(m,'predator');this.creatureMeshes.set(c.id,m);this.scene.add(m);}m.position.set(c.pos.x,c.pos.y,c.pos.z);m.rotation.y=c.heading;animateSpeciesModel(m,t,Math.hypot(c.velocity.x,c.velocity.z),spec);if(spec.role==='predator')setLivingDanger(m,hunterCue(s,c.id));}
+  for(const c of s.world.creatures){let m=this.creatureMeshes.get(c.id);const spec=speciesById(c.species);if(!m){m=createSpeciesModel(spec);if(spec.role==='predator')applyLivingFinish(m,'predator');this.creatureMeshes.set(c.id,m);this.scene.add(m);}m.position.set(c.pos.x,c.pos.y,c.pos.z);m.rotation.y=c.heading;m.rotation.z=0;m.scale.setScalar(spec.size);animateSpeciesModel(m,t,Math.hypot(c.velocity.x,c.velocity.z),spec);animateSpeciesResponse(m,s,c.id,this.settings.reducedMotion);if(spec.role==='predator')setLivingDanger(m,hunterCue(s,c.id));}
   this.updateResources(s,t);
   updateHabitat(this.worldGroup!,s.world,this.settings.reducedMotion?0:t,climate);this.contact.update(s,!remote);
   this.migrationCues?.update(s,this.settings.reducedMotion?0:t);

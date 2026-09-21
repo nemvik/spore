@@ -1,3 +1,4 @@
+import { isNestResident, speciesNest } from './creature-stage';
 import { recordEcologyMeal } from './ecology-catalog';
 import type { Creature, GameState, Obstacle, Vec3 } from './types';
 import type { HunterMemory, Journey } from './journey-types';
@@ -138,18 +139,23 @@ function hitPlayer(s: EncounterState, c: Creature, onKill: (creature: Creature, 
 export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Creature, byPlayer: boolean, cause?: 'combat' | 'starvation') => void): void {
   if (s.journey.legacy || s.deathReason || !Number.isFinite(dt) || dt <= 0) return;
   dt = Math.min(1 / 30, dt);
-  const hunters = s.world.creatures.filter(c => c.health > 0 && speciesById(c.species).role === 'predator');
+  const hunters = s.world.creatures.filter(c => c.health > 0 && !isNestResident(s,c.id) && speciesById(c.species).role === 'predator');
   const activeIds = new Set(hunters.map(c => c.id));
   s.journey.hunters = s.journey.hunters.filter(h => h.stage !== s.stage || activeIds.has(h.id));
   for (const c of hunters) {
     if (!s.world.creatures.some(other => other.id === c.id)) continue;
     const spec = speciesById(c.species), patch = s.world.patches[c.patch];
+    if(s.stage===2&&s.creatureStage?.encounter?.target===c.id){c.velocity={x:0,y:0,z:0};c.intent='rest';continue;}
     // Twilight and the living land corridor carry a moving ecological signal.
     // Their local hunter may leave home, but still loses sight behind real cover.
     const luminousCargo = s.journey.cargo?.purpose === 'culture' && s.journey.cargo.vitality > 0 && c.patch === 2 && (s.stage === 0 && s.journey.cargo.site === 2 || s.stage === 2 && s.journey.cargo.site === 8);
     const leash = luminousCargo ? 115 : patch.radius + 4;
     let memory = s.journey.hunters.find(h => h.stage === s.stage && h.id === c.id);
     if (!memory) { memory = { stage: s.stage, id: c.id, phase: 'stalk', time: 0, aim: { ...c.pos } }; s.journey.hunters.push(memory); }
+    // Friendship is species-wide, including attacks committed by another wild member.
+    if (c.target === -1 && (speciesNest(s, c.species)?.relationship ?? 0) >= 60) {
+      c.target = null; memory.aim = { ...c.pos }; recover(c, memory, 1);
+    }
     const learnsFoodPlace = s.stage === 2 && s.journey.version === 3;
     const home = learnsFoodPlace && memory.feedingHome || s.journey.sites.find(site => site.stage === s.stage && site.threatIds.includes(c.id))?.source || patch.center;
     c.age += dt; c.hunger = Math.min(100, c.hunger + dt * .14); c.cooldown = Math.max(0, c.cooldown - dt); c.fear = Math.max(0, c.fear - dt);
@@ -222,7 +228,7 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
     // Injury permits a close defensive response to the player who can bite it,
     // without turning a sated predator back into a hunter of native animals.
     const playerRange = !hungry && foodWeb && c.health < 55 ? 4.5 : hungry ? luminousCargo ? 24 : 13 : 0;
-    const canHuntPlayer = s.player.health > 0 && distance(c.pos, s.player.pos) < playerRange && horizontalDistance(s.player.pos, home) < leash && horizontalDistance(c.pos, home) < leash && !lineBlocked(s, c.pos, s.player.pos);
+    const canHuntPlayer = (speciesNest(s,c.species)?.relationship??0)<60 && s.player.health > 0 && distance(c.pos, s.player.pos) < playerRange && horizontalDistance(s.player.pos, home) < leash && horizontalDistance(c.pos, home) < leash && !lineBlocked(s, c.pos, s.player.pos);
     const prey = !hungry || canHuntPlayer && !livingLand ? null : s.world.creatures.filter(other => (['grazer', 'invasive'].includes(speciesById(other.species).role) || livingLand && other.species === 'gloom') && other.health > 0 && distance(c.pos, other.pos) < 18 && horizontalDistance(other.pos, home) < leash && !lineBlocked(s, c.pos, other.pos)).sort((a, b) => distance(c.pos, a.pos) - distance(c.pos, b.pos) || a.id - b.id)[0];
     const targetPlayer = canHuntPlayer && (!prey || !livingLand || distance(c.pos, prey.pos) + .75 >= distance(c.pos, s.player.pos));
     const target = targetPlayer ? s.player : prey;

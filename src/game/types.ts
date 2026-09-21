@@ -1,3 +1,4 @@
+import type { CreatureStageState, SpeciesAction } from './creature-stage-types';
 import type { WorldStage } from './stage';
 import type { Journey } from './journey-types';
 import type { TribeState, MachineState, PlanetState } from './era-types';
@@ -29,9 +30,9 @@ export interface Bond { species: string; loyalty: number; hunger: number; benefi
 export interface Player { pos: Vec3; velocity: Vec3; heading: number; health: number; energy: number; oxygen: number; moisture: number; genome: Genome; creatureActions?: CreatureActionState; dna: number; totalDna: number; generation: number; meals: number; kills: number; bonds: Bond[]; cooldown: number; abilityRecharge: number; scan: number; invulnerable: number; feeding: number; distance: number; }
 export interface LineageEntry { generation: number; stage: Stage; time: number; name: string; parts: AdaptationId[]; event: string; }
 export interface Campaign { stageMeals: number; stageKills: number; stageBonds: number; stageReproductions: number; discoveries: string[]; journals: string[]; drought: number; finale: 'restoration'|'predator'|'migration'|null; won: boolean; sandbox: boolean; }
-export interface GameState { version: 3; tribe?: TribeState; machines?: MachineState; planet?: PlanetState; id: string; seed: number; stage: Stage; tick: number; rng: number; player: Player; worlds: [World|null,World|null,World|null]; world: World; campaign: Campaign; journey: Journey; lineage: LineageEntry[]; checkpoint: string|null; messages: {id:number; text:string; time:number}[]; deathReason: string|null; }
+export interface GameState { version: 3; creatureStage?: CreatureStageState; tribe?: TribeState; machines?: MachineState; planet?: PlanetState; id: string; seed: number; stage: Stage; tick: number; rng: number; player: Player; worlds: [World|null,World|null,World|null]; world: World; campaign: Campaign; journey: Journey; lineage: LineageEntry[]; checkpoint: string|null; messages: {id:number; text:string; time:number}[]; deathReason: string|null; }
 /** Deliberate pointer intent belongs to an input command, never to a saved world. */
 export interface FeedSelection { kind: 'creature' | 'food'; id: number; stage: Stage; }
-export interface Input { x: number; z: number; vertical: number; sprint: boolean; feed: boolean; bond: boolean; tend: boolean; pulse: boolean; jump?: boolean; communicate?: boolean; offer?: boolean; feedSelection?: FeedSelection | null; }
+export interface Input { x: number; z: number; vertical: number; sprint: boolean; feed: boolean; bond: boolean; tend: boolean; pulse: boolean; jump?: boolean; communicate?: boolean; speciesAction?: SpeciesAction; offer?: boolean; feedSelection?: FeedSelection | null; }
 export const EMPTY_INPUT: Input = { x: 0, z: 0, vertical: 0, sprint: false, feed: false, bond: false, tend: false, pulse: false };
 export interface Settings { master: number; ambience: number; effects: number; muted: boolean; quality: 'low'|'medium'|'high'; sensitivity: number; reducedMotion: boolean; }

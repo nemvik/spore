@@ -312,3 +312,16 @@ Publikace 2026-09-17: editor včetně nutných podkladů tvarování byl odděle
 - Ověření sloučeného obsahu: 113 souborů / 2143 testů, dalších 13 testů acceptance helperu, typecheck, produkční build a diff-check prošly. Build hlásí pouze velikost hlavního JS chunku.
 - Chromium: nápověda/dech 3/3, původní editor s pěti siluetami 5/5 včetně přímého výběru, historie a save/load, nový editor `--construction` 3/3 včetně kloubů, náhledových akcí, historie, odečtu DNA, exportu/importu a srovnání. Bez browser chyb; snímky prohlédnuty. Samostatný původní skill klient prošel krátkým průchodem novou hrou.
 - Lokální důkazy: `evidence/main-merge-2026-09-18/` (logy, výsledky, uložená těla, obě srovnání). Jde o ověření integrace; úplná kampaň ani všechny domény SP-002 acceptance se znovu nespouštěly. Žádné další změny herních pravidel či závislostí.
+
+## SP-003 · život druhu · 2026-09-21
+
+- Zadání: „udělej bod 1“ — celý SP-003. Plán: `docs/superpowers/plans/2026-09-21-sp-003-creature-life.md`. Hnízda/vztahy → setkání → smečka/postup, s uložením a čitelností SP-017.
+- Nová pravidla jsou výslovný marker nové UI linie; staré uložené kampaně zůstávají beze změny. Disk před prací: 38 GiB volných; trace vypnutý.
+- První kontrola jádra: 23 nových testů a všech 2 166 testů prošlo; sada se spustila celá kvůli předanému `--`. Následné cílené běhy použijí `pnpm exec vitest run <soubor>`. UI/browser ověření teprve následuje.
+
+- Dokončeno 22. 9.: vlastní/cizí hnízda, vztahy, čtyři sociální a čtyři bojové akce podle anatomie, fyzická smečka, inteligence/12 DNA za nový výsledek a sociální/predátorská/smíšená cesta do kmene. Staré linie zůstávají na původních pravidlech; ekologické cesty fungují dál. Nové rules a historie mají striktní save/checkpoint validaci.
+- Ověření: 39 nových cílených testů, celá sada 115 souborů / 2 182 testů, typecheck/build/diff-check. Celá sada předchází jen poslední obnově popisku R, kterou ověřil finální produkční browser; typecheck/build zahrnují finální stav.
+- Běžný browser: sociální dvounožec, bojový čtyřnožec a smíšený dvounožec dokončily tři hnízda i přechod do kmene, export/import a 0 chyb. Připravený vstup na souši/DNA/těla, žádné runtime přepisování stavu či advanceTime; nejde o novou celou kampaň. V simulaci navíc všech šest kombinací dvou těl a tří cest. 1280×720, stabilní tlačítka, skutečně prohlédnuté snímky a samostatný původní skill smoke.
+- Nezávislé review opravilo čtyři datové/AI hrany s regresemi, závěrem bez dalších nálezů; vlastní review hotový. Krátké měření finální produkce, Apple M4 / ANGLE Metal / medium / 1440×900: p50 16,7 ms, p95 16,8 ms, 0/500 nad 50 ms. Bez tvrzení o vyvážení/zábavnosti nebo celé kampani.
+- Report: `docs/spore/SP-003-REPORT.md`. Tracker SP-003 hotovo; SP-004/005/007 a zbytek SP-017 zůstávají samostatné. Nový reprodukovatelný příkaz `pnpm test:creature-stage`. Žádné závislosti, lockfile, commit, push nebo deploy. Pro hraní použít Nová linie; lidský playtest zůstává meze ověření.
+- Vlastní pracovní browser artefakty a izolovaný download uklizeny podle `evidence/sp-003/cleanup.json`; jen finální snímky, logy a běžné save. Traces nebyly vytvořeny. Testovací servery zastaveny; finální evidence 4,4 MiB, po úklidu 38 GiB volných.

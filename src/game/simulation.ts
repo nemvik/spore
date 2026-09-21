@@ -1,3 +1,4 @@
+import { activeCreatureStage, completeCreatureStage, creatureIntelligence, creatureStageReady, emptyCreatureStage, initializeCreatureStage, isNestResident, performSpeciesAction, recordSpeciesAggression, recordSpeciesDeath, recruitPack, speciesNest, startEncounter, stepCreatureStage } from './creature-stage';
 import { prepareInstalledCreatureAnatomy } from './creature-anatomy';
 import { bodyCollisionRadius } from './body-shape';
 import { stepTribeWildlife } from './tribe-wildlife';
@@ -44,18 +45,19 @@ const statCache = new WeakMap<Genome,Stats>();
 export function statsFor(g:Genome) { let s=statCache.get(g);if(!s){s=computeStats(g,g.version===2?prepareInstalledCreatureAnatomy(g):undefined);statCache.set(g,s);}return s; }
 export function announce(s:GameState,text:string) { if(s.messages.at(-1)?.text===text&&s.world.time-s.messages.at(-1)!.time<3)return; s.messages.push({id:Math.max(s.tick,s.messages.at(-1)?.id??0)+1,text,time:s.world.time}); if(s.messages.length>6)s.messages.shift(); }
 /** Legacy mode preserves the published benchmark fixtures; the UI explicitly starts a journey. */
-export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution=false,ecology=false):GameState {
+export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution=false,ecology=false,creatureLife=false):GameState {
  const world=createWorld(seed,0),genome=initialGenome(),stats=statsFor(genome);
  const s:GameState={version:3,journey:emptyJourney(legacy,dispersal,reefEvolution),id:`line-${seed}-${Date.now()}`,seed,stage:0,tick:0,rng:seed>>>0,world,worlds:[world,null,null],
  player:{pos:{x:0,y:1.1,z:0},velocity:{x:0,y:0,z:0},heading:Math.PI,health:stats.maxHealth,energy:90,oxygen:100,moisture:100,genome,dna:14,totalDna:14,generation:1,meals:0,kills:0,bonds:[],cooldown:0,abilityRecharge:0,scan:0,invulnerable:5,feeding:0,distance:0},
  campaign:{stageMeals:0,stageKills:0,stageBonds:0,stageReproductions:0,discoveries:[],journals:[],drought:0,finale:null,won:false,sandbox:false},
  lineage:[{generation:1,stage:0,time:0,name:genome.name,parts:genome.parts.map(p=>p.kind),event:TEXT.firstLife}],checkpoint:null,messages:[],deathReason:null};
+ if(creatureLife&&!legacy)s.creatureStage=emptyCreatureStage();
  if(ecology)s.journey.ecology={version:1,contacts:[]};
  initializeJourneyStage(s);announce(s,legacy?TEXT.welcome:'WASD · plavba. Mezerník · potrava. T u živého porostu · poznání. Západně čeká zahrada.'); makeCheckpoint(s);return s;
 }
 export function makeCheckpoint(s:GameState) { s.checkpoint=JSON.stringify({...s,checkpoint:null}); }
 export function recoverGeneration(s:GameState):GameState {
- if(!s.checkpoint)return createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution);
+ if(!s.checkpoint)return createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage);
  const restored=JSON.parse(s.checkpoint) as GameState; restored.world=restored.worlds[worldStageFor(restored.stage)]!;restored.checkpoint=s.checkpoint;restored.deathReason=null;restored.player.invulnerable=10;announce(restored,TEXT.restored);return restored;
 }
 export function nearNest(s:GameState) { return horizontalDistance(s.player.pos,s.world.landmarks.find(l=>l.kind==='nest')!.pos)<11; }
@@ -100,6 +102,7 @@ export function transitionStatus(s:GameState) {
  const requirements=transitionRequirements(s),gate=s.world.landmarks.find(l=>l.kind==='gate')??null;
  const gateDistance=gate?horizontalDistance(s.player.pos,gate.pos):Infinity;
  if(!isOrganismStage(s.stage))return {kind:'era' as const,ready:false,nearGate:false,gate,distance:gateDistance,detail:ERA_COPY.unavailable,requirements,routes:[]};
+ if(activeCreatureStage(s)&&creatureStageReady(s)&&!s.campaign.won){const home=s.world.landmarks[0],near=horizontalDistance(s.player.pos,home.pos)<11;return {kind:'ending' as const,ready:near&&s.player.health>0&&!s.deathReason,nearGate:near,gate:home,distance:horizontalDistance(s.player.pos,home.pos),detail:near?'G · dokončit tvorovou fázi a založit kmen.':'Vrať se do vlastního hnízda a stiskni G.',requirements:[{label:'Vyřešená hnízda',met:true,value:`${creatureIntelligence(s)} / 3`}],routes:[]};}
  if(s.stage===2&&!s.journey.legacy){const ending=journeyEndingStatus(s),alive=s.player.health>0&&!s.deathReason;return {kind:s.campaign.won?'sandbox' as const:'ending' as const,ready:!s.campaign.won&&alive&&!!ending.finale,nearGate:false,gate,distance:gateDistance,detail:!s.campaign.won&&!alive?TEXT.transitionNotReady:ending.detail,requirements,routes:ending.routes};}
  if(s.stage===2){const ready=!s.campaign.won&&s.player.health>0&&!s.deathReason&&legacyMigrationReady(s);return {kind:'legacy-ending' as const,ready,nearGate:gateDistance<12,gate,distance:gateDistance,detail:s.campaign.won?PROGRESSION_COPY.sandbox:ready?PROGRESSION_COPY.legacyMigrationReady:TEXT.transitionNotReady,requirements,routes:[]};}
  const missing=requirements.filter(r=>!r.met);
@@ -110,14 +113,14 @@ export function transitionStatus(s:GameState) {
 export function tryTransition(s:GameState):boolean {
  if(!isOrganismStage(s.stage))return false;
  const status=transitionStatus(s);
- if(s.stage===2){if(s.journey.legacy)return tryWin(s,'migration');announce(s,status.detail);return false;}
+ if(s.stage===2){if(activeCreatureStage(s)&&creatureStageReady(s)){const done=completeCreatureStage(s);if(done)makeCheckpoint(s);return done;}if(s.journey.legacy)return tryWin(s,'migration');announce(s,status.detail);return false;}
  if(!status.ready){announce(s,s.journey.legacy?status.distance>10?TEXT.approachGate:TEXT.transitionNotReady:status.detail);return false;}
  if(s.journey.reefEvolution)s.journey.reefEvolution.pumping=0;
  s.worlds[worldStageFor(s.stage)]=s.world;s.journey.cargo=null;s.stage=(s.stage+1) as Stage;s.world=s.worlds[worldStageFor(s.stage)]??createWorld(s.seed,s.stage);s.worlds[worldStageFor(s.stage)]=s.world;
  Object.assign(s.campaign,{stageMeals:0,stageKills:0,stageBonds:0,stageReproductions:0});
  s.player.pos={x:0,y:s.stage===2?groundHeight(0,0,2)+organismGroundClearance(s.player.genome):surfaceY(s.stage,0,0),z:0};s.player.velocity={x:0,y:0,z:0};s.player.health=statsFor(s.player.genome).maxHealth;s.player.energy=90;s.player.oxygen=100;s.player.moisture=100;s.player.invulnerable=10;
  s.lineage.push({generation:s.player.generation,stage:s.stage,time:s.tick/60,name:s.player.genome.name,parts:s.player.genome.parts.map(p=>p.kind),event:CHAPTERS[s.stage].title});
- s.messages=[];initializeJourneyStage(s);announce(s,CHAPTERS[s.stage].title);if(s.stage===2){s.campaign.drought=.28;announce(s,TEXT.drought);}makeCheckpoint(s);return true;
+ s.messages=[];initializeJourneyStage(s);initializeCreatureStage(s);announce(s,CHAPTERS[s.stage].title);if(s.stage===2){s.campaign.drought=.28;announce(s,TEXT.drought);}makeCheckpoint(s);return true;
 }
 export function tryWin(s:GameState,path:'restoration'|'predator'|'migration'):boolean {
  if(s.stage!==2||s.campaign.won||s.player.health<=0||s.deathReason)return false;
@@ -141,6 +144,7 @@ export function awaitingOrganismVictory(s:GameState):boolean {
 export function continueToTribeEra(s:GameState):boolean {
  if(s.stage!==LAST_ORGANISM_STAGE||!s.campaign.won||!s.campaign.finale||s.tribe||s.player.health<=0||s.deathReason)return false;
  if(s.player.genome.version===2&&s.player.creatureActions)Object.assign(s.player.creatureActions,{jumpRecharge:0,communicationRecharge:0,communicationTime:0});
+ if(s.creatureStage){s.creatureStage.encounter=null;s.creatureStage.attack=null;s.creatureStage.cue=null;s.creatureStage.guards=[];s.creatureStage.pack=[];s.creatureStage.recharge=0;for(const nest of s.creatureStage.nests)nest.residents=[];}
  s.stage=3;s.tribe=createTribe(s);
  s.lineage.push({generation:s.player.generation,stage:3,time:s.tick/60,name:s.player.genome.name,
   parts:s.player.genome.parts.map(p=>p.kind),event:CHAPTERS[3].title});
@@ -181,7 +185,7 @@ export function returnToCoast(s:GameState):boolean {
 }
 
 function killCreature(s:GameState,c:Creature,byPlayer:boolean,cause:'combat'|'starvation'|'exposure'='combat') {
- const idx=s.world.creatures.indexOf(c);if(idx<0)return;s.world.creatures.splice(idx,1);s.world.deaths++;
+ const idx=s.world.creatures.indexOf(c);if(idx<0)return;recordSpeciesDeath(s,c,byPlayer);s.world.creatures.splice(idx,1);s.world.deaths++;
  const patch=s.world.patches[c.patch],spec=speciesById(c.species);patch.hunted++;
  if(spec.role==='invasive'){patch.fertility=clamp(patch.fertility+.05,.15,1.5);if(byPlayer)s.campaign.stageKills++;}
  else if(spec.role==='grazer')patch.pressure+=.07;
@@ -207,7 +211,7 @@ function feed(s:GameState,stats:Stats,selection?:FeedSelection|null) {
  const prey=target.kind==='prey'?w.creatures.find(c=>c.id===target.id):undefined;
  if(prey&&(!food||distance(prey.pos,p.pos)<distance(food.pos,p.pos))){
   if(p.energy<1.6){p.cooldown=.4;announce(s,TEXT.attackEnergy);return;}
-  prey.health-=stats.damage;
+  recordSpeciesAggression(s,prey);prey.health-=stats.damage;
   // An ordinary bite does not cancel a hunter's committed attack or change its
   // victim mid-lunge. Toxin and contact spines retain their explicit deterrence.
   if(s.journey.legacy||speciesById(prey.species).role!=='predator'){prey.fear=5;prey.target=-1;}
@@ -259,10 +263,11 @@ function constrain(pos:{x:number;y:number;z:number},w:World,radius:number,cleara
 function npcStep(s:GameState,dt:number) {
  const w=s.world,p=s.player;const think=s.tick%30===0;
  for(const c of [...w.creatures]){
-  const spec=speciesById(c.species);if(!s.journey.legacy&&spec.role==='predator')continue;c.age+=dt;c.cooldown=Math.max(0,c.cooldown-dt);c.fear=Math.max(0,c.fear-dt);c.hunger=clamp(c.hunger+dt*.14,0,100);
+  const spec=speciesById(c.species);if(isNestResident(s,c.id)||!s.journey.legacy&&spec.role==='predator')continue;c.age+=dt;c.cooldown=Math.max(0,c.cooldown-dt);c.fear=Math.max(0,c.fear-dt);c.hunger=clamp(c.hunger+dt*.14,0,100);
+  if(activeCreatureStage(s)?.encounter?.target===c.id){c.velocity={x:0,y:0,z:0};c.intent='rest';continue;}
   if(think){
    const threats=w.creatures.filter(o=>o.id!==c.id&&hunterThreatening(s,o)&&distance(c.pos,o.pos)<13&&(s.journey.legacy||!lineBlocked(s,c.pos,o.pos)));
-   const afraidPlayer=has(p.genome,'jaw')||has(p.genome,'spines')||c.fear>0;
+   const afraidPlayer=((speciesNest(s,c.species)?.relationship??0)<60&&(has(p.genome,'jaw')||has(p.genome,'spines')))||c.fear>0;
    const threat=afraidPlayer&&distance(c.pos,p.pos)<(c.fear>0?12:carrierFearDistance(s,c))&&(s.journey.legacy||!lineBlocked(s,c.pos,p.pos))?p.pos:threats[0]?.pos;
    if(threat&&(spec.role!=='predator'||c.fear>0)){c.intent='flee';const d=distance(c.pos,threat)||1;c.velocity={x:(c.pos.x-threat.x)/d*spec.speed*1.3,y:w.stage===1?-.6:0,z:(c.pos.z-threat.z)/d*spec.speed*1.3};}
    else if(spec.role==='predator'){
@@ -310,7 +315,7 @@ function pulse(s: GameState) {
  const lock=(duration:number)=>{if(s.journey.legacy)p.cooldown=duration;else {p.abilityRecharge=duration;p.cooldown=Math.max(p.cooldown,.25);}};
  if(has(p.genome,'toxin')&&p.energy>=15){
   const profile=profileFor(p.genome);p.energy-=15;lock(7);p.feeding=1.3;
-  for(const c of [...s.world.creatures])if(distance(c.pos,p.pos)<profile.toxinRadius){c.health-=profile.toxinDamage;c.fear=10;if(c.health<=0)killCreature(s,c,true);}
+  for(const c of [...s.world.creatures])if(distance(c.pos,p.pos)<profile.toxinRadius){recordSpeciesAggression(s,c);c.health-=profile.toxinDamage;c.fear=10;if(c.health<=0)killCreature(s,c,true);}
   announce(s,TEXT.toxinPulse);
  }else if(has(p.genome,'sonar')&&p.energy>=3){p.energy-=3;lock(4);p.scan=5;p.feeding=1;announce(s,TEXT.sonarPulse);}
  else if(has(p.genome,'sonar'))announce(s,TEXT.sonarEnergy);
@@ -353,6 +358,8 @@ export function step(s:GameState,input:Input,dt=1/60) {
 function beginStep(s:GameState,input:Input,dt:number) {
  const w=s.world,p=s.player,stats=statsFor(p.genome),profile=profileFor(p.genome);
  p.cooldown=Math.max(0,p.cooldown-dt);p.abilityRecharge=Math.max(0,p.abilityRecharge-dt);p.scan=Math.max(0,p.scan-dt);p.invulnerable=Math.max(0,p.invulnerable-dt);p.feeding=Math.max(0,p.feeding-dt);
+ const charge=activeCreatureStage(s)?.attack;
+ if(charge?.kind==='charge'){const dx=charge.aim.x-p.pos.x,dz=charge.aim.z-p.pos.z,d=Math.hypot(dx,dz)||1;input={...input,x:dx/d,z:dz/d,sprint:true};}
  const len=Math.hypot(input.x,input.z);const sprint=input.sprint&&p.energy>8;
  const reef=s.stage===1?s.journey.reefEvolution:undefined;
  if(reef){const pumping=input.feed&&has(p.genome,'filter')&&p.energy>2;reef.pumping=clamp(reef.pumping+dt*(pumping?4:-6),0,1);}
@@ -362,7 +369,7 @@ function beginStep(s:GameState,input:Input,dt:number) {
  const previous={...p.pos};
  if(p.genome.version===2&&s.stage===2){
   const next=advanceCreature(p.genome,{pos:p.pos,velocity:p.velocity,heading:p.heading,energy:p.energy,actions:p.creatureActions??emptyCreatureActions()},
-   {x:input.x,z:input.z,sprint:input.sprint,jump:!!input.jump,communicate:!!input.communicate},
+   {x:input.x,z:input.z,sprint:input.sprint,jump:!!input.jump,communicate:!!input.communicate&&!activeCreatureStage(s)},
    {groundAt:(x,z)=>groundHeight(x,z,w.stage),obstacles:w.obstacles,bound:WORLD_BOUND},dt);
   p.pos=next.pos;p.velocity=next.velocity;p.heading=next.heading;p.energy=next.energy;p.creatureActions=next.actions;
  }else{
@@ -409,17 +416,21 @@ function stepEnvironment(s:GameState,dt:number) {
 }
 
 function applyPlayerActions(s:GameState,input:Input,{p,stats,reef}:StepContext) {
+ if(activeCreatureStage(s)){
+  if(input.communicate)startEncounter(s,input.feedSelection);
+  if(input.speciesAction){performSpeciesAction(s,input.speciesAction,input.feedSelection,(c,byPlayer)=>killCreature(s,c,byPlayer));return;}
+ }
  // A defensive pulse can interrupt eating in a journey. Its own recharge keeps
  // held Space from starving X, and feeding cannot overwrite the ability timer.
  if(input.pulse&&!s.journey.legacy)pulse(s);
- if(input.feed&&!(reef&&input.tend))feed(s,stats,input.feedSelection);if(input.bond)bond(s);if(input.tend)tend(s);if(input.offer&&!s.journey.legacy&&p.cooldown<=0)actOnJourney(s,true);
+ if(input.feed&&!(reef&&input.tend))feed(s,stats,input.feedSelection);if(input.bond&&!recruitPack(s,input.feedSelection))bond(s);if(input.tend)tend(s);if(input.offer&&!s.journey.legacy&&p.cooldown<=0)actOnJourney(s,true);
  if(input.pulse&&s.journey.legacy)pulse(s);
 }
 
 /** Unit and planet simulation belongs here when those eras become playable. */
 function stepWorld(s:GameState,dt:number,{previous,sprint}:StepContext) {
  if(!s.journey.legacy)stepHunters(s,dt,(c,byPlayer,cause)=>killCreature(s,c,byPlayer,cause));
- npcStep(s,dt);stepJourney(s,dt,previous,sprint);
+ stepCreatureStage(s,dt,(c,byPlayer)=>killCreature(s,c,byPlayer));npcStep(s,dt);stepJourney(s,dt,previous,sprint);
 }
 
 function resolveOutcomes(s:GameState) {
@@ -428,7 +439,7 @@ function resolveOutcomes(s:GameState) {
  if(s.stage===2&&s.campaign.stageKills>=12)tryWin(s,'predator');
  if(p.health<=0){p.health=0;s.deathReason=p.energy<=0?TEXT.deathEnergy:p.oxygen<=0?TEXT.deathOxygen:p.moisture<=0?TEXT.deathMoisture:TEXT.deathPredator;announce(s,TEXT.death);}
 }
-export function summary(s:GameState) { return {stage:s.stage,...(s.tribe?{tribe:s.tribe}:{}),...(s.machines?{machines:s.machines}:{}),...(s.planet?{planet:s.planet}:{}),tick:s.tick,seed:s.seed,player:s.player,campaign:s.campaign,...(s.journey.rootDispersal?{rootDispersal:s.journey.rootDispersal}:{}),world:{time:s.world.time,patches:s.world.patches,landmarks:s.world.landmarks,resources:s.world.resources.filter(r=>r.amount>=1),creatures:s.world.creatures,obstacles:s.world.obstacles,births:s.world.births,deaths:s.world.deaths},requirements:transitionRequirements(s),deathReason:s.deathReason,climate:getClimate(s),field:fieldProgress(s),stats:statsFor(s.player.genome)}; }
+export function summary(s:GameState) { return {stage:s.stage,...(s.creatureStage?{creatureStage:s.creatureStage}:{}),...(s.tribe?{tribe:s.tribe}:{}),...(s.machines?{machines:s.machines}:{}),...(s.planet?{planet:s.planet}:{}),tick:s.tick,seed:s.seed,player:s.player,campaign:s.campaign,...(s.journey.rootDispersal?{rootDispersal:s.journey.rootDispersal}:{}),world:{time:s.world.time,patches:s.world.patches,landmarks:s.world.landmarks,resources:s.world.resources.filter(r=>r.amount>=1),creatures:s.world.creatures,obstacles:s.world.obstacles,births:s.world.births,deaths:s.world.deaths},requirements:transitionRequirements(s),deathReason:s.deathReason,climate:getClimate(s),field:fieldProgress(s),stats:statsFor(s.player.genome)}; }
 
 export function senseRange(s:GameState):number { const p=s.player;return statsFor(p.genome).sense+(hasActivePartner(s,'light')?16:0)+(has(p.genome,'sonar')&&p.scan>0?35:0); }
 

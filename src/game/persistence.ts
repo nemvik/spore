@@ -15,6 +15,8 @@ import { validateVehicle, vehicleStats } from './blueprint';
 import type { VehicleBlueprint } from './blueprint';
 import { MAX_UNIT_ORDERS, validOrderShape } from './unit-order';
 import type { UnitOrder } from './unit-order';
+import { CREATURE_SPECIES } from './creature-stage';
+import { COMBAT_ACTIONS, SOCIAL_ACTIONS } from './creature-stage-types';
 
 const FORMAT = 'lumavora';
 const SAVE_PREFIX = 'lumavora:save:';
@@ -66,6 +68,79 @@ function validateCreatureActions(value: unknown, path: string): void {
   number(actions.communicationRecharge, `${path}.communicationRecharge`, 0, 2);
   number(actions.communicationTime, `${path}.communicationTime`, 0, .8);
   number(actions.communicationSerial, `${path}.communicationSerial`, 0, MAX_COUNT, true);
+}
+
+function validateCreatureStage(value: unknown, stage: Stage, coast: World | null): void {
+  const at = 'state.creatureStage';
+  const life = object(value, at, ['version', 'nests', 'pack', 'encounter', 'recharge', 'attack', 'guards', 'cue', 'completed']);
+  oneOf(life.version, [1], `${at}.version`);
+  number(life.recharge, `${at}.recharge`, 0, 3.2);
+  oneOf(life.completed, [null, 'social', 'predator', 'mixed'], `${at}.completed`);
+  const residents: number[] = [], species: unknown[] = [], outcomes: unknown[] = [];
+  const nests = array(life.nests, `${at}.nests`, stage < 2 ? 0 : 4, stage < 2 ? 0 : 4);
+  const living = (value: unknown, path: string) => {
+    const id = number(value, path, 1, MAX_COUNT, true), c = coast?.creatures.find(c => c.id === id && c.health > 0);
+    if (!c) invalid(path, SAVE_ERRORS.unknownValue);
+    return c;
+  };
+  nests.forEach((value, i) => {
+    const path = `${at}.nests[${i}]`, n = object(value, path, ['species', 'pos', 'residents', 'relationship', 'outcome', 'defeats', 'discovered']);
+    oneOf(n.species, CREATURE_SPECIES, `${path}.species`); species.push(n.species);
+    vector(n.pos, `${path}.pos`, WORLD_BOUND);
+    number(n.relationship, `${path}.relationship`, -100, 100); boolean(n.discovered, `${path}.discovered`);
+    oneOf(n.outcome, [null, 'friend', 'predator'], `${path}.outcome`); outcomes.push(n.outcome);
+    number(n.defeats, `${path}.defeats`, 0, 2, true);
+    if (n.outcome === 'predator' && n.defeats !== 2 || n.outcome === null && n.defeats === 2) invalid(path, SAVE_ERRORS.unknownValue);
+    array(n.residents, `${path}.residents`, 2).forEach((id, j) => {
+      const c = living(id, `${path}.residents[${j}]`);
+      if (c.species !== n.species) invalid(path, SAVE_ERRORS.unknownSpecies);
+      residents.push(c.id);
+    });
+  });
+  if (new Set(species).size !== species.length) invalid(`${at}.nests`, SAVE_ERRORS.duplicateIds);
+  uniqueIds(residents, `${at}.nests.residents`);
+  const resolved = outcomes.filter(o => o !== null).length;
+  const pack = array(life.pack, `${at}.pack`, Math.min(3, resolved)).map((id, i) => {
+    const c = living(id, `${at}.pack[${i}]`);
+    if (!residents.includes(c.id) || !nests.some(value => { const n = value as Record<string, unknown>; return n.species === c.species && Number(n.relationship) >= 60; })) invalid(`${at}.pack`, SAVE_ERRORS.unknownValue);
+    return c.id;
+  });
+  uniqueIds(pack, `${at}.pack`);
+  if (life.completed !== null) {
+    const friends=outcomes.filter(o=>o==='friend').length,defeated=outcomes.filter(o=>o==='predator').length;
+    // Completion is history: resolving the fourth nest in sandbox cannot rewrite it.
+    if (resolved < 3 || life.completed==='social'&&friends<3 || life.completed==='predator'&&defeated<3 || life.completed==='mixed'&&(!friends||!defeated)) invalid(`${at}.completed`, SAVE_ERRORS.invalidFinale);
+  }
+  if (life.encounter !== null) {
+    const path = `${at}.encounter`, e = object(life.encounter, path, ['species', 'target', 'requested', 'round', 'progress', 'mistakes', 'remaining']);
+    const c = living(e.target, `${path}.target`);
+    if (!species.includes(e.species) || c.species !== e.species || pack.includes(c.id)) invalid(path, SAVE_ERRORS.unknownValue);
+    oneOf(e.requested, SOCIAL_ACTIONS, `${path}.requested`);
+    number(e.round, `${path}.round`, 0, 12, true); number(e.progress, `${path}.progress`, 0, 6); number(e.mistakes, `${path}.mistakes`, 0, 2, true); number(e.remaining, `${path}.remaining`, 0, 12);
+  }
+  if (life.attack !== null) {
+    const path = `${at}.attack`, a = object(life.attack, path, ['kind', 'target', 'remaining', 'pos', 'aim', 'damage']);
+    oneOf(a.kind, ['charge', 'spit'], `${path}.kind`);
+    // A projectile can survive its target for one tick; the ID must still be historic, never an arbitrary future ID.
+    number(a.target, `${path}.target`, 1, (coast?.nextId ?? 1) - 1, true);
+    number(a.remaining, `${path}.remaining`, 0, a.kind === 'charge' ? 1.4 : .8); number(a.damage, `${path}.damage`, 0, 16);
+    vector(a.pos, `${path}.pos`); vector(a.aim, `${path}.aim`);
+    if (life.encounter !== null) invalid(path, SAVE_ERRORS.unknownValue);
+  }
+  const guards = array(life.guards, `${at}.guards`, 8).map((value, i) => {
+    const path = `${at}.guards[${i}]`, g = object(value, path, ['id', 'target', 'remaining', 'aim']);
+    const c = living(g.id, `${path}.id`); if (!residents.includes(c.id) || pack.includes(c.id)) invalid(path, SAVE_ERRORS.unknownValue);
+    if(g.target!==-1){const target=living(g.target,`${path}.target`);if(!residents.includes(target.id)||target.id===c.id)invalid(path,SAVE_ERRORS.unknownValue);}
+    number(g.remaining, `${path}.remaining`, 0, .9); vector(g.aim, `${path}.aim`); return c.id;
+  });
+  uniqueIds(guards, `${at}.guards`);
+  if (life.cue !== null) {
+    const path = `${at}.cue`, cue = object(life.cue, path, ['action', 'target', 'remaining', 'success']);
+    oneOf(cue.action, [...SOCIAL_ACTIONS, ...COMBAT_ACTIONS], `${path}.action`);
+    number(cue.target, `${path}.target`, 1, (coast?.nextId ?? 1) - 1, true);
+    number(cue.remaining, `${path}.remaining`, 0, 1.2); boolean(cue.success, `${path}.success`);
+  }
+  if (stage < 2 && (life.recharge !== 0 || life.encounter !== null || life.attack !== null || life.cue !== null || life.completed !== null)) invalid(at, SAVE_ERRORS.eraSliceMismatch);
 }
 
 function validateWorld(value: unknown, stage: Stage, seed: number, path: string): World {
@@ -602,7 +677,8 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   const version = (value as Record<string, unknown>).version;
   if ((version !== 1 && version !== 2 && version !== 3) || (expectedVersion !== undefined && version !== expectedVersion)) invalid('state.version', SAVE_ERRORS.unsupportedStateVersion);
   const sliceKeys = (['tribe', 'machines', 'planet'] as const).filter(key => version === 3 && Object.prototype.hasOwnProperty.call(value, key));
-  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys]);
+  const hasCreatureStage = version === 3 && Object.prototype.hasOwnProperty.call(value, 'creatureStage');
+  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasCreatureStage ? ['creatureStage'] : [])]);
   gameId(s.id, 'state.id'); const seed = number(s.seed, 'state.seed', 0, UINT32, true);
   oneOf(s.stage, version === 3 ? [0, 1, 2, 3, 4, 5] : [0, 1, 2], 'state.stage'); const stage = s.stage as Stage;
   const worldStage = worldStageFor(stage);
@@ -621,6 +697,10 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   validateWorld(s.world, worldStage, seed, 'state.world');
   if (JSON.stringify(s.world) !== JSON.stringify(worlds[worldStage])) invalid('state.world', SAVE_ERRORS.activeWorldMismatch);
   const journey = version === 1 ? emptyJourney(true) : validateJourney(s.journey, worldStage, worlds as (World | null)[]);
+  if (hasCreatureStage) {
+    if (journey.legacy) invalid('state.creatureStage', SAVE_ERRORS.eraSliceMismatch);
+    validateCreatureStage(s.creatureStage, stage, worlds[2] as World | null);
+  }
   // Historical legacy saves predate the explicit scan timer. Only this missing
   // field migrates; new journey saves require it, and unknown fields always fail.
   if ((version === 1 || journey.legacy) && s.player && typeof s.player === 'object' && !Array.isArray(s.player) && !Object.prototype.hasOwnProperty.call(s.player, 'scan')) (s.player as Record<string, unknown>).scan = 0;
@@ -687,6 +767,8 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   number(c.drought, 'campaign.drought', 0, 1); boolean(c.won, 'campaign.won'); boolean(c.sandbox, 'campaign.sandbox');
   oneOf(c.finale, [null, 'restoration', 'predator', 'migration'], 'campaign.finale');
   if ((c.won && (stage < 2 || c.finale === null)) || (!c.won && c.finale !== null) || (c.sandbox && !c.won) || (stage >= 3 && !c.won)) invalid('campaign', SAVE_ERRORS.invalidFinale);
+  const creatureCompletion = (s.creatureStage as GameState['creatureStage'])?.completed;
+  if (creatureCompletion && (!c.won || c.finale !== (creatureCompletion === 'social' ? 'restoration' : creatureCompletion === 'predator' ? 'predator' : 'migration'))) invalid('state.creatureStage.completed', SAVE_ERRORS.invalidFinale);
   if (s.tribe && (s.tribe as ActiveTribeState).version === 2) {
     const tribe = s.tribe as ActiveTribeState;
     if (tribe.legacyAbility !== c.finale) invalid('state.tribe.legacyAbility', SAVE_ERRORS.invalidFinale);
@@ -755,6 +837,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     // The rule marker is fixed at birth; the earlier filter opening may differ.
     if (restored.journey.reefEvolution?.version !== journey.reefEvolution?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if (restored.creatureStage?.version !== (s.creatureStage as GameState['creatureStage'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     // Recovery consumes this string later, so persist migrated fields inside it as well.
     s.checkpoint = JSON.stringify(restored);
   }

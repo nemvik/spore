@@ -45,6 +45,12 @@ V mikrosvětě a útesu po vytvoření obyvatelného výstupu vyhledej severní 
 
 Na souši u kolébky otevře **Tab → Upravit kostru** editor páteře, kloubových končetin, rukou, chodidel, úst a povrchu. Změny mají společný genom, cenu a schopnosti; oddělená **Zkouška** ukáže chůzi, skok, kousnutí a hlas či gesto před potvrzením. **Q** skáče a **V** komunikuje. Undo/redo zachová celou konstrukci; zrušení převodu ponechá starý genom. [Ovládání a kompatibilita](docs/body-editor/README.md#sp-002-konstrukce-suchozemského-tvora-genom-v2), [ověření SP-002](docs/spore/SP-002-REPORT.md).
 
+Nové linie mají na souši také **Život druhu (SP-003)**: vlastní hnízdo a čtyři sousední druhy. **V** zahájí setkání, **1–4** odpovídá zpěvem, tancem, okouzlením nebo pózou; zvýrazněný projev ukazuje, co soused očekává. **B** přepíná na kousnutí, výpad, úder a plivnutí. Dostupnost vychází z úst, nohou, rukou, smyslů a toxinové žlázy skutečného těla. Kliknutí na obyvatele nebo řádek známého hnízda vybere cíl. Překážky, dosah, energie a obnova akcí platí i pro tyto schopnosti.
+
+**R** u přátelského obyvatele hnízda nabere skutečného člena smečky. Každé poprvé vyřešené hnízdo přidá inteligenci, 12 DNA a místo pro společníka (nejvýše tři); příběh lze dokončit přátelstvím, poražením obránců nebo smíšeně. Po třech výsledcích se vrať domů a stiskni **G**. Společníci následují s kolizemi, pomáhají při setkáních, jedí dostupnou potravu a mohou zahynout. Obránci před úderem označí místo zásahu kruhem: uhni během přípravy. Poškozený vztah lze u hnízda napravit darem za 25 energie; prázdné hnízdo tím získá nové obyvatele. Odměna za už vyřešený druh se neopakuje. Staré ekologické cesty zůstávají v deníku.
+
+Tato pravidla dostane **Nová linie**; dřívější uložené kampaně zachovají původní průběh. Historie vztahů pokračuje do kmene, ale aktivní smečka zůstane na pobřeží. Podrobnosti a meze ověření uvádí [report SP-003](docs/spore/SP-003-REPORT.md).
+
 V nové útesové linii drž **Mezerník** nebo tlačítko krmení pro otevření filtru; puštěním jej zavřeš a získáš zpět rychlost. V kolébce použij **Tab** a v editoru porovnej dech, pohyb a spotřebu skutečně sestaveného těla. Starší uložené linie zůstávají na svých původních pravidlech; novou smyčku má nově založená linie.
 
 V baldachýnu může jedlou vazbu spást vhodný orgán, nebo divoký štítojem přivedený detritem či minerály. Po otevření zachytíš stoupající mateřskou řasu. Novou pastvu musí skutečně ochutnat plachtovec v bezpečí; samotná výsadba ji nedokončí.
