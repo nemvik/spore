@@ -1,3 +1,5 @@
+import { cellScale, cellCameraZoom, cellFoodScale } from '../game/cell-growth';
+import { CellPresentation } from './cell-growth';
 import { worldSpecies } from '../game/npc-genome';
 import { CreatureStagePresentation, animateSpeciesResponse } from './creature-stage';
 import { creaturePreviewTarget, PREVIEW_ENVIRONMENT, type CreaturePreview } from '../ui/creature-preview';
@@ -64,7 +66,7 @@ export function playerSoftCeiling(s: GameState): number | undefined {
 /** These timers distinguish active abilities from the shorter feeding/care animation. */
 export function abilityPulse(s: GameState): { progress: number; radius: number; color: number } | null {
  const p=s.player,recharge=s.journey.legacy?p.cooldown:p.abilityRecharge;
- if((!s.journey.legacy||p.feeding>0)&&recharge>5.7&&has(p.genome,'toxin'))return {progress:THREE.MathUtils.clamp((7-recharge)/1.3,0,1),radius:functionalProfile(p.genome).toxinRadius,color:0xc0e39f};
+ if((!s.journey.legacy||p.feeding>0)&&recharge>5.7&&has(p.genome,'toxin'))return {progress:THREE.MathUtils.clamp((7-recharge)/1.3,0,1),radius:functionalProfile(p.genome).toxinRadius*cellScale(s),color:0xc0e39f};
  if(p.scan>4)return {progress:THREE.MathUtils.clamp(5-p.scan,0,1),radius:12,color:0x93def0};
  return null;
 }
@@ -80,7 +82,7 @@ export class GameRenderer {
  private presentationTime=0;private cameraReady=false;private cameraDestination=new THREE.Vector3();private raycaster=new THREE.Raycaster();private pointer=new THREE.Vector2();private occlusionRay=new THREE.Ray();private occlusionPoint=new THREE.Vector3();private occlusionRight=new THREE.Vector3();private occlusionUp=new THREE.Vector3();private occlusionTargets=Array.from({length:5},()=>new THREE.Vector3());private playerOcclusionRadius=2;private occluders:Occluder[]=[];private nextBoundsUpdate=0;
  private obstacleContours:ObstacleContours|null=null;
  private migrationCues:MigrationCues|null=null;
- private foodCues=new FoodCues();private reefFilterCues:ReefFilterCues|null=null;
+ private cellPresentation=new CellPresentation();private foodCues=new FoodCues();private reefFilterCues:ReefFilterCues|null=null;
  private creatureLife=new CreatureStagePresentation();private settlement=new SettlementPresentation();private fleet=new FleetPresentation();private planet=new PlanetPresentation();
  commandSelection:CommandUnitRef[]=[];commandFocus:Vec3|null=null;
  private bondMeshes:THREE.Group[]=[];private bondKey='';private contact=new ContactShadows();private partnerLight=new THREE.PointLight(0xd6f1b0,0,24,1.7);private pulse:THREE.Mesh;private marker=new THREE.Group();private markerBrackets:THREE.Mesh;private markerStem:THREE.Line;private markerTip:THREE.Mesh;private markerArrow:THREE.Mesh;private settings:Settings;private lastHeading=0;
@@ -117,7 +119,7 @@ export class GameRenderer {
   const depthMaterial=new THREE.MeshBasicMaterial({color:0xe8c78f,transparent:true,opacity:.85,depthTest:false,depthWrite:false});
   this.markerTip=new THREE.Mesh(new THREE.TorusGeometry(.22,.035,5,20),depthMaterial);this.markerTip.rotation.x=-Math.PI/2;this.marker.add(this.markerTip);
   this.markerArrow=new THREE.Mesh(new THREE.ConeGeometry(.19,.55,4),depthMaterial);this.marker.add(this.markerArrow);this.scene.add(this.marker);
-  this.scene.add(this.contact.mesh,this.partnerLight,this.foodCues.group);this.resize();this.setQuality(settings);
+  this.scene.add(this.contact.mesh,this.partnerLight,this.foodCues.group,this.cellPresentation.group);this.resize();this.setQuality(settings);
  }
  setQuality(s:Settings){this.settings=s;this.renderer.setPixelRatio(Math.min(devicePixelRatio,s.quality==='low'?1:s.quality==='medium'?1.5:2));this.renderer.shadowMap.enabled=s.quality==='high';this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.sun.shadow.mapSize.set(1024,1024);this.resize();}
  resize(){this.renderer.setSize(innerWidth,innerHeight);this.camera.aspect=innerWidth/innerHeight;this.camera.updateProjectionMatrix();this.editorCamera.aspect=innerWidth/innerHeight;this.editorCamera.updateProjectionMatrix();this.portraitCamera.aspect=innerWidth/innerHeight;this.portraitCamera.updateProjectionMatrix();}
@@ -156,14 +158,14 @@ export class GameRenderer {
   // belongs to the campaign stage. This view never changes the saved state.
   if(!isOrganismStage(s.stage))s={...s,stage:s.world.stage};
   const key=JSON.stringify(s.player.genome);if(key!==this.playerKey){if(this.player){this.scene.remove(this.player);disposeObject(this.player);}this.player=createOrganism(s.player.genome);applyLivingFinish(this.player,'player');this.scene.add(this.player);this.playerKey=key;if(s.player.genome.version===2){const bounds=creaturePresentationBounds(this.player.userData.creatureAnatomy.bounds);this.playerOcclusionRadius=bounds.radius+bounds.center.length();}else this.playerOcclusionRadius=Math.max(1.5,s.player.genome.length*1.76,bodyWidth(s.player.genome)*.9)+.5;}
-  const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(1);model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s),p.genome.version===2?creaturePoseContext(p.genome,{...p,actions:p.creatureActions??emptyCreatureActions()},{groundAt:(x,z)=>groundHeight(x,z,s.world.stage),obstacles:s.world.obstacles,bound:WORLD_BOUND},model.userData.creatureAnatomy):undefined);this.lastHeading=p.heading;
+  const p=s.player,t=s.world.time;const model=this.player!;model.visible=!remote;model.scale.setScalar(cellScale(s));model.position.set(p.pos.x,p.pos.y,p.pos.z);model.rotation.y=p.heading;const speed=Math.hypot(p.velocity.x,p.velocity.z);animateOrganism(model,t,speed,p.heading-this.lastHeading,s.stage,p.feeding,p.invulnerable>0&&p.invulnerable<1?1:0,playerSoftCeiling(s),p.genome.version===2?creaturePoseContext(p.genome,{...p,actions:p.creatureActions??emptyCreatureActions()},{groundAt:(x,z)=>groundHeight(x,z,s.world.stage),obstacles:s.world.obstacles,bound:WORLD_BOUND},model.userData.creatureAnatomy):undefined);this.lastHeading=p.heading;
   const reefOpening=s.stage===1&&s.journey.reefEvolution&&!s.journey.legacy?s.journey.reefEvolution.pumping:null;setReefFilterOpening(model,reefOpening);this.reefFilterCues?.update(s,this.settings.reducedMotion?0:t,model);
   const existing=new Set(s.world.creatures.map(c=>c.id));this.creatureMeshes.forEach((m,id)=>{if(!existing.has(id)){this.scene.remove(m);disposeObject(m);this.creatureMeshes.delete(id);}});
   for(const c of s.world.creatures){let m=this.creatureMeshes.get(c.id);const spec=worldSpecies(s.world,c.species);if(!m){m=createSpeciesModel(spec);if(spec.role==='predator')applyLivingFinish(m,'predator');this.creatureMeshes.set(c.id,m);this.scene.add(m);}m.position.set(c.pos.x,c.pos.y,c.pos.z);m.rotation.y=c.heading;m.rotation.z=0;m.scale.setScalar(spec.size);spec.genome?animateOrganism(m,t,Math.hypot(c.velocity.x,c.velocity.z),0,2,c.intent==='forage'&&c.cooldown>9?.5:0,0,undefined,{position:c.pos,heading:c.heading,groundAt:(x,z)=>groundHeight(x,z,2)}):animateSpeciesModel(m,t,Math.hypot(c.velocity.x,c.velocity.z),spec);animateSpeciesResponse(m,s,c.id,this.settings.reducedMotion);if(spec.role==='predator')setLivingDanger(m,hunterCue(s,c.id));}
   this.updateResources(s,t);
   updateHabitat(this.worldGroup!,s.world,this.settings.reducedMotion?0:t,climate);this.contact.update(s,!remote);
   this.migrationCues?.update(s,this.settings.reducedMotion?0:t);
-  this.foodCues.update(s,this.settings.reducedMotion?0:t);
+  this.cellPresentation.update(s,this.settings.reducedMotion);this.foodCues.update(s,this.settings.reducedMotion?0:t);
   const bondKey=p.bonds.map(b=>b.species).join('|');if(bondKey!==this.bondKey){this.bondMeshes.forEach(m=>{this.scene.remove(m);disposeObject(m);});this.bondMeshes=p.bonds.map(b=>{const m=createSpeciesModel(worldSpecies(s.world,b.species));m.scale.multiplyScalar(.45);this.scene.add(m);return m;});this.bondKey=bondKey;}
   this.bondMeshes.forEach((m,i)=>{const bond=p.bonds[i],spec=worldSpecies(s.world,bond.species);const phase=t*.8+i*Math.PI;const side=bond.benefit==='shield'?1:bond.benefit==='recycle'?-.6:Math.cos(phase)*1.6;const behind=bond.benefit==='shield'?.2:bond.benefit==='recycle'?-1:Math.sin(phase)*1.6;
    m.visible=!remote;m.position.set(p.pos.x+side*Math.cos(p.heading)+behind*Math.sin(p.heading),p.pos.y+(bond.benefit==='light'?1.1:bond.benefit==='recycle'?.85:.15),p.pos.z-side*Math.sin(p.heading)+behind*Math.cos(p.heading));m.rotation.y=p.heading;animateSpeciesModel(m,t,speed*.3,spec);const strength=.7+bond.loyalty*.003;m.scale.setScalar(spec.size*.45*strength);setPartnerActivity(m,s.journey.legacy?bond.loyalty>0:partnerActive(bond));
@@ -175,7 +177,7 @@ export class GameRenderer {
   this.updateInteractionMarker(control==='body'?(selection?feedTarget(s,selection):primaryInteraction([feedTarget(s),bondTarget(s),tendTarget(s)])):null,p.pos);
   const focus=vehicle?{...vehicle.pos,y:Math.min(vehicle.pos.y,groundHeight(vehicle.pos.x,vehicle.pos.z,2)+5)}:(commanding&&this.commandFocus?this.commandFocus:p.pos);
   this.target.set(focus.x,focus.y+.5,focus.z);this.focus.lerp(this.target,1-Math.exp(-dt*7));
-  const desired=control==='command'?overheadCamera(this.target,this.yaw,THREE.MathUtils.clamp(this.zoom,18,60),s.world):compositionCamera(this.target,this.yaw,this.pitch,this.zoom,s.world);this.cameraDestination.set(desired.x,desired.y,desired.z);
+  const desired=control==='command'?overheadCamera(this.target,this.yaw,THREE.MathUtils.clamp(this.zoom,18,60),s.world):compositionCamera(this.target,this.yaw,this.pitch,cellCameraZoom(s,this.zoom),s.world);this.cameraDestination.set(desired.x,desired.y,desired.z);
   if(!this.cameraReady){this.camera.position.copy(this.cameraDestination);this.focus.copy(this.target);this.cameraReady=true;}
   else{const smoothed=smoothCameraOrbit(this.camera.position,this.cameraDestination,this.target,dt);this.camera.position.set(smoothed.x,smoothed.y,smoothed.z);}
   if(control!=='command'){const safe=keepCameraOutside(this.camera.position,this.target,s.world);this.camera.position.set(safe.x,safe.y,safe.z);}this.camera.lookAt(this.focus);
@@ -321,7 +323,7 @@ export class GameRenderer {
   for(const r of s.world.resources){
    let m=this.resources.get(r.id);
    if(!m){m=this.resourceMesh(r);this.resources.set(r.id,m);this.scene.add(m);this.occluders.push({node:m,bounds:new THREE.Box3(),opacity:1,resource:true,materials:null});this.nextBoundsUpdate=0;}
-   m.position.x=r.pos.x;m.position.z=r.pos.z;m.visible=r.amount>=.2;m.scale.setScalar((.3+.7*Math.min(1,r.amount/r.max))*(rootlets.has(r.id)?.35:1));m.rotation.y=t*.12+r.id;
+   m.position.x=r.pos.x;m.position.z=r.pos.z;m.visible=r.amount>=.2;m.scale.setScalar((.3+.7*Math.min(1,r.amount/r.max))*(rootlets.has(r.id)?.35:1)*cellFoodScale(s,r));m.rotation.y=t*.12+r.id;
    if(s.stage<2)m.position.y=r.pos.y+Math.sin(t*.8+r.id)*.12;else m.position.y=groundHeight(r.pos.x,r.pos.z,2)+(r.kind==='algae'?.69:r.kind==='nectar'?.37:r.kind==='detritus'?.58:.4)*m.scale.x;
   }
  }

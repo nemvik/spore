@@ -27,7 +27,7 @@ Návaznosti určují potřebné výstupy při realizaci, nikoli zákaz připravi
 | [SP-003 · Život druhu a tvorová fáze](#sp-003) | A | Hotovo | SP-002 | [Hnízda, setkání, smečka a tři cesty](SP-003-REPORT.md); připravené browser průchody, meze lidského playtestu v reportu |
 | [SP-004 · Objevování a generace](#sp-004) | A | Hotovo | SP-003 | [Objevy, alfa, generace a migrace](SP-004-REPORT.md); [plán](../superpowers/plans/2026-09-23-sp-004-discovery-generations.md), pracovní strom nad `5aed4ba93` |
 | [SP-005 · Knihovna výtvorů a společný genom](#sp-005) | A–E | Rozpracováno | SP-002; další typy spolu s příslušnými editory | **A hotovo:** [knihovna tvorů a NPC](SP-005-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-005-creature-library.md); B–E čeká na příslušné editory |
-| [SP-006 · Buněčný růst a přestavba](#sp-006) | A | K plánu | SP-001 | — |
+| [SP-006 · Buněčný růst a přestavba](#sp-006) | A | Hotovo | SP-001 | [Plán](../superpowers/plans/2026-09-23-sp-006-cell-growth.md), [růst, kontakty a objevování](SP-006-REPORT.md); 2 267 testů, nová linie bez připraveného stavu, meze lidského playtestu v reportu |
 | [SP-007 · Dědictví celé linie](#sp-007) | A–D | K plánu | SP-003; výsledky dalších etap průběžně | — |
 | [SP-008 · Aktivní kmenová společnost](#sp-008) | B | K plánu | SP-003, SP-007 (smlouva dědictví) | — |
 | [SP-009 · Města a civilizace](#sp-009) | B | K plánu | SP-008, SP-010 | — |
@@ -144,10 +144,12 @@ Podúkoly SP-004.1 (katalog a původ), SP-004.2 (pozůstatky, setkání a alfa) 
 
 **Rozdělení plánů:** růst a kamera → potravní role a kontakty orgánů → odměny a tempo úvodu. Navázat na [simulaci](../../src/game/simulation.ts), [interakce](../../src/game/interactions.ts), [kameru](../../src/game/camera.ts) a [kontaktní testy kousnutí](../../tests/bite-contact.test.ts). Katalog odměn sjednotit se smlouvou SP-004. Reference: [manuál, str. 30–31][manual].
 
-- [ ] Několik růstových skoků mění velikost těla i záběr kamery bez ztráty orientace.
-- [ ] Změna měřítka skutečně mění dostupnou potravu a hrozby; alespoň jeden dřívější predátor se může stát kořistí.
-- [ ] Kontakt úst, ostnů a obranných orgánů je čitelný a funkčně odlišný; průzkum přináší nové části.
-- [ ] Nová linie přirozeně projde celou smyčkou až do editoru; ekologické úkoly ji nepřekrývají. Zaznamenat skutečný průchod a porozumění úvodu.
+- [x] Několik růstových skoků mění velikost těla i záběr kamery bez ztráty orientace.
+- [x] Změna měřítka skutečně mění dostupnou potravu a hrozby; alespoň jeden dřívější predátor se může stát kořistí.
+- [x] Kontakt úst, ostnů a obranných orgánů je čitelný a funkčně odlišný; průzkum přináší nové části.
+- [x] Nová linie přirozeně projde celou smyčkou až do editoru; ekologické úkoly ji nepřekrývají. Zaznamenat skutečný průchod a porozumění úvodu.
+
+Dokončeno nad `a5250214b`: [report](SP-006-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-006-cell-growth.md). Produkční nová linie běžným ovládáním: tři růsty, tři objevy a jejich použití, generace 5, toxin, útěk/ulovení/snědení dřívějšího predátora a UI save/load; 6/6 kontrol, 0 browser chyb. SP-005 regrese 5/5; typecheck/build a 2 267 testů prošly. Porozumění doloženo následováním viditelných pokynů automatizovaným hráčem; lidské porozumění, zábavnost a dlouhodobé vyvážení zůstávají výslovně neověřené v rámci SP-017.
 
 <a id="sp-007"></a>
 ### SP-007 — Dědictví a filozofie celé linie
@@ -301,7 +303,7 @@ Podúkoly SP-004.1 (katalog a původ), SP-004.2 (pozůstatky, setkání a alfa) 
 7. Krátký výsledek a meze ověření uložit do verzovaného reportu nebo plánu. Velké browser výstupy ponechat mimo Git; zachovat malou finální evidenci podle [AGENTS.md](../../AGENTS.md). Samotný odkaz na lokální ignorované `evidence/` nestačí jako jediný trvalý doklad dokončení.
 8. Přidat stručný datovaný záznam níže. Pokud se rozsah změní, uvést důvod a přesunout zbývající práci do pojmenovaného bodu; neoznačovat ji tiše za hotovou. Milník přijmout podle hratelného výsledku briefu, ne podle počtu odškrtnutých dílčích úkolů.
 
-SP-002.1–SP-002.3 jsou doložené [finálním reportem](SP-002-REPORT.md). Navazující SP-003 a SP-004 už mají [report života druhu](SP-003-REPORT.md) a [report objevování a generací](SP-004-REPORT.md). Část A knihovny SP-005 je doložená [reportem](SP-005-REPORT.md); zbývající části B–E zůstávají otevřené. Další otevřené karty milníku A jsou SP-006 a první část SP-007. Celá SP-017 zůstává otevřená, včetně chybějícího lidského testu a poslechu. Tento tracker samotný není vykonatelným plánem všech 17 bodů.
+SP-002.1–SP-002.3 jsou doložené [finálním reportem](SP-002-REPORT.md). Navazující SP-003 a SP-004 už mají [report života druhu](SP-003-REPORT.md) a [report objevování a generací](SP-004-REPORT.md). Část A knihovny SP-005 je doložená [reportem](SP-005-REPORT.md); zbývající části B–E zůstávají otevřené. SP-006 uzavírá [report buněčné smyčky](SP-006-REPORT.md); další otevřená karta milníku A je první část SP-007. Celá SP-017 zůstává otevřená, včetně chybějícího lidského testu a poslechu. Tento tracker samotný není vykonatelným plánem všech 17 bodů.
 
 ## Zdroje pro implementační návrhy
 
@@ -320,6 +322,7 @@ Zdroje byly dohledány v auditu 17. září 2026. Manuál a oficiální web tvo�
 
 | Datum | Změna | Doložení |
 | --- | --- | --- |
+| 2026-09-23 | SP-006 dokončeno: tři růsty, velikost potravy a lovu, lokální kontakty, tři zděděné objevy a vedení do editoru. Nová linie odehraná přes UI bez přepisování stavu, 6/6 kontrol; 2 267 testů, typecheck/build, nezávislé review a SP-005 regrese. Lidské porozumění a celá navazující kampaň neověřeny. | [Report](SP-006-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-006-cell-growth.md) |
 | 2026-09-23 | SP-005.A dokončeno: knihovna a editor samostatných tvorů, bezpečný import/export, genomoví NPC z dřívějších výtvorů a snapshot v nových liniích. 2 241 testů, produkční setkání/nábor/save-load; části B–E zůstávají otevřené. | [Report](SP-005-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-005-creature-library.md) |
 | 2026-09-23 | SP-004 dokončeno: trvalé objevy oddělené od DNA, kosterní pozůstatky, alfa, použití odměny v nové generaci a fyzický doprovod do nového hnízda. Kompatibilní staré savey, 2 202 testů a nativní browser průchody. | [Report](SP-004-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-004-discovery-generations.md) |
 | 2026-09-17 | SP-002.1–.3 dokončeno: tři UI placené konstrukce, terén/save/recovery, skutečně hraný rozpočet a produkční v2; 2 130 testů a původní browser regrese prošly. Dva SwiftShader benchmarky a lidské mezery jsou zveřejněné; SP-003/004/005/017 otevřené. | [Report přijetí](SP-002-REPORT.md) |

@@ -28,7 +28,8 @@
     "test:creature-editor": "node scripts/creature-editor-browser.mjs",
     "test:creature-discovery": "node scripts/creature-discovery-browser.mjs",
     "test:creature-library": "node scripts/creature-library-browser.mjs",
-    "test:creature-stage": "node scripts/creature-stage-browser.mjs"
+    "test:creature-stage": "node scripts/creature-stage-browser.mjs",
+    "test:cell-growth": "node scripts/cell-growth-browser.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

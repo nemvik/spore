@@ -1,3 +1,5 @@
+import { activeCell, cellCanHunt, cellScale, cellContact } from './cell-growth';
+import { bodyCollisionRadius } from './body-shape';
 import { worldSpecies } from './npc-genome';
 import { isNestResident, speciesNest } from './creature-stage';
 import { recordEcologyMeal } from './ecology-catalog';
@@ -122,9 +124,10 @@ function hitPlayer(s: EncounterState, c: Creature, onKill: (creature: Creature, 
   if (p.invulnerable > 0 || p.health <= 0) return;
   const stats = computeStats(p.genome), shield = hasActivePartner(s, 'shield') ? .65 : 1;
   p.health -= Math.max(2, (worldSpecies(s.world,c.species).damage ?? (12 + s.stage * 3)) * (1 - stats.armor) * shield); p.invulnerable = 1.2;
-  s.messages.push({ id: Math.max(s.tick, s.messages.at(-1)?.id ?? 0) + 1, text: TEXT.predatorHit(s.stage), time: s.world.time });
+  s.messages.push({ id: Math.max(s.tick, s.messages.at(-1)?.id ?? 0) + 1, text: activeCell(s)&&has(p.genome,'shell')?'Krunýř tlumí zásah · bez odražení.':TEXT.predatorHit(s.stage), time: s.world.time });
   if (s.messages.length > 6) s.messages.shift();
-  if (has(p.genome, 'spines')) {
+  cellContact(s,has(p.genome,'shell')?'shell':'hurt',p.pos);
+  if (!activeCell(s) && has(p.genome, 'spines')) {
     const strength = p.genome.parts.filter(part => part.kind === 'spines').reduce((sum, part) => sum + part.scale * (part.mirrored ? 1.6 : 1), 0);
     c.health -= Math.min(14, 6 + strength * 4); c.fear = 1.5;
     if (c.health <= 0) onKill(c, true);
@@ -161,6 +164,11 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
     const home = learnsFoodPlace && memory.feedingHome || s.journey.sites.find(site => site.stage === s.stage && site.threatIds.includes(c.id))?.source || patch.center;
     c.age += dt; c.hunger = Math.min(100, c.hunger + dt * .14); c.cooldown = Math.max(0, c.cooldown - dt); c.fear = Math.max(0, c.fear - dt);
     if (c.hunger >= 100 && c.age > 200) { c.health -= dt * .08; if (c.health <= 0) { onKill(c, false, 'starvation'); continue; } }
+    if (activeCell(s) && cellCanHunt(s,c) && horizontalDistance(c.pos,s.player.pos)<11 && !lineBlocked(s,c.pos,s.player.pos)) {
+      // Outgrown hunters abandon even a committed lunge. They remain edible animals.
+      c.target=null;recover(c,memory,.4);c.intent='flee';
+      moveHunter(s,c,direction(c.pos,{x:c.pos.x*2-s.player.pos.x,y:c.pos.y,z:c.pos.z*2-s.player.pos.z},spec.speed*.55,false),dt);continue;
+    }
     if (c.fear > 0) {
       recover(c, memory, Math.max(.4, memory.phase === 'recover' ? memory.time : .4)); c.intent = 'flee';
       const away = { x: c.pos.x * 2 - s.player.pos.x, y: c.pos.y, z: c.pos.z * 2 - s.player.pos.z };
@@ -176,7 +184,7 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
       const previous = { ...c.pos }, collision = moveHunter(s, c, c.velocity, dt);
       memory.time = Math.max(0, memory.time - dt);
       const target = c.target === -1 ? s.player : s.world.creatures.find(prey => prey.id === c.target);
-      const touch = target && segmentDistance(target.pos, previous, c.pos) < 1.15 + spec.size * .22 && !lineBlocked(s, previous, target.pos);
+      const touch = target && segmentDistance(target.pos, previous, c.pos) < (c.target===-1&&activeCell(s)?bodyCollisionRadius(s.player.genome,0)*cellScale(s)+spec.size*.22:1.15 + spec.size * .22) && !lineBlocked(s, previous, target.pos);
       if (touch && !collision) {
         if (c.target === -1) hitPlayer(s, c, onKill);
         else if (target && 'species' in target) { target.health -= (spec.damage ?? 15) * (1 - (worldSpecies(s.world,target.species).armor ?? 0)); target.fear = 4; if (target.health <= 0) onKill(target, false); }
@@ -229,7 +237,7 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
     // Injury permits a close defensive response to the player who can bite it,
     // without turning a sated predator back into a hunter of native animals.
     const playerRange = !hungry && foodWeb && c.health < 55 ? 4.5 : hungry ? luminousCargo ? 24 : 13 : 0;
-    const canHuntPlayer = (speciesNest(s,c.species)?.relationship??0)<60 && s.player.health > 0 && distance(c.pos, s.player.pos) < playerRange && horizontalDistance(s.player.pos, home) < leash && horizontalDistance(c.pos, home) < leash && !lineBlocked(s, c.pos, s.player.pos);
+    const canHuntPlayer = (!activeCell(s)||!cellCanHunt(s,c)) && (speciesNest(s,c.species)?.relationship??0)<60 && s.player.health > 0 && distance(c.pos, s.player.pos) < playerRange && horizontalDistance(s.player.pos, home) < leash && horizontalDistance(c.pos, home) < leash && !lineBlocked(s, c.pos, s.player.pos);
     const prey = !hungry || canHuntPlayer && !livingLand ? null : s.world.creatures.filter(other => (['grazer', 'invasive'].includes(worldSpecies(s.world,other.species).role) || livingLand && other.species === 'gloom') && other.health > 0 && distance(c.pos, other.pos) < 18 && horizontalDistance(other.pos, home) < leash && !lineBlocked(s, c.pos, other.pos)).sort((a, b) => distance(c.pos, a.pos) - distance(c.pos, b.pos) || a.id - b.id)[0];
     const targetPlayer = canHuntPlayer && (!prey || !livingLand || distance(c.pos, prey.pos) + .75 >= distance(c.pos, s.player.pos));
     const target = targetPlayer ? s.player : prey;

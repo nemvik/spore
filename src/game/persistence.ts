@@ -1,3 +1,4 @@
+import { CELL_PARTS, CELL_THRESHOLDS } from './cell-growth';
 import { validateNpcDesigns } from './npc-genome';
 import { DISCOVERY_PARTS } from './creature-discovery';
 import { SAVE_ERRORS } from './errors.cs';
@@ -154,7 +155,7 @@ function validateDiscovery(value: unknown, stage: Stage, coast: World | null, ge
   const historyTime = (v: Record<string, unknown>, path: string) => { number(v.generation, `${path}.generation`, 1, generation, true); number(v.tick, `${path}.tick`, 0, tick, true); };
   const parts = array(d.parts, `${at}.parts`, DISCOVERY_PARTS.length).map((value, i) => {
     const path = `${at}.parts[${i}]`, p = object(value, path, ['part', 'source', 'origin', 'generation', 'tick', 'usedGeneration']);
-    oneOf(p.part, DISCOVERY_PARTS, `${path}.part`); oneOf(p.source, ['inherited', 'remains', 'friend', 'victory', 'alpha'], `${path}.source`);
+    oneOf(p.part, DISCOVERY_PARTS, `${path}.part`); oneOf(p.source, ['inherited', 'remains', 'friend', 'victory', 'alpha', 'cell'], `${path}.source`);
     string(p.origin, `${path}.origin`, 160); historyTime(p, path);
     if (p.usedGeneration !== null) number(p.usedGeneration, `${path}.usedGeneration`, Number(p.generation), generation, true);
     return p;
@@ -193,6 +194,28 @@ function validateDiscovery(value: unknown, stage: Stage, coast: World | null, ge
   }
   if (stage < 2 && (parts.length || d.alpha || d.birth || d.migration || migrations.length || d.socialAssists !== 0)) invalid(at, SAVE_ERRORS.eraSliceMismatch);
   if (stage >= 2 && genome.parts.some(p => (DISCOVERY_PARTS as readonly string[]).includes(p.kind) && !parts.some(found => found.part === p.kind))) invalid(`${at}.parts`, SAVE_ERRORS.unknownValue);
+}
+
+function validateCellGrowth(value: unknown, stage: Stage, generation: number, tick: number, genome: GameState['player']['genome']) {
+  const at='state.cellGrowth',c=object(value,at,['version','nutrition','parts','sites','contact']);
+  oneOf(c.version,[1],at+'.version');number(c.nutrition,at+'.nutrition',0,15,true);
+  const parts=array(c.parts,at+'.parts',3).map((value,i)=>{
+    const path=`${at}.parts[${i}]`,p=object(value,path,['part','source','origin','generation','tick','usedGeneration']);
+    oneOf(p.part,CELL_PARTS,path+'.part');oneOf(p.source,['cell'],path+'.source');string(p.origin,path+'.origin',160);
+    number(p.generation,path+'.generation',1,generation,true);number(p.tick,path+'.tick',0,tick,true);
+    if(p.usedGeneration!==null)number(p.usedGeneration,path+'.usedGeneration',Number(p.generation)+1,generation,true);
+    return p;
+  });
+  if(new Set(parts.map(p=>p.part)).size!==parts.length)invalid(at+'.parts',SAVE_ERRORS.duplicateIds);
+  const sites=array(c.sites,at+'.sites',3,3).map((value,i)=>{
+    const path=`${at}.sites[${i}]`,site=object(value,path,['part','pos','collected']);
+    oneOf(site.part,[CELL_PARTS[i]],path+'.part');vector(site.pos,path+'.pos',WORLD_BOUND);boolean(site.collected,path+'.collected');
+    if(site.collected!==parts.some(p=>p.part===site.part)||site.collected&&Number(c.nutrition)<CELL_THRESHOLDS[CELL_PARTS.indexOf(site.part as typeof CELL_PARTS[number])+1])invalid(path,SAVE_ERRORS.unknownValue);
+    return site;
+  });
+  if(new Set(sites.map(p=>p.part)).size!==3)invalid(at+'.sites',SAVE_ERRORS.duplicateIds);
+  if(c.contact!==null){const cue=object(c.contact,at+'.contact',['kind','pos','tick']);oneOf(cue.kind,['mouth','spines','shell','hurt','toxin','growth'],at+'.contact.kind');vector(cue.pos,at+'.contact.pos',WORLD_BOUND+20);number(cue.tick,at+'.contact.tick',0,tick,true);}
+  if(stage<2&&genome.parts.some(p=>(CELL_PARTS as readonly string[]).includes(p.kind)&&!parts.some(found=>found.part===p.kind)))invalid(at+'.parts',SAVE_ERRORS.unknownValue);
 }
 
 function validateWorld(value: unknown, stage: Stage, seed: number, path: string): World {
@@ -731,8 +754,9 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   const version = (value as Record<string, unknown>).version;
   if ((version !== 1 && version !== 2 && version !== 3) || (expectedVersion !== undefined && version !== expectedVersion)) invalid('state.version', SAVE_ERRORS.unsupportedStateVersion);
   const sliceKeys = (['tribe', 'machines', 'planet'] as const).filter(key => version === 3 && Object.prototype.hasOwnProperty.call(value, key));
+  const hasCellGrowth = version === 3 && Object.hasOwn(value, 'cellGrowth');
   const hasCreatureStage = version === 3 && Object.prototype.hasOwnProperty.call(value, 'creatureStage');
-  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasCreatureStage ? ['creatureStage'] : [])]);
+  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
   gameId(s.id, 'state.id'); const seed = number(s.seed, 'state.seed', 0, UINT32, true);
   oneOf(s.stage, version === 3 ? [0, 1, 2, 3, 4, 5] : [0, 1, 2], 'state.stage'); const stage = s.stage as Stage;
   const worldStage = worldStageFor(stage);
@@ -788,6 +812,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     }
   }
   number(p.generation, 'player.generation', 1, MAX_COUNT, true);
+  if(hasCellGrowth){if(journey.legacy||!hasCreatureStage||!(s.creatureStage as GameState['creatureStage'])?.discovery)invalid('state.cellGrowth',SAVE_ERRORS.eraSliceMismatch);validateCellGrowth(s.cellGrowth,stage,Number(p.generation),Number(s.tick),genome);}
   if (hasCreatureStage && Object.hasOwn(s.creatureStage as object, 'discovery')) validateDiscovery((s.creatureStage as Record<string, unknown>).discovery, stage, worlds[2] as World | null, Number(p.generation), Number(s.tick), genome);
   for (const field of ['meals', 'kills']) number(p[field], `player.${field}`, 0, MAX_COUNT, true);
   for (const field of ['cooldown', 'invulnerable', 'feeding', 'distance']) number(p[field], `player.${field}`);
@@ -892,6 +917,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     // The rule marker is fixed at birth; the earlier filter opening may differ.
     if (restored.journey.reefEvolution?.version !== journey.reefEvolution?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if (restored.cellGrowth?.version !== (s.cellGrowth as GameState['cellGrowth'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.creatureStage?.version !== (s.creatureStage as GameState['creatureStage'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.creatureStage?.discovery?.version !== (s.creatureStage as GameState['creatureStage'])?.discovery?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (JSON.stringify(restored.worlds[2]?.creatureDesigns) !== JSON.stringify((worlds[2] as World | null)?.creatureDesigns)) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);

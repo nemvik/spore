@@ -1,3 +1,4 @@
+import { activeCell, cellScale, cellContact, cellNotice, initializeCell, inspectCellSite, recordCellMeal, stepCellContacts } from './cell-growth';
 import { speciesCollisionRadius } from './anatomy';
 import { npcFoodDistance, worldSpecies, type NpcDesign } from './npc-genome';
 import { emptyCreatureDiscovery, recordDiscoveryBirth, reproductionProblem } from './creature-discovery';
@@ -48,7 +49,7 @@ const statCache = new WeakMap<Genome,Stats>();
 export function statsFor(g:Genome) { let s=statCache.get(g);if(!s){s=computeStats(g,g.version===2?prepareInstalledCreatureAnatomy(g):undefined);statCache.set(g,s);}return s; }
 export function announce(s:GameState,text:string) { if(s.messages.at(-1)?.text===text&&s.world.time-s.messages.at(-1)!.time<3)return; s.messages.push({id:Math.max(s.tick,s.messages.at(-1)?.id??0)+1,text,time:s.world.time}); if(s.messages.length>6)s.messages.shift(); }
 /** Legacy mode preserves the published benchmark fixtures; the UI explicitly starts a journey. */
-export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution=false,ecology=false,creatureLife=false,discoveries=false,npcDesigns?:NpcDesign[]):GameState {
+export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution=false,ecology=false,creatureLife=false,discoveries=false,npcDesigns?:NpcDesign[],cellGrowth=false):GameState {
  const world=createWorld(seed,0),genome=initialGenome(),stats=statsFor(genome);
  const s:GameState={version:3,journey:emptyJourney(legacy,dispersal,reefEvolution),id:`line-${seed}-${Date.now()}`,seed,stage:0,tick:0,rng:seed>>>0,world,worlds:[world,null,null],
  player:{pos:{x:0,y:1.1,z:0},velocity:{x:0,y:0,z:0},heading:Math.PI,health:stats.maxHealth,energy:90,oxygen:100,moisture:100,genome,dna:14,totalDna:14,generation:1,meals:0,kills:0,bonds:[],cooldown:0,abilityRecharge:0,scan:0,invulnerable:5,feeding:0,distance:0},
@@ -57,11 +58,11 @@ export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution
  if(creatureLife&&!legacy){s.creatureStage=emptyCreatureStage();if(discoveries)s.creatureStage.discovery=emptyCreatureDiscovery();}
  if(npcDesigns&&creatureLife&&!legacy)s.worlds[2]=createWorld(seed,2,npcDesigns);
  if(ecology)s.journey.ecology={version:1,contacts:[]};
- initializeJourneyStage(s);announce(s,legacy?TEXT.welcome:'WASD · plavba. Mezerník · potrava. T u živého porostu · poznání. Západně čeká zahrada.'); makeCheckpoint(s);return s;
+ initializeJourneyStage(s);if(cellGrowth&&!legacy&&discoveries&&creatureLife)initializeCell(s);announce(s,activeCell(s)?'Jez malé řasy · mezerník. Tři sousta tě zvětší. Pak najdi zářící schránku ✧ a prozkoumej ji klávesou T.':legacy?TEXT.welcome:'WASD · plavba. Mezerník · potrava. T u živého porostu · poznání. Západně čeká zahrada.'); makeCheckpoint(s);return s;
 }
 export function makeCheckpoint(s:GameState) { s.checkpoint=JSON.stringify({...s,checkpoint:null}); }
 export function recoverGeneration(s:GameState):GameState {
- if(!s.checkpoint)return createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns);
+ if(!s.checkpoint)return createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth);
  const restored=JSON.parse(s.checkpoint) as GameState; restored.world=restored.worlds[worldStageFor(restored.stage)]!;restored.checkpoint=s.checkpoint;restored.deathReason=null;restored.player.invulnerable=10;announce(restored,TEXT.restored);return restored;
 }
 export function nearNest(s:GameState) { return horizontalDistance(s.player.pos,s.world.landmarks.find(l=>l.kind==='nest')!.pos)<11; }
@@ -217,19 +218,19 @@ function feed(s:GameState,stats:Stats,selection?:FeedSelection|null) {
  const prey=target.kind==='prey'?w.creatures.find(c=>c.id===target.id):undefined;
  if(prey&&(!food||distance(prey.pos,p.pos)<distance(food.pos,p.pos))){
   if(p.energy<1.6){p.cooldown=.4;announce(s,TEXT.attackEnergy);return;}
-  recordSpeciesAggression(s,prey);prey.health-=stats.damage*(1-(worldSpecies(s.world,prey.species).armor??0));
+  recordSpeciesAggression(s,prey);prey.health-=stats.damage*cellScale(s)*(1-(worldSpecies(s.world,prey.species).armor??0));
   // An ordinary bite does not cancel a hunter's committed attack or change its
   // victim mid-lunge. Toxin and contact spines retain their explicit deterrence.
   if(s.journey.legacy||worldSpecies(s.world,prey.species).role!=='predator'){prey.fear=5;prey.target=-1;}
-  p.energy-=1.6;p.cooldown=.65;p.feeding=.5;if(prey.health<=0)killCreature(s,prey,true);return;
+  cellContact(s,'mouth',prey.pos);if(activeCell(s))cellNotice(s,'Kontakt čelisti · kousnutí. Maso sníš až po ulovení.');p.energy-=1.6;p.cooldown=.65;p.feeding=.5;if(prey.health<=0)killCreature(s,prey,true);return;
  }
  if(!food){p.cooldown=.4;announce(s,TEXT.noFood);return;}
  learnNiche(s,food.pos,'forage');food.amount-=1;if(releaseCanopyAfterMeal(s,food))journeyNotice(s,CANOPY_COPY.released);const patch=w.patches[food.patch];patch.harvested++;patch.fertility=clamp(patch.fertility-.007,.15,1.5);patch.pressure+=.01;
  const extra=has(p.genome,'recycler')&&food.kind==='detritus';p.energy=clamp(p.energy+(extra?25:17),0,100);p.health=clamp(p.health+4,0,stats.maxHealth);p.moisture=clamp(p.moisture+(food.kind==='nectar'?20:6),0,100);
  const reward=s.journey.legacy?(extra?4:3):0;p.dna+=reward;p.totalDna+=reward;if(!s.journey.legacy)insight(s,`taste:${food.kind}`,6,'Nová potrava otevírá nový způsob života.');p.meals++;s.campaign.stageMeals++;p.cooldown=1.1;p.feeding=.65;
- shareMeal(s,food.kind);
- if(p.meals===1)announce(s,TEXT.firstMeal);
- if(food.amount<1)announce(s,TEXT.depletedSource);
+ shareMeal(s,food.kind);cellContact(s,'mouth',food.pos);recordCellMeal(s);
+ if(p.meals===1&&!activeCell(s))announce(s,TEXT.firstMeal);
+ if(food.amount<1&&(!activeCell(s)||s.cellGrowth!.contact?.kind!=='growth'))announce(s,activeCell(s)?'Sousto vyčerpáno. Plav k dalším řasám nebo schránce ✧.':TEXT.depletedSource);
 }
 function bond(s:GameState) {
  const p=s.player;if(p.cooldown>0){announce(s,INTERACTION_COPY.cooldown);return;}
@@ -244,6 +245,7 @@ function tend(s:GameState) {
  // A simultaneous meal can already have reported a discovery in this tick.
  // A rejected care press must not replace that actual event with cooldown text.
  if(!s.journey.legacy&&p.cooldown>0&&s.messages.at(-1)?.time===s.world.time)return;
+ if(inspectCellSite(s))return;
  if(!s.journey.legacy){if(!actOnJourney(s))journeyNotice(s,'T patří živým kulturám. Hledej mateřský porost nebo nesený vzorek.');return;}
  if(p.cooldown>0)return;
  const target=tendTarget(s);if(target&&!target.ready){announce(s,INTERACTION_COPY[target.reason]);return;}
@@ -321,8 +323,8 @@ function pulse(s: GameState) {
  const lock=(duration:number)=>{if(s.journey.legacy)p.cooldown=duration;else {p.abilityRecharge=duration;p.cooldown=Math.max(p.cooldown,.25);}};
  if(has(p.genome,'toxin')&&p.energy>=15){
   const profile=profileFor(p.genome);p.energy-=15;lock(7);p.feeding=1.3;
-  for(const c of [...s.world.creatures])if(distance(c.pos,p.pos)<profile.toxinRadius){recordSpeciesAggression(s,c);c.health-=profile.toxinDamage;c.fear=10;if(c.health<=0)killCreature(s,c,true);}
-  announce(s,TEXT.toxinPulse);
+  for(const c of [...s.world.creatures])if(distance(c.pos,p.pos)<profile.toxinRadius*cellScale(s)&&(!activeCell(s)||!lineBlocked(s,p.pos,c.pos))){recordSpeciesAggression(s,c);c.health-=profile.toxinDamage;c.fear=10;if(c.health<=0)killCreature(s,c,true);}
+  cellContact(s,'toxin',p.pos);announce(s,TEXT.toxinPulse);
  }else if(has(p.genome,'sonar')&&p.energy>=3){p.energy-=3;lock(4);p.scan=5;p.feeding=1;announce(s,TEXT.sonarPulse);}
  else if(has(p.genome,'sonar'))announce(s,TEXT.sonarEnergy);
 }
@@ -384,7 +386,7 @@ function beginStep(s:GameState,input:Input,dt:number) {
  // Currents are local conditions. Tail and fins help sustain a heading through them.
  const current=s.journey.legacy&&s.stage<2&&horizontalDistance(p.pos,w.patches[1].center)<24?(s.stage===1?2.2:1.25)/profile.currentResistance:0;
  const flow=environmentalFlow(s,p.pos);p.pos.x+=(p.velocity.x+current+flow.x/profile.currentResistance)*dt;p.pos.z+=(p.velocity.z+flow.z/profile.currentResistance)*dt;p.pos.y+=(p.velocity.y+flow.y/profile.currentResistance)*dt;
- constrain(p.pos,w,bodyCollisionRadius(p.genome,s.stage),organismGroundClearance(p.genome),previous,p.genome.spine?bodyGroundClearance(p.genome):0);
+ constrain(p.pos,w,bodyCollisionRadius(p.genome,s.stage)*cellScale(s),organismGroundClearance(p.genome),previous,p.genome.spine?bodyGroundClearance(p.genome):0);
  }
  p.distance+=horizontalDistance(previous,p.pos);
 
@@ -436,6 +438,7 @@ function applyPlayerActions(s:GameState,input:Input,{p,stats,reef}:StepContext) 
 /** Unit and planet simulation belongs here when those eras become playable. */
 function stepWorld(s:GameState,dt:number,{previous,sprint}:StepContext) {
  if(!s.journey.legacy)stepHunters(s,dt,(c,byPlayer,cause)=>killCreature(s,c,byPlayer,cause));
+ stepCellContacts(s,(c,byPlayer)=>killCreature(s,c,byPlayer));
  stepCreatureStage(s,dt,(c,byPlayer)=>killCreature(s,c,byPlayer));npcStep(s,dt);stepJourney(s,dt,previous,sprint);
 }
 
@@ -445,7 +448,7 @@ function resolveOutcomes(s:GameState) {
  if(s.stage===2&&s.campaign.stageKills>=12)tryWin(s,'predator');
  if(p.health<=0){p.health=0;s.deathReason=p.energy<=0?TEXT.deathEnergy:p.oxygen<=0?TEXT.deathOxygen:p.moisture<=0?TEXT.deathMoisture:TEXT.deathPredator;announce(s,TEXT.death);}
 }
-export function summary(s:GameState) { return {stage:s.stage,...(s.creatureStage?{creatureStage:s.creatureStage}:{}),...(s.tribe?{tribe:s.tribe}:{}),...(s.machines?{machines:s.machines}:{}),...(s.planet?{planet:s.planet}:{}),tick:s.tick,seed:s.seed,player:s.player,campaign:s.campaign,...(s.journey.rootDispersal?{rootDispersal:s.journey.rootDispersal}:{}),world:{...(s.world.creatureDesigns?{creatureDesigns:s.world.creatureDesigns}:{}),time:s.world.time,patches:s.world.patches,landmarks:s.world.landmarks,resources:s.world.resources.filter(r=>r.amount>=1),creatures:s.world.creatures,obstacles:s.world.obstacles,births:s.world.births,deaths:s.world.deaths},requirements:transitionRequirements(s),deathReason:s.deathReason,climate:getClimate(s),field:fieldProgress(s),stats:statsFor(s.player.genome)}; }
+export function summary(s:GameState) { return {stage:s.stage,...(s.cellGrowth?{cellGrowth:s.cellGrowth,cellScale:cellScale(s)}:{}),...(s.creatureStage?{creatureStage:s.creatureStage}:{}),...(s.tribe?{tribe:s.tribe}:{}),...(s.machines?{machines:s.machines}:{}),...(s.planet?{planet:s.planet}:{}),tick:s.tick,seed:s.seed,player:s.player,campaign:s.campaign,...(s.journey.rootDispersal?{rootDispersal:s.journey.rootDispersal}:{}),world:{...(s.world.creatureDesigns?{creatureDesigns:s.world.creatureDesigns}:{}),time:s.world.time,patches:s.world.patches,landmarks:s.world.landmarks,resources:s.world.resources.filter(r=>r.amount>=1),creatures:s.world.creatures,obstacles:s.world.obstacles,births:s.world.births,deaths:s.world.deaths},requirements:transitionRequirements(s),deathReason:s.deathReason,climate:getClimate(s),field:fieldProgress(s),stats:statsFor(s.player.genome)}; }
 
 export function senseRange(s:GameState):number { const p=s.player;return statsFor(p.genome).sense+(hasActivePartner(s,'light')?16:0)+(has(p.genome,'sonar')&&p.scan>0?35:0); }
 

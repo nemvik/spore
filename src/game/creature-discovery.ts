@@ -8,7 +8,7 @@ import { resolveObstacleMotion } from './obstacle-geometry';
 
 export const DISCOVERY_PARTS = ['arms', 'antenna', 'spines', 'toxin', 'recycler'] as const;
 export type DiscoveryPart = typeof DISCOVERY_PARTS[number];
-export type DiscoverySource = 'inherited' | 'remains' | 'friend' | 'victory' | 'alpha';
+export type DiscoverySource = 'inherited' | 'remains' | 'friend' | 'victory' | 'alpha' | 'cell';
 export interface PartDiscovery { part: DiscoveryPart; source: DiscoverySource; origin: string; generation: number; tick: number; usedGeneration: number | null }
 export interface CreatureDiscovery {
   version: 1;
@@ -22,8 +22,9 @@ export interface CreatureDiscovery {
 }
 export const emptyCreatureDiscovery = (): CreatureDiscovery => ({ version: 1, parts: [], remains: [], alpha: null, birth: null, migration: null, migrations: [], socialAssists: 0 });
 export const discoveryState = (s: GameState) => s.stage === 2 ? s.creatureStage?.discovery : undefined;
+const knowledge = (s: GameState) => s.stage < 2 && s.cellGrowth ? s.cellGrowth : discoveryState(s);
 const isDiscoveryPart = (part: AdaptationId): part is DiscoveryPart => (DISCOVERY_PARTS as readonly string[]).includes(part);
-export const partDiscovered = (s: GameState, part: AdaptationId) => !discoveryState(s) || !isDiscoveryPart(part) || !!discoveryState(s)!.parts.some(p => p.part === part);
+export const partDiscovered = (s: GameState, part: AdaptationId) => !knowledge(s) || (s.stage<2&&!!s.cellGrowth&&!['spines','antenna','toxin'].includes(part)) || !isDiscoveryPart(part) || !!knowledge(s)!.parts.some(p => p.part === part);
 export const isAlpha = (s: GameState, id: number) => discoveryState(s)?.alpha?.id === id;
 export const socialGoal = (s: GameState, id: number) => isAlpha(s, id) ? 9 : 6;
 const home = (s: GameState) => s.world.landmarks.find(l => l.kind === 'nest')!;
@@ -33,13 +34,14 @@ function notice(s: GameState, text: string) {
   if (s.messages.length > 6) s.messages.shift();
 }
 export function discoverPart(s: GameState, part: DiscoveryPart, source: DiscoverySource, origin: string): boolean {
-  const d = discoveryState(s); if (!d || d.parts.some(p => p.part === part)) return false;
+  const d = knowledge(s); if (!d || d.parts.some(p => p.part === part)) return false;
   d.parts.push({ part, source, origin, generation: s.player.generation, tick: s.tick, usedGeneration: source === 'inherited' ? s.player.generation : null });
   if (source !== 'inherited') notice(s, `Nová část: ${getAdaptation(part).name} · ${origin}. Vrať se do hnízda a použij ji v další generaci (Tab). DNA platí konstrukci, objev zůstává.`);
   return true;
 }
 export function initializeDiscovery(s: GameState, clearPosition: (s: GameState, x: number, z: number) => Vec3) {
   const d = discoveryState(s); if (!d || d.remains.length) return;
+  for (const found of s.cellGrowth?.parts ?? []) if (!d.parts.some(p => p.part === found.part)) d.parts.push({ ...found });
   for (const part of DISCOVERY_PARTS) if (s.player.genome.parts.some(p => p.kind === part) || s.lineage.some(l => l.parts.includes(part))) discoverPart(s, part, 'inherited', 'Dědictví předchozích generací');
   d.remains = [
     { id: 'west', part: 'arms', pos: clearPosition(s, -24, -13), collected: false },
@@ -51,9 +53,11 @@ export function initializeDiscovery(s: GameState, clearPosition: (s: GameState, 
   const c = s.world.creatures.find(c => c.id === id)!; c.health = 96;
 }
 export function discoveryDescription(s: GameState, part: AdaptationId): string | null {
-  const d = discoveryState(s); if (!d || !isDiscoveryPart(part)) return null;
+  const d = knowledge(s); if (!d || !isDiscoveryPart(part) || s.stage<2&&s.cellGrowth&&!['spines','antenna','toxin'].includes(part)) return null;
   const found = d.parts.find(p => p.part === part);
   if (found) return `${found.usedGeneration === null ? 'Nové · ' : ''}${found.origin} · generace ${found.generation}`;
+  if (s.stage === 0 && s.cellGrowth) return 'Objev: zářící buněčná schránka ✧ (T po růstu)';
+  if (s.stage === 1 && s.cellGrowth) return 'Zatím neobjeveno · další příležitost při setkání s druhy na souši.';
   const hints: Record<DiscoveryPart, string> = { arms: 'Objev: západní kosterní pozůstatky', antenna: 'Objev: setkání se zvonkonoši', spines: 'Objev: setkání se žrouty pramenů', toxin: 'Objev: východní pozůstatky nebo alfa', recycler: 'Objev: jižní kosterní pozůstatky' };
   return hints[part];
 }
@@ -74,16 +78,16 @@ export function resolveAlpha(s: GameState, id: number) {
   d.alpha.resolved = true; discoverPart(s, 'toxin', 'alpha', 'Významné setkání s alfou korunoplazů');
 }
 export function reproductionProblem(s: GameState): string | null {
-  const d = discoveryState(s); if (!d) return null;
+  const d = knowledge(s); if (!d) return null;
   if (!alive(s)) return 'Nová generace potřebuje živého rodiče.';
-  if (d.migration) return 'Nejdřív doveď vlastní druh do nového hnízda nebo migraci zruš.';
-  if (s.creatureStage!.encounter || s.creatureStage!.attack || s.creatureStage!.guards.length) return 'Nejdřív dokonči setkání a vrať se do bezpečí.';
+  if (discoveryState(s)?.migration) return 'Nejdřív doveď vlastní druh do nového hnízda nebo migraci zruš.';
+  if (s.creatureStage?.encounter || s.creatureStage?.attack || s.creatureStage?.guards.length) return 'Nejdřív dokonči setkání a vrať se do bezpečí.';
   if (s.player.energy < 25) return 'Reprodukce potřebuje alespoň 25 energie. Nakrm se a vrať se do hnízda.';
   return null;
 }
 export function recordDiscoveryBirth(s: GameState, genome: Genome) {
-  const d = discoveryState(s); if (!d) return;
-  d.birth = { generation: s.player.generation, tick: s.tick, nest: { ...home(s).pos } };
+  const d = knowledge(s); if (!d) return;
+  if ('birth' in d) d.birth = { generation: s.player.generation, tick: s.tick, nest: { ...home(s).pos } };
   for (const p of d.parts) if (p.usedGeneration === null && genome.parts.some(g => g.kind === p.part)) p.usedGeneration = s.player.generation;
 }
 export function migrationProblem(s: GameState, id: string): string | null {

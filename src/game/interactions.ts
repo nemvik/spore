@@ -1,3 +1,4 @@
+import { activeCell, cellScale, cellCanEat, cellCanHunt, cellFoodTier, cellSiteTarget, cellTier } from './cell-growth';
 import { speciesCollisionRadius } from './anatomy';
 import { worldSpecies } from './npc-genome';
 import { creatureMouths } from './creature-anatomy';
@@ -72,6 +73,7 @@ const autoPreyAllowed=(s:GameState,c:Creature)=>!packMember(s,c.id)&&!(s.stage==
 
 /** The chosen target is also used by simulation; HUD/marker cannot promise another meal. */
 export function feedTarget(s: GameState, selection?: FeedSelection | null): InteractionTarget | null {
+  if (activeCell(s)) return cellFeedTarget(s, selection);
   if (s.player.genome.version === 2) return creatureFeedTarget(s, selection);
   const p = s.player, profile = functionalProfile(p.genome), stats = computeStats(p.genome);
   const origin = mouthWorldPosition(profile, p.pos, p.heading);
@@ -112,6 +114,32 @@ export function feedTarget(s: GameState, selection?: FeedSelection | null): Inte
   return incompatible && distance(incompatible.pos, origin) < 9 ? projected(s, origin, { action: 'feed', kind: 'food', id: incompatible.id, pos: incompatible.pos, range: profile.feedReach }, 'diet') : null;
 }
 
+/** Growth scales rendered mouths and contact reach without changing the saved genome. */
+function cellFeedTarget(s: GameState, selection?: FeedSelection | null): InteractionTarget | null {
+  const p=s.player, scale=cellScale(s), profile=functionalProfile(p.genome);
+  const scaled=(mouth:{mouthOrigin:Vec3;feedReach:number})=>({mouthOrigin:{x:mouth.mouthOrigin.x*scale,y:mouth.mouthOrigin.y*scale,z:mouth.mouthOrigin.z*scale},feedReach:mouth.feedReach*scale});
+  const mouths=p.genome.version===2?creatureMouths(p.genome):p.genome.parts.some(p=>['filter','jaw','proboscis'].includes(p.kind))?[{...profile,diet:computeStats(p.genome).diet}]:[];
+  const foodTarget=(r:GameState['world']['resources'][number],deliberate=false):InteractionTarget=>{
+    const compatible=mouths.filter(m=>m.diet.includes(r.kind));
+    const target={action:'feed' as const,kind:'food' as const,id:r.id,pos:r.pos,...(deliberate?{deliberate:true}:{})};
+    const reason=r.amount<1?'depleted':!compatible.length||!cellCanEat(s,r)?'diet':undefined;
+    if(!mouths.length)return projected(s,p.pos,{...target,range:0},'mouth');
+    const t=(compatible.length?compatible:mouths).map(m=>{const mouth=scaled(m);return projected(s,mouthWorldPosition(mouth,p.pos,p.heading),{...target,range:mouth.feedReach},reason);}).sort(targetOrder)[0];
+    return !cellCanEat(s,r)&&r.amount>=1?{...t,detail:`Velké sousto · potřebuje růst ${cellFoodTier(r)} / 3.`}:t;
+  };
+  const preyTarget=(c:Creature,deliberate=false):InteractionTarget=>{
+    const jaws=jawContacts(p.genome),size=cellCanHunt(s,c);
+    const reason=!size?'diet':!jaws.length?'mouth':p.energy<1.6?'energy':undefined;
+    const target={action:'feed' as const,kind:'prey' as const,id:c.id,pos:c.pos,...(deliberate?{deliberate:true}:{})};
+    const t=jaws.length?jaws.map(j=>{const m=scaled({...j,feedReach:j.reach});return projected(s,mouthWorldPosition(m,p.pos,p.heading),{...target,range:m.feedReach+speciesCollisionRadius(worldSpecies(s.world,c.species))},reason);}).sort(targetOrder)[0]:projected(s,p.pos,{...target,range:0},reason);
+    return {...t,...(!size?{detail:'Větší tvor · zatím hrozba. Jez a vyrostni.'}:!jaws.length?{detail:'Menší kořist · potřebuješ čelist z editoru.'}:{detail:t.ready?'Kontakt čelisti · kousnout':t.reason==='distance'?'Přibliž ústa ke kořisti.':undefined})};
+  };
+  if(selection){if(selection.stage!==s.stage)return null;if(selection.kind==='food'){const r=s.world.resources.find(r=>r.id===selection.id);return r?foodTarget(r,true):null;}const c=s.world.creatures.find(c=>c.id===selection.id&&c.health>0);return c?preyTarget(c,true):null;}
+  const targets=s.world.resources.filter(r=>r.amount>=1).map(r=>foodTarget(r));
+  if(has(p.genome,'jaw'))targets.push(...s.world.creatures.filter(c=>c.health>0).map(c=>preyTarget(c)));
+  return targets.filter(t=>t.distance<Math.max(12,profile.feedReach*scale+5)).sort(targetOrder)[0]??null;
+}
+
 /** V2 keeps each mouth's origin and diet together for both hints and actual feeding. */
 function creatureFeedTarget(s: GameState, selection?: FeedSelection | null): InteractionTarget | null {
   const p=s.player,g=p.genome;if(g.version!==2)return null;
@@ -146,6 +174,9 @@ export function bondTarget(s: GameState): InteractionTarget | null {
 }
 
 export function tendTarget(s: GameState): InteractionTarget | null {
+  const site=cellSiteTarget(s);
+  if(site&&site.distance<10){const blocked=lineBlocked(s,s.player.pos,site.pos),grown=cellTier(s)>=site.requiredTier,ready=site.distance<=5&&grown&&!blocked&&s.player.cooldown<=0;return {action:'tend',kind:'culture',id:site.part,pos:site.pos,distance:site.distance,range:5,ready,reason:ready?'ready':blocked?'blocked':'distance',label:'✧ Buněčná schránka',detail:!grown?`Jez a vyrostni na stupeň ${site.requiredTier}.`:blocked?'Připlav z druhé strany kamene.':site.distance>5?'Připlav do 5 m a prozkoumej (T).':'T · objevit novou část',priority:true};}
+
   if (!s.journey.legacy) {
     const action = journeyAction(s);
     const food = action?.operation === 'take-food' || action?.operation === 'take-meat';
