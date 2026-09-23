@@ -1,3 +1,5 @@
+import { speciesGroundClearance } from './anatomy';
+import { worldSpecies } from './npc-genome';
 import type { GameState, Input, Vec3 } from './types';
 import type { ActivePlanetState, PlanetBiome, PlanetPopulation, TScore } from './era-types';
 import { activeMachines, machineDesign, machineHome, machineIncome } from './machines';
@@ -6,7 +8,6 @@ import { clamp, groundHeight, horizontalDistance } from './random';
 import { resolveObstacleMotion } from './obstacle-geometry';
 import { openGround } from './unit-motion';
 import { livingRootStrength } from './climate';
-import { speciesById } from './content';
 import { spawnCreature } from './world';
 import { lineBlocked } from './interactions';
 import { ecologyTaxon, inheritEcologyContacts, recordEcologyContact } from './ecology-catalog';
@@ -46,13 +47,13 @@ export function samplePlanetLife(s:GameState,target?:PlanetSampleTarget):TribeAc
  if(item.target.kind==='culture'){
   const r=s.world.resources.find(r=>r.id===item.target.id)!;if(r.amount<1)return fail(C.noFood);r.amount-=1;recordEcologyContact(s,item.key,'culture',taxon.stage,taxon.site===null?null:taxon.site%3 as 0|1|2);return {ok:true,message:C.sampled};
  }
- const c=s.world.creatures.find(c=>c.id===item.target.id)!;const food=s.world.resources.filter(r=>r.amount>=1&&speciesById(c.species).diet.includes(r.kind)&&horizontalDistance(r.pos,c.pos)<=8&&!lineBlocked({...s,stage:2},{...c.pos,y:c.pos.y+1},r.pos)).sort((a,b)=>horizontalDistance(a.pos,c.pos)-horizontalDistance(b.pos,c.pos)||a.id-b.id)[0];
- if(!food)return fail(C.noFood);food.amount-=1;c.hunger=Math.max(0,c.hunger-42);c.health=Math.min(speciesById(c.species).role==='predator'?55:32,c.health+4);c.cooldown=3;c.fear=0;recordEcologyContact(s,item.key,'feeding',taxon.stage,c.patch as 0|1|2);return {ok:true,message:C.fed};
+ const c=s.world.creatures.find(c=>c.id===item.target.id)!;const food=s.world.resources.filter(r=>r.amount>=1&&worldSpecies(s.world,c.species).diet.includes(r.kind)&&horizontalDistance(r.pos,c.pos)<=8&&!lineBlocked({...s,stage:2},{...c.pos,y:c.pos.y+1},r.pos)).sort((a,b)=>horizontalDistance(a.pos,c.pos)-horizontalDistance(b.pos,c.pos)||a.id-b.id)[0];
+ if(!food)return fail(C.noFood);food.amount-=1;c.hunger=Math.max(0,c.hunger-42);c.health=Math.min(worldSpecies(s.world,c.species).maxHealth??(worldSpecies(s.world,c.species).role==='predator'?55:32),c.health+4);c.cooldown=3;c.fear=0;recordEcologyContact(s,item.key,'feeding',taxon.stage,c.patch as 0|1|2);return {ok:true,message:C.fed};
 }
 export function preparePlanetNursery(s:GameState,species:string):TribeAction {
  const p=playable(s),m=activeMachines(s);if(!p||!m)return fail(C.unavailable);if(!atPlanetBase(s))return fail(C.nearBase);if(!['bell','gnaw','crest'].includes(species))return fail(C.unknown);if(m.resource<8)return fail(C.noAmber);
  if(s.world.creatures.some(c=>c.species===species&&c.health>0&&horizontalDistance(c.pos,p.nursery.pos)<12))return fail(C.nurseryFull);
- const c=spawnCreature(s.world,species,0),pos=openGround(s.world,p.nursery.pos,c.id,3);c.pos={...pos,y:pos.y+1};c.hunger=70;s.world.creatures.push(c);s.world.births++;m.resource-=8;
+ const c=spawnCreature(s.world,species,0),pos=openGround(s.world,p.nursery.pos,c.id,3);c.pos={...pos,y:pos.y+(worldSpecies(s.world,species).genome?speciesGroundClearance(worldSpecies(s.world,species)):1)};c.hunger=70;s.world.creatures.push(c);s.world.births++;m.resource-=8;
  const kind=species==='crest'?'meat':'nectar',foodPos={...pos,x:pos.x+1};
  // Refill a nearby school food portion instead of accumulating disposable
  // resources. Never reuse a living culture or its saved root.
@@ -81,7 +82,7 @@ export function removePlanetLife(s:GameState,id:number):TribeAction {const p=pla
 function stepLife(s:GameState,p:ActivePlanetState,dt:number):void {
  for(const b of p.biomes){const life=biomeLife(s,b),suitable=p.tScore>=b.level;
   for(const root of life.roots){const r=s.world.resources.find(r=>r.id===root.site.plantedId);root.site.vitality=clamp(root.site.vitality+dt*(r&&suitable?.25:-.6),0,100);if(r)r.amount=clamp(r.amount+dt*.22*livingRootStrength(s,root.site),0,r.max);}
-  for(const c of life.herbs){const spec=speciesById(ecologyTaxon(c.key)!.species!),food=life.roots.map(r=>s.world.resources.find(v=>v.id===r.site.plantedId)).filter(r=>r&&spec.diet.includes(r.kind)&&r.amount>0),need=.025*Math.max(.5,c.abundance)*dt;let eaten=0;for(const r of food){const take=Math.min(r!.amount,need-eaten);r!.amount-=take;eaten+=take;if(eaten>=need)break;}const fed=eaten>=need*.95;c.nutrition=clamp(c.nutrition+dt*(fed?.03:-.055),0,1);c.vitality=clamp(c.vitality+dt*(suitable&&c.nutrition>.2?.12:-.65),0,100);c.abundance=clamp(c.abundance+dt*(c.vitality>=50&&c.nutrition>.35?.012:-.02),0,3);}
+  for(const c of life.herbs){const spec=worldSpecies(s.world,ecologyTaxon(c.key)!.species!),food=life.roots.map(r=>s.world.resources.find(v=>v.id===r.site.plantedId)).filter(r=>r&&spec.diet.includes(r.kind)&&r.amount>0),need=.025*Math.max(.5,c.abundance)*dt;let eaten=0;for(const r of food){const take=Math.min(r!.amount,need-eaten);r!.amount-=take;eaten+=take;if(eaten>=need)break;}const fed=eaten>=need*.95;c.nutrition=clamp(c.nutrition+dt*(fed?.03:-.055),0,1);c.vitality=clamp(c.vitality+dt*(suitable&&c.nutrition>.2?.12:-.65),0,100);c.abundance=clamp(c.abundance+dt*(c.vitality>=50&&c.nutrition>.35?.012:-.02),0,3);}
   for(const c of life.predators){const prey=life.herbs.filter(h=>h.vitality>0&&h.abundance>.7),need=.007*Math.max(.5,c.abundance)*dt;let eaten=0;for(const h of prey){const take=Math.min(Math.max(0,h.abundance-.7),need-eaten);h.abundance-=take;eaten+=take;if(eaten>=need)break;}const fed=eaten>=need*.95;c.nutrition=clamp(c.nutrition+dt*(fed?.03:-.055),0,1);c.vitality=clamp(c.vitality+dt*(suitable&&c.nutrition>.2?.12:-.65),0,100);c.abundance=clamp(c.abundance+dt*(c.vitality>=50&&c.nutrition>.35?.004:-.02),0,1.5);}
  }
 }

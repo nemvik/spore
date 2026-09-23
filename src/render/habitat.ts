@@ -804,6 +804,7 @@ export function updateHabitat(group: THREE.Group, world: World, time: number, cl
   }
   for (const record of data.landmarks) {
     const current = world.landmarks.find(item => item.id === record.id);
+    if (current && record.kind === 'nest') record.node.position.set(current.pos.x, world.stage === 0 ? current.pos.y - .4 : terrainHeight(current.pos.x, current.pos.z, world.stage), current.pos.z);
     const liveSpring = world.stage === 2 && record.kind === 'spring' ? climate?.springs.find(item => item.id === record.id) : undefined;
     const charge = liveSpring?.support ?? THREE.MathUtils.clamp((current?.charge ?? 0) / (record.kind === 'spring' ? 10 : 1), 0, 1);
     record.node.userData.charge = charge;

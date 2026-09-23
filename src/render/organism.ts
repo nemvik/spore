@@ -639,7 +639,8 @@ export function animateOrganism(group: THREE.Group, time: number, speed: number,
 }
 
 /** Nine recognizable NPC body plans; ecology chooses their movement and intent elsewhere. */
-export function createSpeciesModel(species: Species): THREE.Group {
+export function createSpeciesModel(species: Species & { genome?: Genome }): THREE.Group {
+  if (species.genome) return createOrganism(species.genome);
   const group = new THREE.Group(), body = new THREE.Group(); group.add(body);
   const color = new THREE.Color(species.color), hsl = { h: 0, s: 0, l: 0 }; color.getHSL(hsl);
   const p = palette(hsl.h * 360); p.skin.color.copy(color);

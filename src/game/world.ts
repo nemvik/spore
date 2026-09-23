@@ -1,18 +1,19 @@
+import { worldSpecies, type NpcDesign } from './npc-genome';
 import { worldStageFor } from './stage';
 import { speciesGroundClearance } from './anatomy';
 import type { World, Stage, Vec3, FoodKind, Creature } from './types';
 import { random, horizontalDistance, groundHeight } from './random';
-import { PATCH_NAMES, stageSpecies, speciesById } from './content';
+import { PATCH_NAMES, stageSpecies } from './content';
 export const WORLD_BOUND=78;
 export function surfaceY(stage:Stage,x:number,z:number) { return stage===0 ? 1.1 : stage===1 ? groundHeight(x,z,stage)+2.2 : groundHeight(x,z,stage)+1.2; }
 export function spawnCreature(w:World,species:string,patch:number):Creature {
  const p=w.patches[patch]; const a=random(w)*Math.PI*2,r=6+random(w)*16;
  const x=p.center.x+Math.cos(a)*r,z=p.center.z+Math.sin(a)*r;
- return {id:w.nextId++,species,pos:{x,y:w.stage===2?groundHeight(x,z,2)+speciesGroundClearance(speciesById(species)):surfaceY(w.stage,x,z)+(w.stage===1?random(w)*5:0),z},velocity:{x:0,y:0,z:0},heading:a,health:speciesById(species).role==='predator'?55:32,hunger:40+random(w)*40,age:0,fear:0,intent:'forage',target:null,cooldown:0,patch};
+ return {id:w.nextId++,species,pos:{x,y:w.stage===2?groundHeight(x,z,2)+speciesGroundClearance(worldSpecies(w,species)):surfaceY(w.stage,x,z)+(w.stage===1?random(w)*5:0),z},velocity:{x:0,y:0,z:0},heading:a,health:worldSpecies(w,species).maxHealth??(worldSpecies(w,species).role==='predator'?55:32),hunger:40+random(w)*40,age:0,fear:0,intent:'forage',target:null,cooldown:0,patch};
 }
-export function createWorld(seed:number,campaignStage:Stage):World {
+export function createWorld(seed:number,campaignStage:Stage,designs?:NpcDesign[]):World {
  const stage=worldStageFor(campaignStage);
- const w:World={seed,stage,rng:(seed+stage*77237)>>>0,time:0,resources:[],creatures:[],patches:[],obstacles:[],landmarks:[],nextId:1,births:0,deaths:0};
+ const w:World={...(stage===2&&designs?{creatureDesigns:structuredClone(designs)}:{}),seed,stage,rng:(seed+stage*77237)>>>0,time:0,resources:[],creatures:[],patches:[],obstacles:[],landmarks:[],nextId:1,births:0,deaths:0};
  const centers=[{x:-37,z:-20},{x:37,z:-20},{x:0,z:39}];
  const colors=[[0x95dfb8,0xa2cdd6,0xaaa2d2],[0xe8a9b6,0x75bdaa,0x9b8ace],[0xbcbd7f,0xd4a77b,0x9ba6cd]][stage];
  w.patches=centers.map((p,i)=>({id:i,name:PATCH_NAMES[stage][i][0],subtitle:PATCH_NAMES[stage][i][1],center:{...p,y:surfaceY(stage,p.x,p.z)},radius:29,fertility:1,pressure:0,hunted:0,harvested:0,restored:0,color:colors[i],discovered:false}));

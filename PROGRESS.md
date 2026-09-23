@@ -325,3 +325,25 @@ Publikace 2026-09-17: editor včetně nutných podkladů tvarování byl odděle
 - Nezávislé review opravilo čtyři datové/AI hrany s regresemi, závěrem bez dalších nálezů; vlastní review hotový. Krátké měření finální produkce, Apple M4 / ANGLE Metal / medium / 1440×900: p50 16,7 ms, p95 16,8 ms, 0/500 nad 50 ms. Bez tvrzení o vyvážení/zábavnosti nebo celé kampani.
 - Report: `docs/spore/SP-003-REPORT.md`. Tracker SP-003 hotovo; SP-004/005/007 a zbytek SP-017 zůstávají samostatné. Nový reprodukovatelný příkaz `pnpm test:creature-stage`. Žádné závislosti, lockfile, commit, push nebo deploy. Pro hraní použít Nová linie; lidský playtest zůstává meze ověření.
 - Vlastní pracovní browser artefakty a izolovaný download uklizeny podle `evidence/sp-003/cleanup.json`; jen finální snímky, logy a běžné save. Traces nebyly vytvořeny. Testovací servery zastaveny; finální evidence 4,4 MiB, po úklidu 38 GiB volných.
+
+## SP-004 · objevování a generace · 2026-09-23
+
+- Zadání: implementovat SP-004 z roadmapy. Cílový průchod a datová kompatibilita v `docs/superpowers/plans/2026-09-23-sp-004-discovery-generations.md`.
+- Výchozí pracovní strom čistý. Použit skill develop-web-game. Disk před ověřením: 24 GiB; trace vypnutý.
+
+- Dokončeno: oddělený katalog pěti částí, tři kosterní pozůstatky, odměny prvních setkání a alfa korunoplaz; původ a první použití v editoru. Nové díly otevřou konstrukční katalog také z v1 těla. Generace zapíše narození, rodina dědí genom a hráč ji může fyzicky doprovodit k novému hnízdu. Dobrovolná migrace jde zrušit a ukládá se i uprostřed cesty. Historické kampaně se nepřepínají.
+- Ověření finálního herního kódu: 116 souborů / 2 202 testů, typecheck/build; 20 nových regresí, nezávislý review a vlastní review. Browser opravil skutečnou oscilaci u stromu uložením směru; nezávislý review opravil výšku hnízd a normalizaci importovaného heading. Změny mají cílené ověření.
+- Produkční nativní průchody: dvounožec v2 a Luma v1→v2, přátelství/nábor, kosti, tři pomoci smečky v druhém setkání, instalace paží, generace 2, mid-migration export/import, nové hnízdo a editor, kompaktní 1280×720. Samostatná alfa: přátelství, toxin a save/load. 0 browser chyb, snímky otevřené/prohlédnuté. Připravený vstup na souši a 220 DNA, nejde o celou nově odehranou kampaň. Samostatný původní skill smoke nové linie také prošel.
+- Report `docs/spore/SP-004-REPORT.md`, reprodukce `pnpm test:creature-discovery` (navíc `--body=classic` a `--alpha`). Tracker SP-004 hotovo. Další práce: SP-005/006/007 a lidský playtest vyvážení a porozumění; neslibovat plnou shodu se Spore ani finální vizuál SP-017. Bez commitu/pushe/deploye.
+- Úklid dokončen podle `evidence/sp-004/cleanup.json`: odstraněné vlastní mezisnímky/fixtures, dočasný skill klient a izolovaný Chromium (celkem přibližně 203 MB). Finální důkazy 5,5 MiB; zachovaný aktivní export hnízda, mid-migration save, alfa, výsledky a malé snímky. Trace/video nevznikly, `.playwright-mcp/traces/` neexistuje, servery zastavené; disk po úklidu 23 GiB.
+
+## SP-005.A · knihovna tvorů · 2026-09-23
+
+- Zadání: projít ROADMAP a implementovat knihovnu tvorů, samostatné ukládání/import/export a dřívější tvory jako NPC. Plán `docs/superpowers/plans/2026-09-23-sp-005-creature-library.md`. Výchozí necommitnuté SP-004 zachováno.
+- Použit develop-web-game. Disk před testy 20 GiB, trace vypnutý. Success criteria: samostatný editor/knihovna, atomický import, deterministická kompatibilní populace nové linie, snapshot v save/checkpointu a browser průchod.
+
+- Dokončeno SP-005.A: samostatné výtvory s identitou/revizí/popisem, náhledy a odpojeným 3D editorem, bezpečné JSON soubory, lokální knihovna a snapshot vybraných genomových obyvatel při narození nové linie. Historické kampaně zůstávají na původních modelech. Bez nových závislostí nebo lockfile změn.
+- Finální ověření: **118 souborů / 2 241 testů**, z toho 39 nových; typecheck/build/diff-check. Nezávislé review opravilo vysoká těla při jídle, pevnou stravu v následných smyčkách a dosah kousnutí proti širokým tělům; přímé regrese včetně dvou nejprve červených v1/v2 bite testů. Vlastní review hotový.
+- Produkční UI knihovny, editace a chůze, revize, export/import/kolize/vadný import, běžná Nová linie, poté připravená souš se stejným snapshotem; nativní příchod, přátelství, nábor a save/import po smazání celé knihovny. 0 browser chyb; 1280×720 snímky prohlédnuty. Krátká produkční scéna 300 snímků: p50/p95 16,7 ms, 0 nad 50 ms. Původní skill klient DEV a produkce prošel, snímky otevřené.
+- Report `docs/spore/SP-005-REPORT.md`, reprodukce `pnpm test:creature-library`. Celá SP-005 zůstává rozpracovaná pro budovy/vozidla/lodě/dobrodružství; část A hotovo. Další práce: SP-006/007 a lidský playtest tempa/rovnováhy; Safari a mobil neověřeny. Setkávání knihovních tvorů vyžaduje novou linii po uložení. Bez commitu/pushe/deploye.
+- Úklid dokončen podle `evidence/sp-005/cleanup.json`: odstraněno 192,5 MB vlastních mezivýstupů a izolovaného Chromia, zachováno 2,1 MiB finálních důkazů včetně aktivního save. Trace/video nevznikly; testovací servery zastavené, SP-004 artefakty zachované. Po úklidu 20,3 GiB volných.

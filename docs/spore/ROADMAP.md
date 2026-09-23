@@ -25,8 +25,8 @@ Návaznosti určují potřebné výstupy při realizaci, nikoli zákaz připravi
 | [SP-001 · Testové odchylky](#sp-001) | 0 | Hotovo | — | [Plán](../superpowers/plans/2026-09-17-sp-001-test-discrepancies.md), [report a ověření](SP-001-REPORT.md); pracovní strom nad `4da58b6` |
 | [SP-002 · Plný editor tvora](#sp-002) | A | Hotovo | SP-001 | [UI konstrukce, terén, save, hraná dostupnost a produkce](SP-002-REPORT.md) |
 | [SP-003 · Život druhu a tvorová fáze](#sp-003) | A | Hotovo | SP-002 | [Hnízda, setkání, smečka a tři cesty](SP-003-REPORT.md); připravené browser průchody, meze lidského playtestu v reportu |
-| [SP-004 · Objevování a generace](#sp-004) | A | K plánu | SP-003 | — |
-| [SP-005 · Knihovna výtvorů a společný genom](#sp-005) | A–E | K plánu | SP-002; další typy spolu s příslušnými editory | — |
+| [SP-004 · Objevování a generace](#sp-004) | A | Hotovo | SP-003 | [Objevy, alfa, generace a migrace](SP-004-REPORT.md); [plán](../superpowers/plans/2026-09-23-sp-004-discovery-generations.md), pracovní strom nad `5aed4ba93` |
+| [SP-005 · Knihovna výtvorů a společný genom](#sp-005) | A–E | Rozpracováno | SP-002; další typy spolu s příslušnými editory | **A hotovo:** [knihovna tvorů a NPC](SP-005-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-005-creature-library.md); B–E čeká na příslušné editory |
 | [SP-006 · Buněčný růst a přestavba](#sp-006) | A | K plánu | SP-001 | — |
 | [SP-007 · Dědictví celé linie](#sp-007) | A–D | K plánu | SP-003; výsledky dalších etap průběžně | — |
 | [SP-008 · Aktivní kmenová společnost](#sp-008) | B | K plánu | SP-003, SP-007 (smlouva dědictví) | — |
@@ -116,10 +116,12 @@ Podúkoly SP-003.1 (hnízda/vztahy a save), SP-003.2 (čtyři sociální a čty�
 
 **Rozdělení plánů:** objevený katalog → odměny setkání → migrace a generace. Navázat na [evoluci linie](../../src/game/journey-evolution.ts), [migraci](../../src/game/migration.ts), [genom](../../src/game/genome.ts) a [persistenci](../../src/game/persistence.ts). Reference: [manuál, str. 34–36][manual].
 
-- [ ] Objevené části jsou vedeny odděleně od utratitelného DNA a mají srozumitelný původ.
-- [ ] Kosterní pozůstatky, alfa jedinci a další významná setkání odemykají použitelné části; vzácní silní tvorové mění rozhodování při průzkumu.
-- [ ] Migrace hnízda, reprodukce a nová generace navazují na editor a zachovávají identitu druhu.
-- [ ] Jedna běžná výprava doloží objev části, pomoc smečky včetně sociální situace, návrat a skutečné použití odměny v editoru; události přežijí save/load.
+- [x] Objevené části jsou vedeny odděleně od utratitelného DNA a mají srozumitelný původ.
+- [x] Kosterní pozůstatky, alfa jedinci a další významná setkání odemykají použitelné části; vzácní silní tvorové mění rozhodování při průzkumu.
+- [x] Migrace hnízda, reprodukce a nová generace navazují na editor a zachovávají identitu druhu.
+- [x] Jedna běžná výprava doloží objev části, pomoc smečky včetně sociální situace, návrat a skutečné použití odměny v editoru; události přežijí save/load.
+
+Podúkoly SP-004.1 (katalog a původ), SP-004.2 (pozůstatky, setkání a alfa) a SP-004.3 (generace, doprovod a nové hnízdo) dokončené podle [plánu](../superpowers/plans/2026-09-23-sp-004-discovery-generations.md). [Report](SP-004-REPORT.md) dokládá 2 202 testů, dva nativně ovládané browser průchody z připravené souše, alfu a save/load; hranice lidského playtestu jsou uvedené výslovně.
 
 <a id="sp-005"></a>
 ### SP-005 — Místní knihovna výtvorů a společný genom NPC
@@ -128,10 +130,12 @@ Podúkoly SP-003.1 (hnízda/vztahy a save), SP-003.2 (čtyři sociální a čty�
 
 **Rozdělení plánů:** A — knihovna tvorů a NPC → B — budovy/vozidla → C/D — lodě → E — propojení s knihovnou dobrodružství SP-016. Výchozí místa: [typy genomu](../../src/game/types.ts), [validace genomu](../../src/game/genome.ts), [obsah](../../src/game/content.ts), [vykreslení organismů](../../src/render/organism.ts), [ukládání](../../src/game/persistence.ts). Reference: [Sporepedia a sdílení výtvorů][faq].
 
-- [ ] Tvor má samostatnou identitu, náhled, metadata a verzovaný soubor; jde uložit, upravit a importovat/exportovat mimo konkrétní kampaň.
-- [ ] NPC používají společný genom pro vzhled i schopnosti; výběr podle jídelníčku a ekologické role vytváří platné obyvatele, včetně generovaných variant.
-- [ ] V nové linii lze běžným hraním potkat dříve uloženého vlastního tvora; poškozený import nepoškodí knihovnu ani kampaň.
+- [x] Tvor má samostatnou identitu, náhled, metadata a verzovaný soubor; jde uložit, upravit a importovat/exportovat mimo konkrétní kampaň.
+- [x] NPC používají společný genom pro vzhled i schopnosti; výběr podle jídelníčku a ekologické role vytváří platné obyvatele, včetně generovaných variant.
+- [x] V nové linii lze běžným hraním potkat dříve uloženého vlastního tvora; poškozený import nepoškodí knihovnu ani kampaň.
 - [ ] Budovy, vozidla a kosmické lodě se stanou přenositelnými výtvory při dodání jejich editorů; knihovna umí zobrazit i dobrodružství vytvořená v SP-016.
+
+Část **SP-005.A — tvorové** dokončena v pracovním stromu nad `5aed4ba93`: [report](SP-005-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-005-creature-library.md). Samostatný 3D editor a verzovaná knihovna, deterministické osídlení nové linie, nezávislý snapshot kampaně; 2 241 testů a produkční UI průchod z připravené souše. Mateřská karta zůstává rozpracovaná pro **SP-005.B — budovy/vozidla**, **SP-005.C/D — lodě** a **SP-005.E — dobrodružství**.
 
 <a id="sp-006"></a>
 ### SP-006 — Buněčná smyčka růstu a přestavby
@@ -297,7 +301,7 @@ Podúkoly SP-003.1 (hnízda/vztahy a save), SP-003.2 (čtyři sociální a čty�
 7. Krátký výsledek a meze ověření uložit do verzovaného reportu nebo plánu. Velké browser výstupy ponechat mimo Git; zachovat malou finální evidenci podle [AGENTS.md](../../AGENTS.md). Samotný odkaz na lokální ignorované `evidence/` nestačí jako jediný trvalý doklad dokončení.
 8. Přidat stručný datovaný záznam níže. Pokud se rozsah změní, uvést důvod a přesunout zbývající práci do pojmenovaného bodu; neoznačovat ji tiše za hotovou. Milník přijmout podle hratelného výsledku briefu, ne podle počtu odškrtnutých dílčích úkolů.
 
-SP-002.1–SP-002.3 jsou doložené [finálním reportem](SP-002-REPORT.md). Další plán má vycházet z otevřených karet SP-003/004/005; sociální vztahy, odemykání částí ani knihovna nebyly touto dodávkou uzavřeny. Celá SP-017 zůstává otevřená, včetně chybějícího lidského testu a poslechu. Tento tracker samotný není vykonatelným plánem všech 17 bodů.
+SP-002.1–SP-002.3 jsou doložené [finálním reportem](SP-002-REPORT.md). Navazující SP-003 a SP-004 už mají [report života druhu](SP-003-REPORT.md) a [report objevování a generací](SP-004-REPORT.md). Část A knihovny SP-005 je doložená [reportem](SP-005-REPORT.md); zbývající části B–E zůstávají otevřené. Další otevřené karty milníku A jsou SP-006 a první část SP-007. Celá SP-017 zůstává otevřená, včetně chybějícího lidského testu a poslechu. Tento tracker samotný není vykonatelným plánem všech 17 bodů.
 
 ## Zdroje pro implementační návrhy
 
@@ -316,6 +320,8 @@ Zdroje byly dohledány v auditu 17. září 2026. Manuál a oficiální web tvo�
 
 | Datum | Změna | Doložení |
 | --- | --- | --- |
+| 2026-09-23 | SP-005.A dokončeno: knihovna a editor samostatných tvorů, bezpečný import/export, genomoví NPC z dřívějších výtvorů a snapshot v nových liniích. 2 241 testů, produkční setkání/nábor/save-load; části B–E zůstávají otevřené. | [Report](SP-005-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-005-creature-library.md) |
+| 2026-09-23 | SP-004 dokončeno: trvalé objevy oddělené od DNA, kosterní pozůstatky, alfa, použití odměny v nové generaci a fyzický doprovod do nového hnízda. Kompatibilní staré savey, 2 202 testů a nativní browser průchody. | [Report](SP-004-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-004-discovery-generations.md) |
 | 2026-09-17 | SP-002.1–.3 dokončeno: tři UI placené konstrukce, terén/save/recovery, skutečně hraný rozpočet a produkční v2; 2 130 testů a původní browser regrese prošly. Dva SwiftShader benchmarky a lidské mezery jsou zveřejněné; SP-003/004/005/017 otevřené. | [Report přijetí](SP-002-REPORT.md) |
 | 2026-09-17 | SP-002 naplánováno ve třech navazujících podúkolech a devíti implementačních úkolech. Zahrnuje genom v2, ochranu v1 saveů, klouby a koncové části, DNA, terén, společné náhledy a příslušnou část SP-017. Herní implementace nezahájena. | [Plán a ověření výchozího stavu](../superpowers/plans/2026-09-17-sp-002-creature-editor.md) |
 | 2026-09-17 | SP-001 dokončeno: opraven tečný kontakt, vysvětleny a zachovány dva přesné numerické profily; 1 957/1 957 testů, typecheck/build, UI a review prošly. Nejbližší práce je plán SP-002. | [Report, pracovní strom nad 4da58b6](SP-001-REPORT.md) |

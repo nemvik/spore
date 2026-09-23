@@ -25,7 +25,7 @@ export interface Creature { id: number; species: string; pos: Vec3; velocity: Ve
 export interface Patch { id: number; name: string; subtitle: string; center: Vec3; radius: number; fertility: number; pressure: number; hunted: number; harvested: number; restored: number; color: number; discovered: boolean; }
 export interface Obstacle { id: number; pos: Vec3; radius: number; height: number; kind: 'rock'|'coral'|'tree'; }
 export interface Landmark { id: string; kind: 'nest'|'gate'|'spring'; name: string; pos: Vec3; charge: number; }
-export interface World { seed: number; stage: WorldStage; rng: number; time: number; resources: Resource[]; creatures: Creature[]; patches: Patch[]; obstacles: Obstacle[]; landmarks: Landmark[]; nextId: number; births: number; deaths: number; }
+export interface World { creatureDesigns?: import('./npc-genome').NpcDesign[]; seed: number; stage: WorldStage; rng: number; time: number; resources: Resource[]; creatures: Creature[]; patches: Patch[]; obstacles: Obstacle[]; landmarks: Landmark[]; nextId: number; births: number; deaths: number; }
 export interface Bond { species: string; loyalty: number; hunger: number; benefit: 'shield'|'recycle'|'light'; age: number; }
 export interface Player { pos: Vec3; velocity: Vec3; heading: number; health: number; energy: number; oxygen: number; moisture: number; genome: Genome; creatureActions?: CreatureActionState; dna: number; totalDna: number; generation: number; meals: number; kills: number; bonds: Bond[]; cooldown: number; abilityRecharge: number; scan: number; invulnerable: number; feeding: number; distance: number; }
 export interface LineageEntry { generation: number; stage: Stage; time: number; name: string; parts: AdaptationId[]; event: string; }

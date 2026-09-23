@@ -1,6 +1,6 @@
+import { worldSpecies } from '../game/npc-genome';
 import * as THREE from 'three';
 import type { Creature, FoodKind, GameState, Resource, Vec3 } from '../game/types';
-import { speciesById } from '../game/content';
 import { journeyAction } from '../game/journey';
 import { lineBlocked } from '../game/interactions';
 import { distance, groundHeight } from '../game/random';
@@ -74,7 +74,7 @@ export class FoodCues {
     let chosen: Creature | null = null, best = Infinity;
     for (const c of s.world.creatures) {
       if (c.health <= 0 || c.intent !== 'forage' || c.target !== food.id || workerOnly && c.species !== 'mender') continue;
-      const species = speciesById(c.species);
+      const species = worldSpecies(s.world,c.species);
       if (!species.diet.includes(food.kind) || food.amount < (species.role === 'predator' && s.journey.version === 3 ? 1 : .5)) continue;
       if (!this.perceived(s, c.pos, range) || lineBlocked(s, food.pos, c.pos)) continue;
       const gap = distance(c.pos, food.pos);

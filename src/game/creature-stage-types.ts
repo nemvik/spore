@@ -1,3 +1,4 @@
+import type { CreatureDiscovery } from './creature-discovery';
 import type { Vec3 } from './types';
 
 export const SOCIAL_ACTIONS = ['sing', 'dance', 'charm', 'pose'] as const;
@@ -26,6 +27,7 @@ export interface SocialEncounter {
 }
 export interface CreatureStageState {
   version: 1;
+  discovery?: CreatureDiscovery;
   nests: SpeciesNest[];
   pack: number[];
   encounter: SocialEncounter | null;

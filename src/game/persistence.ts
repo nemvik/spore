@@ -1,3 +1,5 @@
+import { validateNpcDesigns } from './npc-genome';
+import { DISCOVERY_PARTS } from './creature-discovery';
 import { SAVE_ERRORS } from './errors.cs';
 import type { GameState, Stage, World } from './types';
 import { CREATURE_ADAPTATIONS, computeStats, genomeCost, has, initialGenome, validateGenome } from './genome';
@@ -72,7 +74,8 @@ function validateCreatureActions(value: unknown, path: string): void {
 
 function validateCreatureStage(value: unknown, stage: Stage, coast: World | null): void {
   const at = 'state.creatureStage';
-  const life = object(value, at, ['version', 'nests', 'pack', 'encounter', 'recharge', 'attack', 'guards', 'cue', 'completed']);
+  const hasDiscovery = !!value && typeof value === 'object' && Object.hasOwn(value, 'discovery');
+  const life = object(value, at, [...(hasDiscovery ? ['discovery'] : []), 'version', 'nests', 'pack', 'encounter', 'recharge', 'attack', 'guards', 'cue', 'completed']);
   oneOf(life.version, [1], `${at}.version`);
   number(life.recharge, `${at}.recharge`, 0, 3.2);
   oneOf(life.completed, [null, 'social', 'predator', 'mixed'], `${at}.completed`);
@@ -116,7 +119,7 @@ function validateCreatureStage(value: unknown, stage: Stage, coast: World | null
     const c = living(e.target, `${path}.target`);
     if (!species.includes(e.species) || c.species !== e.species || pack.includes(c.id)) invalid(path, SAVE_ERRORS.unknownValue);
     oneOf(e.requested, SOCIAL_ACTIONS, `${path}.requested`);
-    number(e.round, `${path}.round`, 0, 12, true); number(e.progress, `${path}.progress`, 0, 6); number(e.mistakes, `${path}.mistakes`, 0, 2, true); number(e.remaining, `${path}.remaining`, 0, 12);
+    number(e.round, `${path}.round`, 0, 12, true); number(e.progress, `${path}.progress`, 0, hasDiscovery && (life.discovery as { alpha?: { id: number } })?.alpha?.id === e.target ? 9 : 6); number(e.mistakes, `${path}.mistakes`, 0, 2, true); number(e.remaining, `${path}.remaining`, 0, 12);
   }
   if (life.attack !== null) {
     const path = `${at}.attack`, a = object(life.attack, path, ['kind', 'target', 'remaining', 'pos', 'aim', 'damage']);
@@ -143,8 +146,59 @@ function validateCreatureStage(value: unknown, stage: Stage, coast: World | null
   if (stage < 2 && (life.recharge !== 0 || life.encounter !== null || life.attack !== null || life.cue !== null || life.completed !== null)) invalid(at, SAVE_ERRORS.eraSliceMismatch);
 }
 
+
+function validateDiscovery(value: unknown, stage: Stage, coast: World | null, generation: number, tick: number, genome: GameState['player']['genome']): void {
+  const at = 'state.creatureStage.discovery';
+  const d = object(value, at, ['version', 'parts', 'remains', 'alpha', 'birth', 'migration', 'migrations', 'socialAssists']);
+  oneOf(d.version, [1], `${at}.version`); number(d.socialAssists, `${at}.socialAssists`, 0, MAX_COUNT, true);
+  const historyTime = (v: Record<string, unknown>, path: string) => { number(v.generation, `${path}.generation`, 1, generation, true); number(v.tick, `${path}.tick`, 0, tick, true); };
+  const parts = array(d.parts, `${at}.parts`, DISCOVERY_PARTS.length).map((value, i) => {
+    const path = `${at}.parts[${i}]`, p = object(value, path, ['part', 'source', 'origin', 'generation', 'tick', 'usedGeneration']);
+    oneOf(p.part, DISCOVERY_PARTS, `${path}.part`); oneOf(p.source, ['inherited', 'remains', 'friend', 'victory', 'alpha'], `${path}.source`);
+    string(p.origin, `${path}.origin`, 160); historyTime(p, path);
+    if (p.usedGeneration !== null) number(p.usedGeneration, `${path}.usedGeneration`, Number(p.generation), generation, true);
+    return p;
+  });
+  if (new Set(parts.map(p => p.part)).size !== parts.length) invalid(`${at}.parts`, SAVE_ERRORS.duplicateIds);
+  const expected = { west: 'arms', south: 'recycler', east: 'toxin' };
+  const remains = array(d.remains, `${at}.remains`, stage < 2 ? 0 : 3, stage < 2 ? 0 : 3).map((value, i) => {
+    const path = `${at}.remains[${i}]`, r = object(value, path, ['id', 'part', 'pos', 'collected']);
+    oneOf(r.id, Object.keys(expected), `${path}.id`); oneOf(r.part, [expected[r.id as keyof typeof expected]], `${path}.part`);
+    vector(r.pos, `${path}.pos`, WORLD_BOUND); boolean(r.collected, `${path}.collected`);
+    if (r.collected && !parts.some(p => p.part === r.part)) invalid(path, SAVE_ERRORS.unknownValue);
+    return r;
+  });
+  if (new Set(remains.map(r => r.id)).size !== remains.length) invalid(`${at}.remains`, SAVE_ERRORS.duplicateIds);
+  if (d.alpha !== null) {
+    const a = object(d.alpha, `${at}.alpha`, ['id', 'resolved']); number(a.id, `${at}.alpha.id`, 1, (coast?.nextId ?? 1) - 1, true); boolean(a.resolved, `${at}.alpha.resolved`);
+    const c = coast?.creatures.find(c => c.id === a.id); if (c && c.species !== 'crest') invalid(`${at}.alpha`, SAVE_ERRORS.unknownSpecies);
+    if (a.resolved && !parts.some(p => p.part === 'toxin')) invalid(`${at}.alpha`, SAVE_ERRORS.unknownValue);
+  } else if (stage >= 2) invalid(`${at}.alpha`, SAVE_ERRORS.unknownValue);
+  if (d.birth !== null) {
+    const b = object(d.birth, `${at}.birth`, ['generation', 'tick', 'nest']); historyTime(b, `${at}.birth`); number(b.generation, `${at}.birth.generation`, 2, generation, true); vector(b.nest, `${at}.birth.nest`, WORLD_BOUND);
+  }
+  const migrations = array(d.migrations, `${at}.migrations`, 3).map((value, i) => {
+    const path = `${at}.migrations[${i}]`, m = object(value, path, ['site', 'from', 'to', 'generation', 'tick']);
+    historyTime(m, path); vector(m.from, `${path}.from`, WORLD_BOUND); vector(m.to, `${path}.to`, WORLD_BOUND);
+    const r = remains.find(r => r.id === m.site && r.collected);
+    if (!r || JSON.stringify(r.pos) !== JSON.stringify(m.to) || d.birth === null) invalid(path, SAVE_ERRORS.unknownValue);
+    return m;
+  });
+  if (new Set(migrations.map(m => m.site)).size !== migrations.length) invalid(`${at}.migrations`, SAVE_ERRORS.duplicateIds);
+  for (let i = 1; i < migrations.length; i++) if (Number(migrations[i].tick) < Number(migrations[i-1].tick) || JSON.stringify(migrations[i].from) !== JSON.stringify(migrations[i-1].to)) invalid(`${at}.migrations`, SAVE_ERRORS.unknownValue);
+  if (stage === 2 && migrations.length && JSON.stringify(coast?.landmarks.find(l => l.kind === 'nest')?.pos) !== JSON.stringify(migrations.at(-1)!.to)) invalid(`${at}.migrations`, SAVE_ERRORS.unknownValue);
+  if (d.migration !== null) {
+    const m = object(d.migration, `${at}.migration`, ['site', 'pos', 'heading']); number(m.heading, `${at}.migration.heading`, -Math.PI * 2, Math.PI * 2); vector(m.pos, `${at}.migration.pos`, WORLD_BOUND);
+    if (stage !== 2 || d.birth === null || !remains.some(r => r.id === m.site && r.collected) || migrations.some(old => old.site === m.site)) invalid(`${at}.migration`, SAVE_ERRORS.unknownValue);
+  }
+  if (stage < 2 && (parts.length || d.alpha || d.birth || d.migration || migrations.length || d.socialAssists !== 0)) invalid(at, SAVE_ERRORS.eraSliceMismatch);
+  if (stage >= 2 && genome.parts.some(p => (DISCOVERY_PARTS as readonly string[]).includes(p.kind) && !parts.some(found => found.part === p.kind))) invalid(`${at}.parts`, SAVE_ERRORS.unknownValue);
+}
+
 function validateWorld(value: unknown, stage: Stage, seed: number, path: string): World {
-  const w = object(value, path, ['seed', 'stage', 'rng', 'time', 'resources', 'creatures', 'patches', 'obstacles', 'landmarks', 'nextId', 'births', 'deaths']);
+  const hasDesigns = !!value && typeof value === 'object' && Object.hasOwn(value, 'creatureDesigns');
+  if (hasDesigns) { if (stage !== 2) invalid(path, 'Katalog tvorů patří na souš.'); validateNpcDesigns((value as World).creatureDesigns); }
+  const w = object(value, path, [...(hasDesigns ? ['creatureDesigns'] : []), 'seed', 'stage', 'rng', 'time', 'resources', 'creatures', 'patches', 'obstacles', 'landmarks', 'nextId', 'births', 'deaths']);
   if (w.stage !== stage || w.seed !== seed) invalid(path, SAVE_ERRORS.worldMismatch);
   number(w.rng, `${path}.rng`, 0, UINT32, true);
   for (const field of ['time', 'births', 'deaths']) number(w[field], `${path}.${field}`, 0, MAX_COUNT, field !== 'time');
@@ -734,6 +788,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     }
   }
   number(p.generation, 'player.generation', 1, MAX_COUNT, true);
+  if (hasCreatureStage && Object.hasOwn(s.creatureStage as object, 'discovery')) validateDiscovery((s.creatureStage as Record<string, unknown>).discovery, stage, worlds[2] as World | null, Number(p.generation), Number(s.tick), genome);
   for (const field of ['meals', 'kills']) number(p[field], `player.${field}`, 0, MAX_COUNT, true);
   for (const field of ['cooldown', 'invulnerable', 'feeding', 'distance']) number(p[field], `player.${field}`);
   if (missingRecharge && !journey.legacy && (has(genome, 'toxin') || has(genome, 'sonar'))) {
@@ -838,6 +893,8 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     // The rule marker is fixed at birth; the earlier filter opening may differ.
     if (restored.journey.reefEvolution?.version !== journey.reefEvolution?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.creatureStage?.version !== (s.creatureStage as GameState['creatureStage'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if (restored.creatureStage?.discovery?.version !== (s.creatureStage as GameState['creatureStage'])?.discovery?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if (JSON.stringify(restored.worlds[2]?.creatureDesigns) !== JSON.stringify((worlds[2] as World | null)?.creatureDesigns)) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     // Recovery consumes this string later, so persist migrated fields inside it as well.
     s.checkpoint = JSON.stringify(restored);
   }

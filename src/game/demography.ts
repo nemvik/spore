@@ -1,6 +1,7 @@
+import { speciesCollisionRadius } from './anatomy';
+import { worldSpecies } from './npc-genome';
 import { bodyCollisionRadius } from './body-shape';
 import type { Creature, GameState, Resource, Species, Vec3 } from './types';
-import { speciesById } from './content';
 import { speciesGroundClearance } from './anatomy';
 import { distance, groundHeight, horizontalDistance } from './random';
 import { obstacleSegmentEntry } from './obstacle-geometry';
@@ -18,7 +19,7 @@ function populationLimit(s: GameState, species: Species): number {
 }
 
 function childPosition(s: GameState, parent: Creature, food: Resource, species: Species): Vec3 | null {
-  const w = s.world, radius = species.size * .6;
+  const w = s.world, radius = speciesCollisionRadius(species);
   for (const ring of [radius * 2 + .4, radius * 2 + 1.6, radius * 2 + 3]) {
     for (let i = 0; i < 12; i++) {
       const angle = parent.heading + i * Math.PI / 6;
@@ -28,7 +29,7 @@ function childPosition(s: GameState, parent: Creature, food: Resource, species: 
       else if (s.stage === 2) p.y = groundHeight(p.x, p.z, 2) + speciesGroundClearance(species);
       else if (p.y < groundHeight(p.x, p.z, 1) + 1.3 || p.y > 12) continue;
       if (s.player.health > 0 && distance(s.player.pos, p) < radius + bodyCollisionRadius(s.player.genome,s.stage) + .1) continue;
-      if (w.creatures.some(c => c.health > 0 && distance(c.pos, p) < radius + speciesById(c.species).size * .6 + .1)) continue;
+      if (w.creatures.some(c => c.health > 0 && distance(c.pos, p) < radius + speciesCollisionRadius(worldSpecies(w,c.species)) + .1)) continue;
       const blocked = w.obstacles.some(o => {
         const overlaps = horizontalDistance(p, o.pos) < o.radius + radius;
         if (overlaps && (s.stage === 0 || p.y > o.pos.y - radius && p.y < o.pos.y + o.height + radius)) return true;
@@ -50,7 +51,7 @@ function childPosition(s: GameState, parent: Creature, food: Resource, species: 
  */
 export function reproduceAfterMeal(s: GameState, parent: Creature, food: Resource, hungerBefore: number): boolean {
   if (s.journey.version !== 3 || s.journey.legacy) return false;
-  const w = s.world, species = speciesById(parent.species);
+  const w = s.world, species = worldSpecies(w,parent.species);
   const threshold = species.role === 'predator' ? 40 : 28;
   if (!w.creatures.includes(parent) || parent.health <= 0 || !w.resources.includes(food) || !species.diet.includes(food.kind)
     || !Number.isFinite(hungerBefore) || hungerBefore <= threshold || parent.hunger > threshold || food.amount < 1

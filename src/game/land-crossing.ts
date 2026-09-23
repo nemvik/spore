@@ -1,5 +1,6 @@
+import { speciesCollisionRadius } from './anatomy';
+import { worldSpecies } from './npc-genome';
 import type { GameState, Obstacle, Vec3 } from './types';
-import { speciesById } from './content';
 import { speciesGroundClearance } from './anatomy';
 import { groundHeight, horizontalDistance } from './random';
 import { WORLD_BOUND } from './world';
@@ -69,11 +70,11 @@ export function authorLandCrossing(s: GameState): void {
     .map(food => ({ food, pos: nearby(food.pos, obstacles, 1.2, 1.2) }));
   const actorMoves: { actor: GameState['world']['creatures'][number]; pos: Vec3 }[] = [];
   for (const actor of w.creatures) {
-    const species = speciesById(actor.species), radius = species.size * .6;
+    const species = worldSpecies(s.world,actor.species), radius = speciesCollisionRadius(species);
     if (!trees.some(tree => horizontalDistance(tree.pos, actor.pos) < tree.radius + radius)) continue;
     const pos = nearby(actor.pos, obstacles, radius, speciesGroundClearance(species), point =>
       w.creatures.some(other => other !== actor && other.health > 0
-        && horizontalDistance(actorMoves.find(move => move.actor === other)?.pos ?? other.pos, point) < radius + speciesById(other.species).size * .6 + .1));
+        && horizontalDistance(actorMoves.find(move => move.actor === other)?.pos ?? other.pos, point) < radius + speciesCollisionRadius(worldSpecies(s.world,other.species)) + .1));
     actorMoves.push({ actor, pos });
   }
   w.obstacles = obstacles; w.nextId += trees.length;

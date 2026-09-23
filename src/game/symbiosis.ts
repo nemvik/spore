@@ -1,4 +1,4 @@
-import { speciesById } from './content';
+import { worldSpecies } from './npc-genome';
 import { clamp } from './random';
 import type { Bond, FoodKind, GameState } from './types';
 
@@ -16,7 +16,7 @@ export function hasActivePartner(state: GameState, benefit: Bond['benefit']): bo
 export function shareMeal(state: GameState, kind: FoodKind): string[] {
   const fed: string[] = [];
   for (const bond of state.player.bonds) {
-    if (!state.journey.legacy && !speciesById(bond.species).diet.includes(kind)) continue;
+    if (!state.journey.legacy && !worldSpecies(state.world,bond.species).diet.includes(kind)) continue;
     bond.hunger = clamp(bond.hunger - 20, 0, 100);
     bond.loyalty = clamp(bond.loyalty + 3, 0, 100);
     fed.push(bond.species);

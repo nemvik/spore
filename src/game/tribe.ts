@@ -1,10 +1,10 @@
+import { worldSpecies } from './npc-genome';
 import { recordEcologyContact } from './ecology-catalog';
 import type { ActiveTribeState, ToolId, TribeBuilding, TribeNeighbour, TribeUnit } from './era-types';
 import type { GameState, Vec3 } from './types';
 import type { UnitOrder, UnitTarget } from './unit-order';
 import { MAX_UNIT_ORDERS, orderedIds, validOrderShape } from './unit-order';
 import { computeStats, has } from './genome';
-import { speciesById } from './content';
 import { clamp, groundHeight, horizontalDistance } from './random';
 import { moveUnit, openGround, unitNavigation } from './unit-motion';
 import { meetNeighbour, neighbourGift, neighbourMaxHealth, stepNeighbours } from './tribe-neighbours';
@@ -18,7 +18,7 @@ const fail = (message: string): TribeAction => ({ ok: false, message });
 const success = (message?: string): TribeAction => ({ ok: true, message });
 export const activeTribe = (s: GameState): ActiveTribeState | null => s.tribe?.version === 2 ? s.tribe : null;
 export const tribeCapacity = (t: ActiveTribeState): number => Math.min(12, 2 + t.huts.filter(h => h.kind === 'shelter' && h.progress >= 1 && h.health > 0).length * 4);
-export const memberDiet = (s: GameState, u: TribeUnit): readonly string[] => u.species ? speciesById(u.species).diet : computeStats(s.player.genome).diet;
+export const memberDiet = (s: GameState, u: TribeUnit): readonly string[] => u.species ? worldSpecies(s.world,u.species).diet : computeStats(s.player.genome).diet;
 export const tribeHome = (t: ActiveTribeState): Vec3 => t.huts.filter(h => h.kind === 'shelter' && h.progress === 1 && h.health > 0).sort((a,b) => a.id-b.id)[0].pos;
 export const tribeReady = (s: GameState): boolean => { const t = activeTribe(s); return !!t && t.members.some(u => u.health > 0) && t.neighbours.length === 3 && t.neighbours.every(n => n.resolved !== null); };
 
@@ -153,7 +153,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
     if (u.hunger >= 90) u.health = Math.max(0, u.health - dt * .55);
     if (u.health === 0) continue;
     if (u.species) u.loyalty = clamp(u.loyalty + dt * (u.hunger > 75 ? -.18 : .04), 0, 100);
-    const pace = u.species ? clamp(speciesById(u.species).speed, 2.5, 6) : clamp(stats.speed * stats.walk, 2.5, 6);
+    const pace = u.species ? clamp(worldSpecies(s.world,u.species).speed, 2.5, 6) : clamp(stats.speed * stats.walk, 2.5, 6);
     const travel = (target: Vec3, stop = 2) => moveUnit(s.world, u, target, positions, pace, dt, stop);
     const atHome = horizontalDistance(u.pos, home) < 4;
     if (atHome) {
@@ -203,7 +203,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
       if (travel(prey.pos, u.tool === 'spear' ? 4 : 2) && u.cooldown === 0) {
         prey.health = Math.max(0, prey.health - (u.tool === 'spear' ? 26 : stats.damage * .65)); u.cooldown = 1.2;
         if (prey.health === 0) {
-          recordEcologyContact(s,`species:${prey.species}`,'hunt',speciesById(prey.species).stage as 0|1|2,prey.patch as 0|1|2);removeTribePrey(s,prey); finish();
+          recordEcologyContact(s,`species:${prey.species}`,'hunt',worldSpecies(s.world,prey.species).stage as 0|1|2,prey.patch as 0|1|2);removeTribePrey(s,prey); finish();
         }
       }
     } else finish();

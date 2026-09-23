@@ -1,8 +1,9 @@
+import { worldSpecies } from './npc-genome';
 import { isNestResident, speciesNest } from './creature-stage';
 import { recordEcologyMeal } from './ecology-catalog';
 import type { Creature, GameState, Obstacle, Vec3 } from './types';
 import type { HunterMemory, Journey } from './journey-types';
-import { speciesById, TEXT } from './content';
+import { TEXT } from './content';
 import { computeStats, has } from './genome';
 import { lineBlocked } from './interactions';
 import { speciesGroundClearance } from './anatomy';
@@ -48,10 +49,10 @@ function direction(start: Vec3, end: Vec3, speed: number, aquatic: boolean): Vec
 
 /** Lead a predictable path only while visibly preparing. The same stored point
  * draws the telegraph and launches the attack; no target following after lock. */
-function anticipatedAim(c: Creature, target: Pick<Creature, 'pos' | 'velocity'>, windup: number, aquatic: boolean): Vec3 {
+function anticipatedAim(c: Creature, target: Pick<Creature, 'pos' | 'velocity'>, windup: number, aquatic: boolean, pace: number): Vec3 {
   const velocity = { x: target.velocity.x, y: aquatic ? target.velocity.y : 0, z: target.velocity.z };
   const start = { x: target.pos.x + velocity.x * windup - c.pos.x, y: aquatic ? target.pos.y + velocity.y * windup - c.pos.y : 0, z: target.pos.z + velocity.z * windup - c.pos.z };
-  const speed = speciesById(c.species).speed * LUNGE_MULTIPLIER;
+  const speed = pace * LUNGE_MULTIPLIER;
   const a = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2 - speed ** 2;
   const b = 2 * (start.x * velocity.x + start.y * velocity.y + start.z * velocity.z);
   const squared = start.x ** 2 + start.y ** 2 + start.z ** 2;
@@ -93,14 +94,14 @@ function obstacleEntry(start: Vec3, end: Vec3, o: Obstacle, bodyRadius: number, 
 }
 
 function moveHunter(s: EncounterState, c: Creature, velocity: Vec3, dt: number): boolean {
-  const spec = speciesById(c.species), previous = { ...c.pos };
+  const spec = worldSpecies(s.world,c.species), previous = { ...c.pos };
   const next = { x: clamp(c.pos.x + velocity.x * dt, -WORLD_BOUND, WORLD_BOUND), y: c.pos.y + velocity.y * dt, z: clamp(c.pos.z + velocity.z * dt, -WORLD_BOUND, WORLD_BOUND) };
   if (s.stage === 0) next.y = 1.1;
   else if (s.stage === 1) next.y = clamp(next.y, groundHeight(next.x, next.z, 1) + 1.3, 12);
   else next.y = groundHeight(next.x, next.z, 2) + speciesGroundClearance(spec);
   let fraction = 1;
   for (const obstacle of s.world.obstacles) {
-    const entry = obstacleEntry(previous, next, obstacle, spec.size * .55, s.stage === 0);
+    const entry = obstacleEntry(previous, next, obstacle, spec.radius ?? spec.size * .55, s.stage === 0);
     if (entry !== null) fraction = Math.min(fraction, Math.max(0, entry - .001));
   }
   c.pos = { x: previous.x + (next.x - previous.x) * fraction, y: previous.y + (next.y - previous.y) * fraction, z: previous.z + (next.z - previous.z) * fraction };
@@ -120,7 +121,7 @@ function hitPlayer(s: EncounterState, c: Creature, onKill: (creature: Creature, 
   const p = s.player;
   if (p.invulnerable > 0 || p.health <= 0) return;
   const stats = computeStats(p.genome), shield = hasActivePartner(s, 'shield') ? .65 : 1;
-  p.health -= Math.max(2, (12 + s.stage * 3) * (1 - stats.armor) * shield); p.invulnerable = 1.2;
+  p.health -= Math.max(2, (worldSpecies(s.world,c.species).damage ?? (12 + s.stage * 3)) * (1 - stats.armor) * shield); p.invulnerable = 1.2;
   s.messages.push({ id: Math.max(s.tick, s.messages.at(-1)?.id ?? 0) + 1, text: TEXT.predatorHit(s.stage), time: s.world.time });
   if (s.messages.length > 6) s.messages.shift();
   if (has(p.genome, 'spines')) {
@@ -139,12 +140,12 @@ function hitPlayer(s: EncounterState, c: Creature, onKill: (creature: Creature, 
 export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Creature, byPlayer: boolean, cause?: 'combat' | 'starvation') => void): void {
   if (s.journey.legacy || s.deathReason || !Number.isFinite(dt) || dt <= 0) return;
   dt = Math.min(1 / 30, dt);
-  const hunters = s.world.creatures.filter(c => c.health > 0 && !isNestResident(s,c.id) && speciesById(c.species).role === 'predator');
+  const hunters = s.world.creatures.filter(c => c.health > 0 && !isNestResident(s,c.id) && worldSpecies(s.world,c.species).role === 'predator');
   const activeIds = new Set(hunters.map(c => c.id));
   s.journey.hunters = s.journey.hunters.filter(h => h.stage !== s.stage || activeIds.has(h.id));
   for (const c of hunters) {
     if (!s.world.creatures.some(other => other.id === c.id)) continue;
-    const spec = speciesById(c.species), patch = s.world.patches[c.patch];
+    const spec = worldSpecies(s.world,c.species), patch = s.world.patches[c.patch];
     if(s.stage===2&&s.creatureStage?.encounter?.target===c.id){c.velocity={x:0,y:0,z:0};c.intent='rest';continue;}
     // Twilight and the living land corridor carry a moving ecological signal.
     // Their local hunter may leave home, but still loses sight behind real cover.
@@ -178,7 +179,7 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
       const touch = target && segmentDistance(target.pos, previous, c.pos) < 1.15 + spec.size * .22 && !lineBlocked(s, previous, target.pos);
       if (touch && !collision) {
         if (c.target === -1) hitPlayer(s, c, onKill);
-        else if (target && 'species' in target) { target.health -= 15; target.fear = 4; if (target.health <= 0) onKill(target, false); }
+        else if (target && 'species' in target) { target.health -= (spec.damage ?? 15) * (1 - (worldSpecies(s.world,target.species).armor ?? 0)); target.fear = 4; if (target.health <= 0) onKill(target, false); }
         // Contact is not nutrition. New food webs require a real portion from
         // the carcass; even a successful attack cannot feed on the player's HP.
         if (s.journey.version !== 3) c.hunger = Math.max(0, c.hunger - 18);
@@ -212,7 +213,7 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
       c.velocity = { x: 0, y: 0, z: 0 };
       if (!target || target.health <= 0 || horizontalDistance(target.pos, home) > leash || distance(c.pos, target.pos) > 16 || lineBlocked(s, c.pos, target.pos) || lineBlocked(s, c.pos, memory.aim)) { recover(c, memory, 1); continue; }
       if (memory.time > HUNTER_TIMING.commit + 1e-8) {
-        memory.aim = anticipatedAim(c, target, memory.time, s.stage === 1);
+        memory.aim = anticipatedAim(c, target, memory.time, s.stage === 1, spec.speed);
         c.heading = Math.atan2(memory.aim.x - c.pos.x, memory.aim.z - c.pos.z);
       }
       memory.time = Math.max(0, memory.time - dt);
@@ -229,7 +230,7 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
     // without turning a sated predator back into a hunter of native animals.
     const playerRange = !hungry && foodWeb && c.health < 55 ? 4.5 : hungry ? luminousCargo ? 24 : 13 : 0;
     const canHuntPlayer = (speciesNest(s,c.species)?.relationship??0)<60 && s.player.health > 0 && distance(c.pos, s.player.pos) < playerRange && horizontalDistance(s.player.pos, home) < leash && horizontalDistance(c.pos, home) < leash && !lineBlocked(s, c.pos, s.player.pos);
-    const prey = !hungry || canHuntPlayer && !livingLand ? null : s.world.creatures.filter(other => (['grazer', 'invasive'].includes(speciesById(other.species).role) || livingLand && other.species === 'gloom') && other.health > 0 && distance(c.pos, other.pos) < 18 && horizontalDistance(other.pos, home) < leash && !lineBlocked(s, c.pos, other.pos)).sort((a, b) => distance(c.pos, a.pos) - distance(c.pos, b.pos) || a.id - b.id)[0];
+    const prey = !hungry || canHuntPlayer && !livingLand ? null : s.world.creatures.filter(other => (['grazer', 'invasive'].includes(worldSpecies(s.world,other.species).role) || livingLand && other.species === 'gloom') && other.health > 0 && distance(c.pos, other.pos) < 18 && horizontalDistance(other.pos, home) < leash && !lineBlocked(s, c.pos, other.pos)).sort((a, b) => distance(c.pos, a.pos) - distance(c.pos, b.pos) || a.id - b.id)[0];
     const targetPlayer = canHuntPlayer && (!prey || !livingLand || distance(c.pos, prey.pos) + .75 >= distance(c.pos, s.player.pos));
     const target = targetPlayer ? s.player : prey;
     if (target) {
@@ -237,7 +238,7 @@ export function stepHunters(s: EncounterState, dt: number, onKill: (creature: Cr
       // Close first on land: starting this long tell at 7.5 m lets a walking
       // carrier leave the entire lunge distance before the hunter can strike.
       if (distance(c.pos, target.pos) < (livingLand ? 3.2 : 7.5)) {
-        memory.phase = 'windup'; memory.time = HUNTER_TIMING.windup; memory.aim = anticipatedAim(c, target, memory.time, s.stage === 1);
+        memory.phase = 'windup'; memory.time = HUNTER_TIMING.windup; memory.aim = anticipatedAim(c, target, memory.time, s.stage === 1, spec.speed);
         c.velocity = { x: 0, y: 0, z: 0 }; c.heading = Math.atan2(memory.aim.x - c.pos.x, memory.aim.z - c.pos.z);
       } else moveHunter(s, c, direction(c.pos, target.pos, spec.speed * (livingLand ? 1.35 : .72), s.stage === 1), dt);
       continue;

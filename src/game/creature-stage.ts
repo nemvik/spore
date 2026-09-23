@@ -1,6 +1,8 @@
+import { speciesCollisionRadius } from './anatomy';
+import { npcFoodDistance, worldSpecies } from './npc-genome';
+import { initializeDiscovery, isAlpha, resolveAlpha, rewardSpeciesDiscovery, socialGoal, stepNestMigration } from './creature-discovery';
 import type { Creature, FeedSelection, GameState, Genome, Vec3 } from './types';
 import { SOCIAL_ACTIONS, type CreatureStageState, type SocialAction, type SpeciesAction, type SpeciesNest } from './creature-stage-types';
-import { speciesById } from './content';
 import { computeStats, has } from './genome';
 import { creatureCapabilities, queryCreatureBite } from './creature-capabilities';
 import { jawContacts, speciesGroundClearance } from './anatomy';
@@ -64,8 +66,8 @@ function addResidents(s: GameState, nest: SpeciesNest) {
   for (let i = 0; i < 2; i++) {
     const c = spawnCreature(s.world, nest.species, patch);
     c.pos = { x: nest.pos.x + (i ? 2 : -2), y: 0, z: nest.pos.z };
-    c.pos.y = groundHeight(c.pos.x, c.pos.z, 2) + speciesGroundClearance(speciesById(c.species));
-    c.health = nest.species === 'crest' ? 48 : 36; c.hunger = 25; c.intent = 'rest';
+    c.pos.y = groundHeight(c.pos.x, c.pos.z, 2) + speciesGroundClearance(worldSpecies(s.world,c.species));
+    c.health = worldSpecies(s.world,c.species).maxHealth ?? (nest.species === 'crest' ? 48 : 36); c.hunger = 25; c.intent = 'rest';
     nest.residents.push(c.id); s.world.creatures.push(c);
   }
 }
@@ -76,7 +78,8 @@ export function initializeCreatureStage(s: GameState) {
   const positions = [[-16, -5], [-39, -31], [8, 29], [36, -21]];
   s.creatureStage.nests = CREATURE_SPECIES.map((species, i) => ({ species, pos: clearPosition(s, ...positions[i] as [number, number]), residents: [], relationship: 0, outcome: null, defeats: 0, discovered: i === 0 }));
   for (const nest of s.creatureStage.nests) addResidents(s, nest);
-  notice(s, 'Život druhu · západně žijí zvonkonoši. V zahájí setkání, 1–4 odpovídá; B přepne boj. Tři hnízda otevřou cestu ke kmeni.');
+  initializeDiscovery(s, clearPosition);
+  notice(s, 'Život druhu · západně najdeš první sousedy. V zahájí setkání, 1–4 odpovídá; B přepne boj. Tři hnízda otevřou cestu ke kmeni.');
 }
 
 export function encounterTarget(s: GameState, selection?: FeedSelection | null): Creature | null {
@@ -89,7 +92,7 @@ export function encounterTarget(s: GameState, selection?: FeedSelection | null):
 }
 
 function requestFor(s: GameState, nest: SpeciesNest, round: number): SocialAction {
-  const abilities = speciesAbilities(s.player.genome), available = SOCIAL_ACTIONS.filter(a => abilities[a].enabled);
+  const abilities = speciesAbilities(s.player.genome), npc = worldSpecies(s.world,nest.species).genome, responses = npc ? speciesAbilities(npc) : null, available = SOCIAL_ACTIONS.filter(a => abilities[a].enabled && (!responses || responses[a].enabled));
   const order = [preferred[nest.species], ...SOCIAL_ACTIONS.filter(a => a !== preferred[nest.species])].filter(a => available.includes(a));
   return order[round % order.length] ?? 'dance';
 }
@@ -106,14 +109,15 @@ export function startEncounter(s: GameState, selection?: FeedSelection | null): 
   const hunter = s.journey.hunters.find(h => h.stage === s.stage && h.id === target.id);
   if (hunter) { hunter.phase = 'recover'; hunter.time = 1; hunter.aim = { ...target.pos }; }
   life.guards = life.guards.filter(g => !nest.residents.includes(g.id));
-  notice(s, `${speciesById(nest.species).name} čeká: ${SPECIES_ACTION_LABELS[life.encounter.requested]}. Odpověz 1–4.`); return true;
+  notice(s, `${worldSpecies(s.world,nest.species).name} čeká: ${SPECIES_ACTION_LABELS[life.encounter.requested]}. Odpověz 1–4.`); return true;
 }
 
 function resolveNest(s: GameState, nest: SpeciesNest, outcome: 'friend' | 'predator') {
   if (nest.outcome) return;
   nest.outcome = outcome;
+  rewardSpeciesDiscovery(s, nest.species, outcome);
   s.player.dna += 12; s.player.totalDna += 12;
-  notice(s, `${speciesById(nest.species).name}: ${outcome === 'friend' ? 'přátelství' : 'obránci poraženi'} · +12 DNA · inteligence ${creatureIntelligence(s)}/3. Kapacita smečky ${packCapacity(s)}.`);
+  notice(s, `${worldSpecies(s.world,nest.species).name}: ${outcome === 'friend' ? 'přátelství' : 'obránci poraženi'} · +12 DNA · inteligence ${creatureIntelligence(s)}/3. Kapacita smečky ${packCapacity(s)}.`);
 }
 
 export function recordSpeciesAggression(s: GameState, c: Creature) {
@@ -130,6 +134,7 @@ export function recordSpeciesDeath(s: GameState, c: Creature, byPlayer: boolean)
   if (!life) return;
   life.pack = life.pack.filter(id => id !== c.id); life.guards = life.guards.filter(g => g.id !== c.id && g.target !== c.id);
   if (life.encounter?.target === c.id) life.encounter = null;
+  if (byPlayer) resolveAlpha(s, c.id);
   if (nest) {
     nest.residents = nest.residents.filter(id => id !== c.id);
     if (byPlayer) { nest.defeats = Math.min(2, nest.defeats + 1); nest.relationship = -100; if (nest.defeats === 2) resolveNest(s, nest, 'predator'); }
@@ -141,7 +146,7 @@ function nearbyPack(s: GameState, pos: Vec3) {
 }
 
 function hit(s: GameState, c: Creature, damage: number, onKill: OnKill, stagger = false) {
-  recordSpeciesAggression(s, c); c.health -= damage;
+  recordSpeciesAggression(s, c); c.health -= damage * (1 - (worldSpecies(s.world,c.species).armor ?? 0));
   if (stagger) { c.fear = Math.max(c.fear, 1.2); s.creatureStage!.guards = s.creatureStage!.guards.filter(g => g.id !== c.id); }
   if (c.health <= 0) onKill(c, true);
 }
@@ -162,9 +167,10 @@ export function performSpeciesAction(s: GameState, action: SpeciesAction, select
     if (s.player.creatureActions) { s.player.creatureActions.communicationTime = .8; s.player.creatureActions.communicationSerial=(s.player.creatureActions.communicationSerial+1)%1_000_000_001; }
     if (success) {
       const pack = nearbyPack(s, target.pos);
+      if (life.discovery && pack.length) life.discovery.socialAssists = Math.min(1_000_000_000, life.discovery.socialAssists + 1);
       e.progress += ability.power + (preferred[nest.species] === action ? .35 : 0) + pack.length * .35; e.round++; e.remaining = 12;
       nest.relationship = Math.min(59, nest.relationship + 10);
-      if (e.progress >= 6) { nest.relationship = 80; life.encounter = null; resolveNest(s, nest, 'friend'); }
+      if (e.progress >= socialGoal(s, target.id)) { resolveAlpha(s, target.id); nest.relationship = 80; life.encounter = null; resolveNest(s, nest, 'friend'); }
       else { e.requested = requestFor(s, nest, e.round); notice(s, `${pack.length ? `Smečka pomáhá (+${pack.length}). ` : ''}Dobrá odpověď · nyní ${SPECIES_ACTION_LABELS[e.requested]}.`); }
     } else {
       e.mistakes++; nest.relationship = Math.max(-40, nest.relationship - 10); e.remaining = 12;
@@ -177,8 +183,9 @@ export function performSpeciesAction(s: GameState, action: SpeciesAction, select
   if (!target) { notice(s, 'Vyber živého protivníka; členové smečky nejsou cílem.'); return false; }
   let ready = horizontalDistance(s.player.pos, target.pos) <= ability.range && !lineBlocked(s, s.player.pos, target.pos);
   if (action === 'bite') {
-    if (s.player.genome.version === 2) ready = queryCreatureBite(s.player.genome, s.player.pos, s.player.heading, { pos: target.pos, radius: speciesById(target.species).size * .55 }, (a, b) => lineBlocked(s, a, b)).ready;
-    else ready = jawContacts(s.player.genome).some(j => { const origin = mouthWorldPosition(j, s.player.pos, s.player.heading); return distance(origin, target.pos) <= j.reach + speciesById(target.species).size * .55 && !lineBlocked(s, origin, target.pos); });
+    const species = worldSpecies(s.world,target.species), radius = species.radius ?? species.size * .55;
+    if (s.player.genome.version === 2) ready = queryCreatureBite(s.player.genome, s.player.pos, s.player.heading, { pos: target.pos, radius }, (a, b) => lineBlocked(s, a, b)).ready;
+    else ready = jawContacts(s.player.genome).some(j => { const origin = mouthWorldPosition(j, s.player.pos, s.player.heading); return distance(origin, target.pos) <= j.reach + radius && !lineBlocked(s, origin, target.pos); });
   }
   if (!ready) { notice(s, `${SPECIES_ACTION_LABELS[action]}: cíl je mimo dosah nebo za překážkou.`); return false; }
   s.player.energy -= ability.energy; life.recharge = ability.recharge; s.player.cooldown = Math.max(s.player.cooldown, .65); s.player.feeding = .5;
@@ -199,7 +206,7 @@ export function recruitPack(s: GameState, selection?: FeedSelection | null): boo
   if (life.pack.length >= packCapacity(s)) { notice(s, 'Smečka je plná. Další vyřešené hnízdo rozšíří kapacitu; člena můžeš propustit v přehledu.'); return true; }
   if (distance(s.player.pos, target.pos) > 7 || lineBlocked(s, s.player.pos, target.pos)) { notice(s, 'Pro nábor se přibliž na 7 m s volným výhledem.'); return true; }
   life.pack.push(target.id); target.intent = 'bonded'; target.target = null; target.fear = 0;
-  notice(s, `${speciesById(target.species).name} jde s tebou. Smečka pomáhá v blízkých setkáních.`); return true;
+  notice(s, `${worldSpecies(s.world,target.species).name} jde s tebou. Smečka pomáhá v blízkých setkáních.`); return true;
 }
 
 export function dismissPack(s: GameState, id: number): boolean {
@@ -220,13 +227,13 @@ export function reconcileNest(s: GameState, species: string): boolean {
 }
 
 function moveResident(s: GameState, c: Creature, destination: Vec3, dt: number, stop: number) {
-  const spec = speciesById(c.species), gap = horizontalDistance(c.pos, destination);
+  const spec = worldSpecies(s.world,c.species), gap = horizontalDistance(c.pos, destination);
   if (gap <= stop) { c.velocity = { x: 0, y: 0, z: 0 }; return; }
-  const waypoint = steerToward(s.world, c.pos, destination, spec.size * .6, c.heading), d = horizontalDistance(c.pos, waypoint) || 1;
+  const waypoint = steerToward(s.world, c.pos, destination, speciesCollisionRadius(spec), c.heading), d = horizontalDistance(c.pos, waypoint) || 1;
   const speed = Math.min(spec.speed * 1.25, (gap - stop) / dt, d / dt);
   const previous = c.pos;
   const next = { x: clamp(previous.x + (waypoint.x - previous.x) / d * speed * dt, -WORLD_BOUND, WORLD_BOUND), y: previous.y, z: clamp(previous.z + (waypoint.z - previous.z) / d * speed * dt, -WORLD_BOUND, WORLD_BOUND) };
-  c.pos = resolveObstacleMotion(s.world, previous, next, spec.size * .6);
+  c.pos = resolveObstacleMotion(s.world, previous, next, speciesCollisionRadius(spec));
   c.pos.y = groundHeight(c.pos.x, c.pos.z, 2) + speciesGroundClearance(spec);
   c.velocity = { x: (c.pos.x - previous.x) / dt, y: 0, z: (c.pos.z - previous.z) / dt };
   if (Math.hypot(c.velocity.x, c.velocity.z) > .01) c.heading = Math.atan2(c.velocity.x, c.velocity.z);
@@ -252,6 +259,7 @@ function stepProjectile(s: GameState, dt: number, onKill: OnKill) {
 /** Owns only nest residents; ordinary ecology continues in its existing loops. */
 export function stepCreatureStage(s: GameState, dt: number, onKill: OnKill) {
   const life = activeCreatureStage(s); if (!life || dt <= 0) return;
+  stepNestMigration(s, dt);
   life.recharge = Math.max(0, life.recharge - dt);
   if (life.cue) { life.cue.remaining = Math.max(0, life.cue.remaining - dt); if (!life.cue.remaining) life.cue = null; }
   stepProjectile(s, dt, onKill);
@@ -275,8 +283,8 @@ export function stepCreatureStage(s: GameState, dt: number, onKill: OnKill) {
       if (!guard.remaining) {
         const victim=guard.target===-1?s.player:s.world.creatures.find(other=>other.id===guard.target);
         if (victim && hostile && victim.health>0 && c.fear <= 0 && distance(victim.pos, guard.aim) < 2.8 && distance(c.pos, victim.pos) < 3.8 && !lineBlocked(s, c.pos, victim.pos)) {
-          if(guard.target===-1){if(s.player.invulnerable<=0){s.player.health -= Math.max(2, 9 * (1 - computeStats(s.player.genome).armor));s.player.invulnerable=.7;notice(s,'Obránce zasáhl. Uhni ze zářícího kruhu během přípravy útoku.');}}
-          else {victim.health-=7;if(victim.health<=0)onKill(victim as Creature,false);}
+          if(guard.target===-1){if(s.player.invulnerable<=0){s.player.health -= Math.max(2, (worldSpecies(s.world,c.species).damage !== undefined ? worldSpecies(s.world,c.species).damage! * (isAlpha(s,id) ? 1 : .65) : (isAlpha(s, id) ? 16 : 9)) * (1 - computeStats(s.player.genome).armor));s.player.invulnerable=.7;notice(s,'Obránce zasáhl. Uhni ze zářícího kruhu během přípravy útoku.');}}
+          else {victim.health-=(worldSpecies(s.world,c.species).damage??(isAlpha(s,id)?12:7))*(1-(worldSpecies(s.world,(victim as Creature).species).armor??0));if(victim.health<=0)onKill(victim as Creature,false);}
         }
         life.guards = life.guards.filter(g => g.id !== id); c.cooldown = 2;
       }
@@ -285,18 +293,18 @@ export function stepCreatureStage(s: GameState, dt: number, onKill: OnKill) {
     if (c.fear > 0) { c.velocity = { x: 0, y: 0, z: 0 }; continue; }
     if (target) {
       c.intent = 'hunt'; c.target = target.id; moveResident(s, c, target.pos, dt, 2.2);
-      if (distance(c.pos, target.pos) < 3.2 && !lineBlocked(s, c.pos, target.pos) && c.cooldown <= 0) { c.cooldown = 2; hit(s, target, 5, onKill); }
+      if (distance(c.pos, target.pos) < 3.2 && !lineBlocked(s, c.pos, target.pos) && c.cooldown <= 0) { c.cooldown = 2; hit(s, target, worldSpecies(s.world,c.species).damage??5, onKill); }
     } else if (enemy && life.encounter?.species !== nest.species) {
       c.intent = 'hunt'; c.target = enemy.id; moveResident(s, c, enemy.pos, dt, 2.4);
       if (distance(c.pos, enemy.pos) < 3.8 && !lineBlocked(s, c.pos, enemy.pos) && c.cooldown <= 0) life.guards.push({ id, target: enemy.id, remaining: .9, aim: { ...enemy.pos } });
     } else if (life.encounter?.target === id) {
       c.velocity = { x: 0, y: 0, z: 0 }; c.intent = 'rest'; c.heading = Math.atan2(s.player.pos.x - c.pos.x, s.player.pos.z - c.pos.z);
     } else {
-      const food = c.hunger > 40 ? s.world.resources.filter(r => r.amount >= 1 && speciesById(c.species).diet.includes(r.kind) && distance(r.pos, companion ? s.player.pos : nest.pos) < (companion ? 8 : 12)).sort((a, b) => distance(a.pos, c.pos) - distance(b.pos, c.pos))[0] : null;
+      const food = c.hunger > 40 ? s.world.resources.filter(r => r.amount >= 1 && worldSpecies(s.world,c.species).diet.includes(r.kind) && distance(r.pos, companion ? s.player.pos : nest.pos) < (companion ? 8 : 12)).sort((a, b) => distance(a.pos, c.pos) - distance(b.pos, c.pos))[0] : null;
       const index = companion ? life.pack.indexOf(id) : nest.residents.indexOf(id), anchor = companion ? s.player.pos : nest.pos;
       const destination = food?.pos ?? { x: anchor.x + Math.cos(index * 2.4 + s.world.time * (companion ? 0 : .1)) * (companion ? 3.5 : 2), y: anchor.y, z: anchor.z + Math.sin(index * 2.4 + s.world.time * (companion ? 0 : .1)) * (companion ? 3.5 : 2) };
       c.intent = companion ? 'bonded' : food ? 'forage' : 'rest'; c.target = food?.id ?? null; moveResident(s, c, destination, dt, food ? 1.3 : .5);
-      if (food && distance(c.pos, food.pos) < 2.8 && !lineBlocked(s, c.pos, food.pos) && c.cooldown <= 0) { food.amount -= 1; c.hunger = Math.max(0, c.hunger - 35); c.health = Math.min(nest.species === 'crest' ? 48 : 36, c.health + 3); c.cooldown = 5; }
+      if (food && npcFoodDistance(s.world,c,food.pos) < 2.8 && !lineBlocked(s, c.pos, food.pos) && c.cooldown <= 0) { food.amount -= 1; c.hunger = Math.max(0, c.hunger - 35); c.health = Math.min(isAlpha(s, id) ? 96 : worldSpecies(s.world,c.species).maxHealth ?? (nest.species === 'crest' ? 48 : 36), c.health + 3); c.cooldown = 5; }
     }
     if (c.hunger >= 100) { c.health -= dt * .08; if (c.health <= 0) onKill(c, false); }
   }

@@ -1,3 +1,5 @@
+import { speciesGroundClearance } from './anatomy';
+import { worldSpecies } from './npc-genome';
 import { recordEcologyContact, recordEcologyMeal } from './ecology-catalog';
 import { isOrganismStage, worldStageFor } from './stage';
 import type { Creature, FoodKind, GameState, Resource, Vec3 } from './types';
@@ -9,7 +11,7 @@ import { canopyGuidance } from './canopy-guidance';
 import { PROGRESSION_COPY } from './progression-copy.cs';
 import { clamp, distance, groundHeight, horizontalDistance } from './random';
 import { computeStats, functionalProfile, has } from './genome';
-import { speciesById, FOOD_LABEL, SPECIES } from './content';
+import { FOOD_LABEL, SPECIES } from './content';
 import { lineBlocked } from './interactions';
 import { surfaceY, spawnCreature } from './world';
 import { authorVortex, vortexSourceAt } from './journey-layout';
@@ -62,24 +64,25 @@ export function initializeJourneyStage(s: GameState) {
   if (s.stage === 1) authorReef(w, activeSites(s));
   // Each place has a food web instead of three copies of the entire species catalogue.
   w.creatures = w.creatures.filter((c, index) => {
-    const role = speciesById(c.species).role;
+    const role = worldSpecies(s.world,c.species).role;
     if (role === 'predator' || role === 'invasive') return true;
     if (role === 'partner') return c.patch === 2 || s.stage === 1 && c.patch === 1 && index % 2 === 0;
     return c.patch === 0 || c.patch === 1 && index % 2 === 0;
   });
   for (const site of activeSites(s)) {
     const residents = w.creatures.filter(c => c.patch === site.patch);
-    const consumers = residents.filter(c => ['grazer', 'invasive'].includes(speciesById(c.species).role));
+    const consumers = residents.filter(c => ['grazer', 'invasive'].includes(worldSpecies(s.world,c.species).role));
     consumers.forEach((c, i) => { c.pos = { ...site.source, x: site.source.x + Math.sin(i * 2.1) * 3, z: site.source.z + Math.cos(i * 2.1) * 3 }; c.hunger = 85; });
-    residents.filter(c => speciesById(c.species).role === 'predator').forEach(c => {
+    residents.filter(c => worldSpecies(s.world,c.species).role === 'predator').forEach(c => {
       const crossing = site.patch === 0 ? { x: (site.source.x + site.refuges[0].x) / 2, y: site.source.y, z: (site.source.z + site.refuges[0].z) / 2 } : { ...site.source, x: site.source.x + 10, z: site.source.z + 3 };
       const options = [crossing, { ...crossing, x: crossing.x + 4 }, { ...crossing, z: crossing.z + 4 }, { ...site.source }];
-      c.pos = options.find(p => !w.obstacles.some(o => horizontalDistance(p, o.pos) < o.radius + speciesById(c.species).size)) ?? { ...site.source }; c.hunger = 70;
+      c.pos = options.find(p => !w.obstacles.some(o => horizontalDistance(p, o.pos) < o.radius + worldSpecies(s.world,c.species).size)) ?? { ...site.source }; c.hunger = 70;
     });
-    site.threatIds = (s.stage === 2 ? consumers.filter(c => speciesById(c.species).role === 'invasive') : site.id === 3 ? residents.filter(c => speciesById(c.species).role === 'predator') : consumers).map(c => c.id);
+    site.threatIds = (s.stage === 2 ? consumers.filter(c => worldSpecies(s.world,c.species).role === 'invasive') : site.id === 3 ? residents.filter(c => worldSpecies(s.world,c.species).role === 'predator') : consumers).map(c => c.id);
   }
   authorCanopy(s);
   authorLandCrossing(s);
+  if(w.creatureDesigns)for(const c of w.creatures)c.pos.y=groundHeight(c.pos.x,c.pos.z,2)+speciesGroundClearance(worldSpecies(w,c.species));
   journeyNotice(s, JOURNEY_COPY.stage[s.stage]);
 }
 
@@ -113,7 +116,7 @@ export function journeyAction(s: GameState, offering = false): JourneyAction | n
   // actual care meal is in hand, T at the mother explicitly recovers local life.
   const nursery = !offering && sites.find(site => nurserySpecies(s, site) && distance(p.pos, site.source) < range
     && (site.id === 4 || site.plantedId !== null || cargo?.site === site.id && cargo.purpose === 'culture'
-      || cargo?.purpose === 'food' && speciesById(nurserySpecies(s, site)!).diet.includes(cargo.kind)));
+      || cargo?.purpose === 'food' && worldSpecies(s.world,nurserySpecies(s, site)!).diet.includes(cargo.kind)));
   if (nursery) {
     const copy = NURSERY_COPY[nurserySpecies(s, nursery)!], food = nurseryFood(s, nursery);
     return make(nursery, nursery.source, copy.label, food ? copy.help : copy.noFood, 'awaken', !!food);
@@ -232,8 +235,8 @@ export function journeyForageTarget(s: GameState, c: Creature): Resource | null 
   const crust = canopyForageTarget(s, c); if (crust) return crust;
   // A fed invader stops damaging roots. Native grazers still investigate a new
   // colony: requiring them to become hungry would turn restoration into waiting.
-  if (speciesById(c.species).role === 'invasive' && c.hunger <= 28) return null;
-  const diet = speciesById(c.species).diet;
+  if (worldSpecies(s.world,c.species).role === 'invasive' && c.hunger <= 28) return null;
+  const diet = worldSpecies(s.world,c.species).diet;
   const plants = activeSites(s).filter(site => site.plantedId !== null).map(site => site.plantedId);
   if (s.stage === 2) plants.push(...(s.journey.rootDispersal?.roots.filter(root => root.vitality > 0).map(root => root.resourceId) ?? []));
   const newRoots = [...plants];
@@ -276,7 +279,7 @@ export function recordConsumption(s: GameState, c: Creature, r: Resource) {
   if (releaseCanopyAfterMeal(s, r)) journeyNotice(s, CANOPY_COPY.released);
   const site = activeSites(s).find(site => site.plantedId === r.id);
   if (!site) return;
-  const role = speciesById(c.species).role;
+  const role = worldSpecies(s.world,c.species).role;
   if (site.id === 8 && c.species === 'gloom' && c.health > 0 && site.vitality > 0 && site.phase < 5) {
     resolve(s, site, livingLandNetwork(s) ? 'cultivate' : 'guide');
     site.phase = 5;
@@ -288,7 +291,7 @@ export function recordConsumption(s: GameState, c: Creature, r: Resource) {
     else journeyNotice(s, 'Nová pastva je stále v dosahu lovce. Odveď jeho výpad za kryt, nabídni maso nebo zvol druhou oporu.');
   }
   if (s.stage === 2 && role === 'invasive') { site.vitality = Math.max(0, site.vitality - 12); if (!dispersalNotice) journeyNotice(s, 'Žrout okusuje mladé kořeny. Odlákej jej potravou nebo zasáhni do lovu.'); }
-  if (s.stage === 2 && role === 'grazer' && !s.world.creatures.some(o => speciesById(o.species).role === 'invasive' && o.hunger > 28 && distance(o.pos, r.pos) < 10)) resolve(s, site, 'guide');
+  if (s.stage === 2 && role === 'grazer' && !s.world.creatures.some(o => worldSpecies(s.world,o.species).role === 'invasive' && o.hunger > 28 && distance(o.pos, r.pos) < 10)) resolve(s, site, 'guide');
 }
 
 export function recordJourneyHunt(s: GameState, c: Creature, byPlayer = true, cause: 'combat' | 'starvation' | 'exposure' = 'combat') {
@@ -338,7 +341,7 @@ export function stepJourney(s: GameState, dt: number, previous: Vec3, sprint: bo
       site.plantedId = null; site.phase = site.resolved ? 4 : 2;
       journeyNotice(s, JOURNEY_COPY.rootLost);
     }
-    if (site.observed && site.patch === 0 && site.phase < 3 && s.world.creatures.filter(c => c.patch === 0 && speciesById(c.species).role === 'grazer').length === 0) {
+    if (site.observed && site.patch === 0 && site.phase < 3 && s.world.creatures.filter(c => c.patch === 0 && worldSpecies(s.world,c.species).role === 'grazer').length === 0) {
       // A destroyed food web can recover through transplantation; no permanent campaign lock.
       site.vitality = Math.max(10, site.vitality);
     }
@@ -378,7 +381,7 @@ export function plantedStatus(s: GameState, site: EcologySite): { title: string;
   const canopy = site.plantedId !== null ? canopyGuidance(s, site) : null;
   if (canopy) return canopy;
   const lost = site.plantedId !== null ? nurserySpecies(s, site) : null;
-  if (lost) return { title: 'Pastva potřebuje živého návštěvníka', text: `${speciesById(lost).name} v této nice nepřežil. Samotná výsadba jeho návrat nezajistí.`, choices: [`Vrať se k mateřskému porostu. T · ${NURSERY_COPY[lost].label.toLowerCase()}.`, NURSERY_COPY[lost].help.replace('T · ', '')] };
+  if (lost) return { title: 'Pastva potřebuje živého návštěvníka', text: `${worldSpecies(s.world,lost).name} v této nice nepřežil. Samotná výsadba jeho návrat nezajistí.`, choices: [`Vrať se k mateřskému porostu. T · ${NURSERY_COPY[lost].label.toLowerCase()}.`, NURSERY_COPY[lost].help.replace('T · ', '')] };
   const terrace = terraceGuidance(s, site); if (terrace) return terrace;
   if (site.id === 8 && site.plantedId !== null && !s.campaign.won) return { title: site.phase >= 5 ? 'Spory našly domov' : 'Domov čeká na nosiče', text: site.phase >= 5 ? MIGRATION_COPY.needsSupport : MIGRATION_COPY.planted, choices: [wildCarriers(s).length ? MIGRATION_COPY.carry : MIGRATION_COPY.noWild, MIGRATION_COPY.water] };
   if (s.stage === 2 && site.patch < 2 && site.resolved && !s.campaign.won) {
@@ -389,8 +392,8 @@ export function plantedStatus(s: GameState, site: EcologySite): { title: string;
   if (site.resolved || site.plantedId === null) return null;
   const plant = s.world.resources.find(r => r.id === site.plantedId); if (!plant) return null;
   const predator = s.world.creatures.some(c => hunterThreatening(s, c) && distance(c.pos, plant.pos) < 12 && !lineBlocked(s, c.pos, plant.pos));
-  const invader = s.stage === 2 && s.world.creatures.some(c => speciesById(c.species).role === 'invasive' && c.hunger > 28 && distance(c.pos, plant.pos) < 10);
-  const approaching = s.world.creatures.filter(c => speciesById(c.species).role === 'grazer' && c.intent === 'forage' && c.target === plant.id).length;
+  const invader = s.stage === 2 && s.world.creatures.some(c => worldSpecies(s.world,c.species).role === 'invasive' && c.hunger > 28 && distance(c.pos, plant.pos) < 10);
+  const approaching = s.world.creatures.filter(c => worldSpecies(s.world,c.species).role === 'grazer' && c.intent === 'forage' && c.target === plant.id).length;
   return { title: JOURNEY_COPY.planted, text: invader ? JOURNEY_COPY.rootsUnderAttack : predator && s.stage < 2 ? JOURNEY_COPY.unsafePasture : JOURNEY_COPY.firstFeast, choices: [approaching ? JOURNEY_COPY.approaching(approaching) : JOURNEY_COPY.protectApproach, SITE_STORIES[site.id].choices[1]] };
 }
 
@@ -405,7 +408,7 @@ export function journeyHint(s: GameState) {
     const site = activeSites(s).find(x => x.id === s.journey.cargo!.site)!;
     if (s.journey.cargo.purpose === 'food') return { title: JOURNEY_COPY.foodCarried(FOOD_LABEL[s.journey.cargo.kind]), text: JOURNEY_COPY.foodHint(FOOD_LABEL[s.journey.cargo.kind]), choices: [JOURNEY_COPY.foodConsumers(SPECIES.filter(species => species.stage === s.stage && species.diet.includes(s.journey.cargo!.kind)).map(species => species.name).join(', ')), JOURNEY_COPY.foodPlacement], site };
     const lost = site.id !== 8 ? nurserySpecies(s, site) : null;
-    if (lost) return { title: 'Kultura potřebuje živého návštěvníka', text: `${speciesById(lost).name} v této nice nepřežil. Nesenou kulturu si ponecháš při vyživení nového zárodku u mateřského porostu.`, choices: [`Vrať se k matce. T · ${NURSERY_COPY[lost].label.toLowerCase()}.`, NURSERY_COPY[lost].help.replace('T · ', '')], site };
+    if (lost) return { title: 'Kultura potřebuje živého návštěvníka', text: `${worldSpecies(s.world,lost).name} v této nice nepřežil. Nesenou kulturu si ponecháš při vyživení nového zárodku u mateřského porostu.`, choices: [`Vrať se k matce. T · ${NURSERY_COPY[lost].label.toLowerCase()}.`, NURSERY_COPY[lost].help.replace('T · ', '')], site };
     const terrace = terraceGuidance(s, site); if (terrace) return { ...terrace, site };
     if (site.id === 8) {
       const carriers = wildCarriers(s).sort((a, b) => distance(a.pos, s.player.pos) - distance(b.pos, s.player.pos)), nearest = carriers[0];

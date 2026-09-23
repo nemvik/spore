@@ -1,9 +1,9 @@
+import { worldSpecies } from '../game/npc-genome';
 import { creaturePresentationBounds } from './creature-body';
 import { bodyWidth } from '../game/body-shape';
 import * as THREE from 'three';
 import type { GameState, Vec3 } from '../game/types';
 import type { ToolId, TribeBuilding, TribeNeighbour, TribeUnit } from '../game/era-types';
-import { speciesById } from '../game/content';
 import { neighbourMaxHealth } from '../game/tribe-neighbours';
 import { groundHeight } from '../game/random';
 import { speciesGroundClearance } from '../game/anatomy';
@@ -168,7 +168,7 @@ export class SettlementPresentation {
     const key = unit.species ?? genomeKey;
     let view = this.members.get(unit.id);
     if (view && view.key !== key) { this.remove(view.group); this.members.delete(unit.id); view = undefined; }
-    const spec = unit.species ? speciesById(unit.species) : null;
+    const spec = unit.species ? worldSpecies(state.world,unit.species) : null;
     if (!view) {
       const group = new THREE.Group(), body = spec ? createSpeciesModel(spec) : createOrganism(state.player.genome);
       group.name = `tribe-member-${unit.id}`; group.add(body); this.group.add(group);

@@ -1,3 +1,4 @@
+import { worldSpecies } from '../game/npc-genome';
 import * as THREE from 'three';
 import type { GameState, Vec3 } from '../game/types';
 import type { PlanetBiome, PlanetPopulation } from '../game/era-types';
@@ -95,7 +96,7 @@ export class PlanetPresentation {
     });
     this.retire(this.mothers, new Set(mothers.map(mother => mother.resource.id)));
     for (const biome of planet.biomes) this.updateBiome(state, biome);
-    for (const population of living) this.updatePopulation(population, time, reducedMotion);
+    for (const population of living) this.updatePopulation(state,population, time, reducedMotion);
     for (const root of planet.stabilizers) {
       let view = this.roots.get(root.id);
       if (!view) { view = marker('producer', 1.9); view.group.name = `planet-root-${root.id}`; this.group.add(view.group); this.roots.set(root.id, view); }
@@ -149,8 +150,8 @@ export class PlanetPresentation {
     view.levels.forEach((pip, index) => { pip.visible = index < biome.level; pip.position.y = groundHeight(biome.pos.x + pip.position.x, biome.pos.z + pip.position.z, 2) - view!.group.position.y + .4; });
   }
 
-  private updatePopulation(population: PlanetPopulation, time: number, reducedMotion: boolean): void {
-    const taxon = ecologyTaxon(population.key)!, species = speciesById(taxon.species!);
+  private updatePopulation(state: GameState, population: PlanetPopulation, time: number, reducedMotion: boolean): void {
+    const taxon = ecologyTaxon(population.key)!, species = worldSpecies(state.world,taxon.species!);
     let view = this.populations.get(population.id);
     if (view && view.key !== population.key) { this.remove(view.group); this.populations.delete(population.id); view = undefined; }
     if (!view) {

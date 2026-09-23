@@ -55,9 +55,14 @@ export function bodyGroundClearance(genome: Genome): number {
 }
 
 /** Walking species share their rendered sole/body underside with terrain physics. */
-export function speciesGroundClearance(species: Species): number {
+export function speciesGroundClearance(species: Species & { clearance?: number }): number {
+  if (species.clearance !== undefined) return species.clearance;
   if(species.shape === 'worm') return .25 * species.size;
   if(species.shape === 'crab') return .818 * species.size;
   if(species.shape === 'strider') return LEG_SOLE_REACH * .95 * species.size;
   return 1.2; // Flying partners keep a small clearance above the soil.
+}
+
+export function speciesCollisionRadius(species: Species & { radius?: number }): number {
+  return species.radius ?? species.size * .6;
 }

@@ -1,7 +1,8 @@
+import { speciesCollisionRadius } from './anatomy';
+import { worldSpecies } from './npc-genome';
 import { bodyCollisionRadius } from './body-shape';
 import type { GameState, Resource, Species, Vec3 } from './types';
 import type { EcologySite } from './journey-types';
-import { speciesById } from './content';
 import { speciesGroundClearance } from './anatomy';
 import { distance, groundHeight, horizontalDistance } from './random';
 import { obstacleSegmentEntry } from './obstacle-geometry';
@@ -30,7 +31,7 @@ function blocked(s: GameState, from: Vec3, to: Vec3, padding = 0): boolean {
  * intact; a mother or nearby real meal can instead fund the new animal. */
 export function nurseryFood(s: GameState, site: EcologySite): Resource | 'carried' | null {
   const id = nurserySpecies(s, site); if (!id) return null;
-  const species = speciesById(id), cargo = s.journey.cargo;
+  const species = worldSpecies(s.world,id), cargo = s.journey.cargo;
   if (cargo?.purpose === 'food' && species.diet.includes(cargo.kind)) return 'carried';
   return s.world.resources.filter(r => r.amount >= 1 && species.diet.includes(r.kind)
     && distance(r.pos, site.source) < 4 && !blocked(s, site.source, r.pos))
@@ -38,7 +39,7 @@ export function nurseryFood(s: GameState, site: EcologySite): Resource | 'carrie
 }
 
 function nurseryPosition(s: GameState, site: EcologySite, species: Species): Vec3 | null {
-  const radius = species.size * .6;
+  const radius = speciesCollisionRadius(species);
   // Keep recovery at the mother, including while the reef canopy rises.
   for (const ring of [1.2, 2.6, 4.2]) for (let i = 0; i < 12; i++) {
     const angle = i * Math.PI / 6;
@@ -48,7 +49,7 @@ function nurseryPosition(s: GameState, site: EcologySite, species: Species): Vec
     else if (s.stage === 2) p.y = groundHeight(p.x, p.z, 2) + speciesGroundClearance(species);
     else if (p.y < groundHeight(p.x, p.z, 1) + 1.3 || p.y > 12) continue;
     if (s.player.health > 0 && distance(s.player.pos, p) < radius + bodyCollisionRadius(s.player.genome,s.stage) + .1) continue;
-    if (s.world.creatures.some(c => c.health > 0 && distance(c.pos, p) < radius + speciesById(c.species).size * .6 + .1)) continue;
+    if (s.world.creatures.some(c => c.health > 0 && distance(c.pos, p) < radius + speciesCollisionRadius(worldSpecies(s.world,c.species)) + .1)) continue;
     if (s.world.obstacles.some(o => horizontalDistance(p, o.pos) < o.radius + radius
       && (s.stage === 0 || p.y > o.pos.y - radius && p.y < o.pos.y + o.height + radius))) continue;
     if (!blocked(s, site.source, p, radius)) return p;
@@ -62,7 +63,7 @@ export function awakenNursery(s: GameState, site: EcologySite): boolean {
   const id = nurserySpecies(s, site);
   if (!id || s.world.creatures.length >= 48) return false;
   const food = nurseryFood(s, site); if (!food) return false;
-  const position = nurseryPosition(s, site, speciesById(id)); if (!position) return false;
+  const position = nurseryPosition(s, site, worldSpecies(s.world,id)); if (!position) return false;
   const child = spawnCreature(s.world, id, site.patch);
   child.pos = position; child.hunger = 70; child.velocity = { x: 0, y: 0, z: 0 };
   if (food === 'carried') s.journey.cargo = null; else food.amount -= 1;
