@@ -4,12 +4,12 @@ import type { Vec3, World } from '../game/types';
 import { WORLD_BOUND } from '../game/world';
 
 export type CommandUnitRef = { kind: 'member' | 'machine'; id: number };
-export type CommandTarget = CommandUnitRef | { kind: 'food' | 'creature' | 'hut' | 'neighbour' | 'region' | 'spring'; id: number };
+export type CommandTarget = CommandUnitRef | { kind: 'food' | 'creature' | 'hut' | 'neighbour' | 'neighbour-unit' | 'region' | 'spring'; id: number };
 export interface CommandPickVolume { target: CommandTarget; center: Vec3; radius: number; }
 export interface ScreenRect { left: number; top: number; right: number; bottom: number; }
 export interface ViewportRect { left: number; top: number; width: number; height: number; }
 
-const targetKinds = new Set(['member', 'machine', 'food', 'creature', 'hut', 'neighbour', 'region', 'spring']);
+const targetKinds = new Set(['member', 'machine', 'food', 'creature', 'hut', 'neighbour', 'neighbour-unit', 'region', 'spring']);
 // Unit orders reserve two metres at the edge of the physical world.
 const commandBound = WORLD_BOUND - 2;
 const finitePoint = (point: Vec3): boolean => [point.x, point.y, point.z].every(Number.isFinite);

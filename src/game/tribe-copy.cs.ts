@@ -1,6 +1,7 @@
 import type { LegacyAbility, ToolId } from './era-types';
 
 export const TRIBE_COPY = {
+  dispositions: { friendly: 'Přátelští', neutral: 'Neutrální', hostile: 'Nepřátelští' },
   title: 'Kruh kolem ohně', subtitle: 'Jedno tělo dalo vzniknout celé tlupě.',
   enter: 'Založit kmen', enterHelp: 'Veď potomky své linie a původní symbionty. Jídlo živí tlupu i staví její domov; se sousedy se můžeš spojit, nebo je porazit.',
   founded: 'Kolem první chýše se schází tvoje linie. Vyber členy a pošli je pro potravu.',
@@ -14,7 +15,7 @@ export const TRIBE_COPY = {
   attack: 'Zaútočit', socialize: 'Spřátelit', stop: 'Zastavit', home: 'Tábor',
   ability: 'Dědictví linie', next: 'Vstoupit do éry strojů', ready: 'Všichni sousedé patří do společného kruhu. Kmen je připraven stavět stroje.',
   objective: 'Spoj se se všemi třemi sousedy, nebo je poraz. Zachovej alespoň jednoho člena.',
-  help: 'Levý klik nebo rámeček vybírá členy. Shift přidává výběr či rozkaz do fronty. Pravý klik posílá jednotky, pravý tah otáčí pohled. WASD posouvá kameru; kolečko přibližuje. H vrátí pohled k táboru, Tab otevře výstroj, T použije dědictví, G pokračuje po sjednocení sousedů.',
+  help: 'Levý klik nebo rámeček vybírá členy. Shift přidává výběr či rozkaz do fronty. Pravý klik na cizího člena útočí, Alt + pravý klik nabízí smír. Ústup domů vrátí vybrané členy. Pravý klik posílá jednotky, pravý tah otáčí pohled. WASD posouvá kameru; kolečko přibližuje. H vrátí pohled k táboru, Tab otevře výstroj, T použije dědictví, G pokračuje po sjednocení sousedů.',
   selectFirst: 'Nejprve vyber živé členy tlupy.', unavailable: 'Tato akce není v aktuální etapě dostupná.',
   notFood: 'Vybraní členové tento druh potravy nejedí. Rozhoduje zděděné tělo a druh symbionta.',
   noHunting: 'Tato linie neumí získávat potravu lovem. Ozbrojený konflikt se sousedy zůstává možný.',
@@ -47,8 +48,8 @@ export const TRIBE_COPY = {
     migration: { name: 'Společná cesta', hint: 'Nasytí a ošetří vybrané členy; blízké sousedy naladí k dohodě.' },
   } satisfies Record<LegacyAbility, { name: string; hint: string }>,
   neighbours: {
-    garden: { name: 'Kmen pramenných sadů', hint: 'Zahrada se během klidu hojí. Spojenci oživují okolní potravu.' },
-    terrace: { name: 'Strážci jantarové terasy', hint: 'Silná obrana a delší dosah. Bubeníci projdou s darem; bojovníci potřebují péči.' },
+    garden: { name: 'Kmen pramenných sadů', hint: 'Přátelští sběrači nechávají zdroje u tvého domova tobě. Jídlem živí a obnovují vlastní osadu.' },
+    terrace: { name: 'Strážci jantarové terasy', hint: 'Nepřátelští strážci při nedostatku vyšlou malou výpravu. Dar a osobní setkání ji uklidní.' },
     sanctuary: { name: 'Poutníci severního kruhu', hint: 'Největší společná hostina přináší nejpevnější přátelství.' },
   },
 } as const;

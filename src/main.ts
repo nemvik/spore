@@ -1,3 +1,4 @@
+import { enableNeighbourSocieties } from './game/tribe-society';
 import { lineageHistoryMarkup } from './ui/lineage-history';
 import { enableLineageHistory } from './game/lineage-history';
 import { activeCell, cellScale, cellCameraZoom, cellTier } from './game/cell-growth';
@@ -477,6 +478,9 @@ function action(a:string){if(mode==='editor'){finishEditorInput();finishCreature
   const tribe=currentTribe()!,ids=selectedMembers();
   if(command==='tribe-all')selectUnits(tribe.members.map(u=>({kind:'member',id:u.id})));
   else if(command==='tribe-select'){const id=Number(arg);if(tribe.members.some(u=>u.id===id))selectUnits([{kind:'member',id}],keys.has('ShiftLeft')||keys.has('ShiftRight'));}
+  else if(command==='tribe-retreat')commandResult(issueTribeOrder(state,ids,'move',{kind:'point',pos:tribeHome(tribe)}));
+  else if(command==='tribe-expedition-focus'){const n=tribe.neighbours.find(n=>n.id===Number(arg));const u=n?.society?.members.find(u=>n.society?.expedition?.members.includes(u.id));if(u)graphics.focusCommand(u.pos);}
+  else if(command==='tribe-intercept'||command==='tribe-parley'){const n=tribe.neighbours.find(n=>n.id===Number(arg));const u=n?.society?.members.find(u=>n.society?.expedition?.members.includes(u.id)&&u.health>0);if(u)commandResult(issueTribeOrder(state,ids,command==='tribe-intercept'?'attack':'socialize',{kind:'neighbour-unit',id:u.id}));}
   else if(command==='tribe-home')graphics.focusCommand(tribeHome(tribe));
   else if(command==='tribe-focus'){const n=tribe.neighbours.find(n=>n.id===Number(arg));if(n)graphics.focusCommand(n.pos);}
   else if(command==='tribe-next'){if(continueToMachinesEra(state)){resetCommands();persistState();audio.stage(state.stage);switchMode('game');}else announce(state,TRIBE_COPY.notReady);}
@@ -515,7 +519,7 @@ function action(a:string){if(mode==='editor'){finishEditorInput();finishCreature
   else if(command==='planet-remove')commandResult(removePlanetLife(state,Number(arg)));
  }
  else if(command==='save')save();
- else if(command==='load'){try{state=loadGame(arg);enableLineageHistory(state);resetCommands();autoSaveTick=state.tick;audio.stage(state.stage);switchMode(state.deathReason?'death':(awaitingOrganismVictory(state)||awaitingPlanetVictory(state))?'won':'game');returnMode='game';}catch(e){modalError=(e as Error).message;renderUI();}}
+ else if(command==='load'){try{state=loadGame(arg);enableLineageHistory(state);enableNeighbourSocieties(state);resetCommands();autoSaveTick=state.tick;audio.stage(state.stage);switchMode(state.deathReason?'death':(awaitingOrganismVictory(state)||awaitingPlanetVictory(state))?'won':'game');returnMode='game';}catch(e){modalError=(e as Error).message;renderUI();}}
  else if(command==='delete'){if(confirm(COPY.confirmDelete)){try{deleteGame(arg);modalError='';}catch(error){modalError=error instanceof Error?error.message:COPY.deleteFailed;}saves();}}
  else if(command==='export'){try{const blob=new Blob([serializeGame(state)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`lumavora-${state.seed}-gen${state.player.generation}.json`;try{a.click();}finally{setTimeout(()=>URL.revokeObjectURL(url),1000);}modalError='';}catch(error){modalError=error instanceof Error?error.message:COPY.exportFailed;}renderUI();}
  else if(command==='recover'){state=recoverGeneration(state);resetCommands();autoSaveTick=state.tick;persistState();switchMode('game');}
@@ -532,7 +536,7 @@ ui.addEventListener('click',e=>{const button=(e.target as HTMLElement).closest<H
 ui.addEventListener('change',async e=>{const input=e.target as HTMLInputElement|HTMLSelectElement;
  if(input.id==='library-description'&&libraryEditing){libraryEditing.description=input.value;return;}
  if(input.id==='import-creature'){const file=(input as HTMLInputElement).files?.[0];if(!file)return;try{if(file.size>CREATURE_FILE_LIMIT)throw new Error('Soubor tvora je příliš velký (maximum 128 KiB).');const result=importCreation(localStorage,await file.text());modalError=result.duplicate?'Tento tvor už v knihovně je.':'Tvor importován.';}catch(error){modalError=(error as Error).message;}if(mode==='library')library();return;}
- if(input.id==='import-save'){const file=(input as HTMLInputElement).files?.[0];if(!file)return;try{if(file.size>8*1024*1024)throw new Error(COPY.importTooLarge);const imported=parseGame(await file.text());enableLineageHistory(imported);imported.id=`line-${imported.seed}-${Date.now()}`;if(imported.checkpoint){const checkpoint=JSON.parse(imported.checkpoint);checkpoint.id=imported.id;imported.checkpoint=JSON.stringify(checkpoint);}const result=saveGame(imported);if(!result.ok)throw new Error(result.error);state=imported;resetCommands();autoSaveTick=state.tick;audio.stage(state.stage);returnMode='game';switchMode(state.deathReason?'death':(awaitingOrganismVictory(state)||awaitingPlanetVictory(state))?'won':'game');}catch(error){modalError=(error as Error).message;saves();}return;}
+ if(input.id==='import-save'){const file=(input as HTMLInputElement).files?.[0];if(!file)return;try{if(file.size>8*1024*1024)throw new Error(COPY.importTooLarge);const imported=parseGame(await file.text());enableLineageHistory(imported);enableNeighbourSocieties(imported);imported.id=`line-${imported.seed}-${Date.now()}`;if(imported.checkpoint){const checkpoint=JSON.parse(imported.checkpoint);checkpoint.id=imported.id;imported.checkpoint=JSON.stringify(checkpoint);}const result=saveGame(imported);if(!result.ok)throw new Error(result.error);state=imported;resetCommands();autoSaveTick=state.tick;audio.stage(state.stage);returnMode='game';switchMode(state.deathReason?'death':(awaitingOrganismVictory(state)||awaitingPlanetVictory(state))?'won':'game');}catch(error){modalError=(error as Error).message;saves();}return;}
  if(input.dataset.setting){const key=input.dataset.setting as keyof Settings;const value=input.type==='checkbox'?(input as HTMLInputElement).checked:key==='quality'?input.value:Number(input.value);settings={...settings,[key]:value};try{localStorage.setItem('lumavora:settings',JSON.stringify(settings));}catch{}audio.update(settings);graphics.setQuality(settings);return;}
  if(mode==='editor'&&(input.dataset.genome||input.dataset.part||input.dataset.spine||input.dataset.creature)){applyEditorInput(input);if(input.type!=='range'&&input.type!=='number')finishEditorInput();}
 });
@@ -587,6 +591,7 @@ function finishPointer(e:PointerEvent){const wasMoving=movingPointer,wasDragging
     if(hit?.kind==='food')commandResult(issueTribeOrder(state,ids,'gather',hit,append));
     else if(hit?.kind==='creature')commandResult(issueTribeOrder(state,ids,'attack',hit,append));
     else if(hit?.kind==='hut'&&currentTribe()!.huts.some(h=>h.id===hit.id&&h.progress<1))commandResult(issueTribeOrder(state,ids,'build',hit,append));
+    else if(hit?.kind==='neighbour-unit')commandResult(issueTribeOrder(state,ids,e.altKey?'socialize':'attack',hit,append));
     else if(hit?.kind==='neighbour')commandResult(issueTribeOrder(state,ids,e.altKey?'attack':'socialize',hit,append));
     else{const pos=graphics.commandGround(state,e.clientX,e.clientY);if(pos)commandResult(issueTribeOrder(state,ids,'move',{kind:'point',pos},append));}
    }

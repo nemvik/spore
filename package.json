@@ -12,6 +12,7 @@
     "test:browser": "node scripts/browser-test.mjs",
     "test:era": "node scripts/era-browser.mjs",
     "test:tribe": "node scripts/tribe-browser.mjs",
+    "test:tribe-society": "node scripts/tribe-society-browser.mjs",
     "test:planet": "node scripts/planet-browser.mjs",
     "test:planet-soak": "node scripts/planet-soak.mjs",
     "test:machine-editor": "node scripts/machine-editor-browser.mjs",

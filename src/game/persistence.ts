@@ -519,12 +519,40 @@ function validateUnitOrder(value: unknown, owner: number, path: string): void {
   oneOf(order.kind, ['move', 'gather', 'attack', 'socialize', 'build'], `${path}.kind`);
   const kind = order.target && typeof order.target === 'object' ? (order.target as Record<string, unknown>).kind : undefined;
   const target = object(order.target, `${path}.target`, kind === 'point' ? ['kind', 'pos'] : ['kind', 'id']);
-  oneOf(target.kind, ['point', 'food', 'creature', 'hut', 'neighbour', 'region', 'spring'], `${path}.target.kind`);
+  oneOf(target.kind, ['point', 'food', 'creature', 'hut', 'neighbour', 'neighbour-unit', 'region', 'spring'], `${path}.target.kind`);
   if (target.kind === 'point') vector(target.pos, `${path}.target.pos`);
   else number(target.id, `${path}.target.id`, 1, MAX_COUNT, true);
   if (!validOrderShape(value as UnitOrder)) invalid(path, SAVE_ERRORS.unknownValue);
   // A resource may be exhausted or a target killed before this order becomes
   // active. Its shape and ownership must be valid; existence is resolved by AI.
+}
+
+function validateNeighbourSociety(value: unknown, path: string, ids: number[], nextId: number, resolved: unknown): void {
+  const a = object(value,path,['version','food','members','recruitCooldown','raidCooldown','truce','expedition']);
+  oneOf(a.version,[1],`${path}.version`); number(a.food,`${path}.food`,0,48);
+  for(const key of ['recruitCooldown','raidCooldown','truce']) number(a[key],`${path}.${key}`,0,120);
+  const residents=array(a.members,`${path}.members`,4).map((value,index)=>{
+    const at=`${path}.members[${index}]`,u=object(value,at,['id','pos','heading','health','hunger','cargo','cooldown','task','resource','navigation']);
+    const id=number(u.id,`${at}.id`,1,nextId-1,true);ids.push(id);
+    vector(u.pos,`${at}.pos`,80);number(u.heading,`${at}.heading`,-1e9,1e9);
+    number(u.health,`${at}.health`,0,70);number(u.hunger,`${at}.hunger`,0,100);number(u.cargo,`${at}.cargo`,0,2);number(u.cooldown,`${at}.cooldown`,0,10);
+    oneOf(u.task,['rest','forage','return','defend','raid'],`${at}.task`);
+    if(u.resource!==null)number(u.resource,`${at}.resource`,1,MAX_COUNT,true);
+    const nav=object(u.navigation,`${at}.navigation`,['waypoint','target','rethink']);
+    vector(nav.waypoint,`${at}.navigation.waypoint`);vector(nav.target,`${at}.navigation.target`);number(nav.rethink,`${at}.navigation.rethink`,0,1);
+    return id;
+  });
+  if(a.expedition!==null){
+    const e=object(a.expedition,`${path}.expedition`,['phase','members','time']);
+    oneOf(e.phase,['warning','outbound','return'],`${path}.expedition.phase`);number(e.time,`${path}.expedition.time`);
+    const party=array(e.members,`${path}.expedition.members`,2,1).map((id,index)=>{
+      number(id,`${path}.expedition.members[${index}]`,1,nextId-1,true);
+      if(!residents.includes(Number(id)))invalid(`${path}.expedition.members`,SAVE_ERRORS.unknownValue);
+      return Number(id);
+    });
+    uniqueIds(party,`${path}.expedition.members`);
+    if(resolved!==null&&e.phase!=='return')invalid(`${path}.expedition.phase`,SAVE_ERRORS.unknownValue);
+  }
 }
 
 function validateActiveTribe(value: unknown): void {
@@ -586,15 +614,18 @@ function validateActiveTribe(value: unknown): void {
   const identities: unknown[] = [];
   const neighbours = array(t.neighbours, `${path}.neighbours`, 3, 3).map((value, index) => {
     const at = `${path}.neighbours[${index}]`;
-    const neighbour = object(value, at, ['id', 'pos', 'relation', 'resolved', 'identity', 'health', 'alarm', 'tribute', 'cooldown']);
+    const hasSociety=!!value&&typeof value==='object'&&Object.prototype.hasOwnProperty.call(value,'society');
+    const neighbour = object(value, at, ['id', 'pos', 'relation', 'resolved', 'identity', 'health', 'alarm', 'tribute', 'cooldown',...(hasSociety?['society']:[])]);
     ids.push(number(neighbour.id, `${at}.id`, 1, nextId - 1, true)); vector(neighbour.pos, `${at}.pos`);
     number(neighbour.relation, `${at}.relation`, -100, 100);
     oneOf(neighbour.resolved, [null, 'conquered', 'allied'], `${at}.resolved`);
     oneOf(neighbour.identity, ['garden', 'terrace', 'sanctuary'], `${at}.identity`); identities.push(neighbour.identity);
     number(neighbour.health, `${at}.health`, 0, 250); number(neighbour.alarm, `${at}.alarm`, 0, 100);
     number(neighbour.tribute, `${at}.tribute`); number(neighbour.cooldown, `${at}.cooldown`);
+    if(hasSociety)validateNeighbourSociety(neighbour.society,`${at}.society`,ids,nextId,neighbour.resolved);
     return neighbour;
   });
+  if(neighbours.some(n=>n.society)&&neighbours.some(n=>!n.society))invalid(`${path}.neighbours`,SAVE_ERRORS.invalidFields);
   uniqueIds(ids, path);
   if (new Set(identities).size !== identities.length) invalid(`${path}.neighbours`, SAVE_ERRORS.duplicateIds);
   if (t.completed && neighbours.some(neighbour => neighbour.resolved === null)) invalid(`${path}.completed`, SAVE_ERRORS.unknownValue);
@@ -981,6 +1012,10 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
       if (Object.prototype.hasOwnProperty.call(restored, key) !== sliceKeys.includes(key)) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     }
     if (restored.tribe?.version !== (s.tribe as GameState['tribe'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if(restored.tribe?.version===2&&(s.tribe as ActiveTribeState)?.version===2){
+      const live=s.tribe as ActiveTribeState;
+      for(const n of restored.tribe.neighbours)if(n.society?.version!==live.neighbours.find(v=>v.identity===n.identity)?.society?.version)invalid('checkpoint.tribe.neighbours',SAVE_ERRORS.checkpointMismatch);
+    }
     if (restored.machines?.version !== (s.machines as GameState['machines'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     // The rule marker is fixed at birth; the earlier filter opening may differ.

@@ -29,7 +29,7 @@ Návaznosti určují potřebné výstupy při realizaci, nikoli zákaz připravi
 | [SP-005 · Knihovna výtvorů a společný genom](#sp-005) | A–E | Rozpracováno | SP-002; další typy spolu s příslušnými editory | **A hotovo:** [knihovna tvorů a NPC](SP-005-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-005-creature-library.md); B–E čeká na příslušné editory |
 | [SP-006 · Buněčný růst a přestavba](#sp-006) | A | Hotovo | SP-001 | [Plán](../superpowers/plans/2026-09-23-sp-006-cell-growth.md), [růst, kontakty a objevování](SP-006-REPORT.md); 2 267 testů, nová linie bez připraveného stavu, meze lidského playtestu v reportu |
 | [SP-007 · Dědictví celé linie](#sp-007) | A–D | Rozpracováno | SP-003; výsledky dalších etap průběžně | **A hotovo:** [smlouva](SP-007A-CONTRACT.md), [report](SP-007A-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-007a-lineage-history.md); B1/B2/D otevřené |
-| [SP-008 · Aktivní kmenová společnost](#sp-008) | B | K plánu | SP-003, SP-007 (smlouva dědictví) | — |
+| [SP-008 · Aktivní kmenová společnost](#sp-008) | B | Rozpracováno | SP-003, SP-007.A (smlouva dědictví) | **A hotovo:** [plán](../superpowers/plans/2026-09-23-sp-008a-active-neighbours.md), [report](SP-008A-REPORT.md); B–F otevřené |
 | [SP-009 · Města a civilizace](#sp-009) | B | K plánu | SP-008, SP-010 | — |
 | [SP-010 · Celá planeta](#sp-010) | B | K plánu | SP-001 | — |
 | [SP-011 · Loď a vesmírné cestování](#sp-011) | C–D | K plánu | SP-009, SP-010, SP-005 (knihovna a formát) | — |
@@ -177,13 +177,25 @@ A nezavírá celou SP-007: současné kmenové/regionální výsledky se uchová
 
 **Výchozí stav:** vlastní členové sbírají, staví a bojují; tři sousedé mají vztah, zdraví a místní odvetu. **Cíl:** samostatně jednající sousední tlupy a širší společenská hra.
 
-**Rozdělení plánů:** sousední jednotky a hospodářství → hudba a diplomacie → výstroj/domestikace/náčelník → více sousedů. Navázat na [kmen](../../src/game/tribe.ts), [sousedy](../../src/game/tribe-neighbours.ts), [divoké tvory](../../src/game/tribe-wildlife.ts), [příkazy](../../src/game/unit-order.ts) a [browser scénáře kmene](../../scripts/tribe-browser.mjs). Reference: [kmenový průchod Spore][tribal].
+**Rozdělení:** A aktivní sousedé → B kulturní výstroj → C rozšířená hudební setkání → D domestikace → E náčelník → F pět sousedů. Navázat na [kmen](../../src/game/tribe.ts), [sousedy](../../src/game/tribe-neighbours.ts), [divoké tvory](../../src/game/tribe-wildlife.ts), [příkazy](../../src/game/unit-order.ts) a [browser scénáře kmene](../../scripts/tribe-browser.mjs). Reference: [kmenový průchod Spore][tribal].
 
-- [ ] Sousedé mají skutečné jednotky, sběr, spotřebu a obnovu; samostatně podniknou nájezd nebo krádež jídla a brání domov.
+- [x] **SP-008.A, tři současní sousedé:** skutečné jednotky, sběr, spotřeba a obnova; samostatná varovaná výprava za jídlem a obrana domova.
 - [ ] Hudební setkání vyžaduje volbu vhodných nástrojů a reaguje na sestavu skupiny.
 - [ ] Editor kulturní výstroje, domestikace a viditelný náčelník mají použitelnou roli v hraní.
 - [ ] Po ověření aktivních sousedů rozšířit mapu k pěti soupeřícím kmenům; ověřit dostupnost zdrojů a cesty jednotek.
-- [ ] Celou fázi lze dokončit diplomacií i bojem; průchody zahrnují obranu proti vlastní iniciativě souseda a obnovení z uložené hry.
+- [x] **SP-008.A, tři současní sousedé:** fázi lze dokončit diplomacií i bojem; produkční průchody zahrnují smír/boj proti skutečné výpravě a obnovení z uložené hry. Pět sousedů zůstává v F.
+
+
+| Část | Stav | Rozsah a návaznost |
+| --- | --- | --- |
+| **SP-008.A — aktivní sousední kmeny** | Hotovo | Tři společnosti, fyzický sběr/doručení, placená spotřeba/obnova, obrana a varovaná výprava; smír, ústup, boj, obě cesty a kompatibilní save. [Plán](../superpowers/plans/2026-09-23-sp-008a-active-neighbours.md), [report](SP-008A-REPORT.md). |
+| **SP-008.B — kulturní výstroj** | K plánu | Editor kulturních částí a jejich herní účinek; naváže na A a formát knihovny SP-005. |
+| **SP-008.C — rozšířená hudební setkání** | K plánu | Volba nástrojů, požadavky souseda a reakce na sestavu skupiny; naváže na A/B. |
+| **SP-008.D — domestikace** | K plánu | Získání, péče a role domestikovaných zvířat; naváže na A a existující divokou faunu. |
+| **SP-008.E — náčelník** | K plánu | Viditelný náčelník a vlastní ovladatelná společenská role; naváže na A/C. |
+| **SP-008.F — pět sousedů** | K plánu | Rozšíření mapy, zdrojů, cest a obou způsobů dokončení na pět kmenů; po ověření A. |
+
+A zachovává dosavadní nástroje a jednorázové výsledky. Neuzavírá celou SP-008 ani SP-007. **Nové následky kmene pro civilizaci patří výhradně do SP-007.B1**; A nemění strojový archetyp podle nových výsledků. Připravené browser vstupy a odehrané akce jsou oddělené v reportu.
 
 <a id="sp-009"></a>
 ### SP-009 — Plná civilizace s městy
@@ -312,7 +324,7 @@ A nezavírá celou SP-007: současné kmenové/regionální výsledky se uchová
 7. Krátký výsledek a meze ověření uložit do verzovaného reportu nebo plánu. Velké browser výstupy ponechat mimo Git; zachovat malou finální evidenci podle [AGENTS.md](../../AGENTS.md). Samotný odkaz na lokální ignorované `evidence/` nestačí jako jediný trvalý doklad dokončení.
 8. Přidat stručný datovaný záznam níže. Pokud se rozsah změní, uvést důvod a přesunout zbývající práci do pojmenovaného bodu; neoznačovat ji tiše za hotovou. Milník přijmout podle hratelného výsledku briefu, ne podle počtu odškrtnutých dílčích úkolů.
 
-SP-002.1–SP-002.3 jsou doložené [finálním reportem](SP-002-REPORT.md). Navazující SP-003 a SP-004 už mají [report života druhu](SP-003-REPORT.md) a [report objevování a generací](SP-004-REPORT.md). Část A knihovny SP-005 je doložená [reportem](SP-005-REPORT.md); zbývající části B–E zůstávají otevřené. SP-006 uzavírá [report buněčné smyčky](SP-006-REPORT.md); další otevřená karta milníku A je první část SP-007. Celá SP-017 zůstává otevřená, včetně chybějícího lidského testu a poslechu. Tento tracker samotný není vykonatelným plánem všech 17 bodů.
+SP-002.1–SP-002.3 jsou doložené [finálním reportem](SP-002-REPORT.md). Navazující SP-003 a SP-004 už mají [report života druhu](SP-003-REPORT.md) a [report objevování a generací](SP-004-REPORT.md). Část A knihovny SP-005 je doložená [reportem](SP-005-REPORT.md); zbývající části B–E zůstávají otevřené. SP-006 uzavírá [report buněčné smyčky](SP-006-REPORT.md); první část SP-007 uzavírá [smlouva a report dědictví](SP-007A-REPORT.md). Milník B pokračuje dílčími částmi SP-008; nové civilizační následky zůstávají v SP-007.B1. Celá SP-017 zůstává otevřená, včetně chybějícího lidského testu a poslechu. Tento tracker samotný není vykonatelným plánem všech 17 bodů.
 
 ## Zdroje pro implementační návrhy
 

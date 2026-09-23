@@ -46,6 +46,8 @@ function attackDamage(s: GameState) {
   continueToTribeEra(s);
   const t = s.tribe!; if (t.version !== 2) throw new Error('tribe');
   const u = t.members[0], n = t.neighbours[1];
+  // Prepared undefended home isolates the original SP-007.A home damage.
+  n.society!.members=[];
   u.pos = { ...n.pos, z: n.pos.z - 2 }; const health = n.health;
   expect(issueTribeOrder(s, [u.id], 'attack', { kind: 'neighbour', id: n.id }).ok).toBe(true);
   stepTribe(s, 1 / 60); return health - n.health;
@@ -92,10 +94,10 @@ describe('SP-007.A action evidence and inheritance', () => {
     for (const route of ['social', 'predator'] as const) {
       const s = finished(route); continueToTribeEra(s); const t = s.tribe!;
       if (t.version !== 2) throw new Error('tribe');
-      const u = t.members[0], n = t.neighbours[1], food = t.food;
+      const u = t.members[0], n = t.neighbours[1], food = t.food, relation = n.relation;
       u.pos = { ...n.pos, z: n.pos.z - 2 };
       issueTribeOrder(s, [u.id], 'socialize', { kind: 'neighbour', id: n.id }); stepTribe(s, 1 / 60);
-      expect(n.relation).toBeCloseTo(.45 / 60 * (route === 'social' ? 1.15 : 1));
+      expect(n.relation-relation).toBeCloseTo(.45 / 60 * (route === 'social' ? 1.15 : 1));
       expect(t.food).toBe(food - 12);
     }
   });

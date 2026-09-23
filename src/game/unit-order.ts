@@ -3,7 +3,7 @@ import type { Vec3 } from './types';
 /** Shared by the tribe and fleet; presentation selection is deliberately absent. */
 export type UnitTarget =
   | { kind: 'point'; pos: Vec3 }
-  | { kind: 'food' | 'creature' | 'hut' | 'neighbour' | 'region' | 'spring'; id: number };
+  | { kind: 'food' | 'creature' | 'hut' | 'neighbour' | 'neighbour-unit' | 'region' | 'spring'; id: number };
 export interface UnitOrder {
   unit: number;
   kind: 'move' | 'gather' | 'attack' | 'socialize' | 'build';
@@ -19,6 +19,6 @@ export function validOrderShape(order: UnitOrder): boolean {
   if (!Number.isSafeInteger(order.target.id) || order.target.id < 1) return false;
   return order.kind === 'gather' ? order.target.kind === 'food' || order.target.kind === 'spring' :
     order.kind === 'build' ? order.target.kind === 'hut' || order.target.kind === 'region' :
-    order.kind === 'socialize' ? order.target.kind === 'neighbour' || order.target.kind === 'region' :
-    order.kind === 'attack' && ['creature', 'neighbour', 'region'].includes(order.target.kind);
+    order.kind === 'socialize' ? order.target.kind === 'neighbour' || order.target.kind === 'neighbour-unit' || order.target.kind === 'region' :
+    order.kind === 'attack' && ['creature', 'neighbour', 'neighbour-unit', 'region'].includes(order.target.kind);
 }

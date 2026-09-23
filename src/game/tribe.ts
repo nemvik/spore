@@ -1,3 +1,4 @@
+import { initializeNeighbours, tribeContact } from './tribe-society';
 import { creatureInheritance } from './lineage-history';
 import { worldSpecies } from './npc-genome';
 import { recordEcologyContact } from './ecology-catalog';
@@ -8,7 +9,7 @@ import { MAX_UNIT_ORDERS, orderedIds, validOrderShape } from './unit-order';
 import { computeStats, has } from './genome';
 import { clamp, groundHeight, horizontalDistance } from './random';
 import { moveUnit, openGround, unitNavigation } from './unit-motion';
-import { meetNeighbour, neighbourGift, neighbourMaxHealth, stepNeighbours } from './tribe-neighbours';
+import { meetNeighbour, neighbourGift, neighbourMaxHealth, stepNeighbours, strikeNeighbourUnit } from './tribe-neighbours';
 import { TRIBE_COPY } from './tribe-copy.cs';
 import { removeTribePrey } from './tribe-wildlife';
 
@@ -46,10 +47,12 @@ export function createTribe(s: GameState): ActiveTribeState {
   }
   const centers = [{ x: -38, y: 0, z: -28 }, { x: 42, y: 0, z: 6 }, { x: -12, y: 0, z: 46 }];
   const neighbours: TribeNeighbour[] = (['garden', 'terrace', 'sanctuary'] as const).map((identity, i) => ({
-    id: nextId++, identity, pos: openGround(s.world, centers[i], i, 4), relation: 0,
+    id: nextId++, identity, pos: openGround(s.world, centers[i], i, 4), relation: identity === 'terrace' ? -35 : identity === 'garden' ? 30 : 0,
     resolved: null, health: neighbourMaxHealth({ identity }), alarm: 0, tribute: 0, cooldown: 0,
   }));
-  return { version: 2, food: 36, members, huts: [hut], unlocked: [], neighbours, legacyAbility: s.campaign.finale!, abilityCooldown: 0, abilityTime: 0, nextId, elapsed: 0, completed: false };
+  const tribe: ActiveTribeState = { version: 2, food: 36, members, huts: [hut], unlocked: [], neighbours, legacyAbility: s.campaign.finale!, abilityCooldown: 0, abilityTime: 0, nextId, elapsed: 0, completed: false };
+  initializeNeighbours(s, tribe);
+  return tribe;
 }
 
 function playable(s: GameState): ActiveTribeState | null { return s.stage === 3 && !s.deathReason ? activeTribe(s) : null; }
@@ -71,6 +74,10 @@ export function issueTribeOrder(s: GameState, ids: readonly number[], kind: Unit
     if (!has(s.player.genome, 'jaw') || units.some(u => !memberDiet(s, u).includes('meat'))) return fail(TRIBE_COPY.noHunting);
   } else if (target.kind === 'hut') {
     if (!t.huts.some(h => h.id === target.id && h.health > 0 && h.progress < 1)) return fail(TRIBE_COPY.badTarget);
+  } else if (target.kind === 'neighbour-unit') {
+    const n = t.neighbours.find(n=>!n.resolved&&n.society?.members.some(u=>u.id===target.id&&u.health>0));
+    if (!n) return fail(TRIBE_COPY.badTarget);
+    if (kind==='socialize'&&n.tribute<neighbourGift(n)&&t.food<neighbourGift(n)) return fail(TRIBE_COPY.noGift);
   } else if (target.kind === 'neighbour') {
     const n = t.neighbours.find(n => n.id === target.id && !n.resolved);
     if (!n) return fail(TRIBE_COPY.badTarget);
@@ -147,7 +154,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
   const messages: string[] = [], home = tribeHome(t), stats = computeStats(s.player.genome);
   t.elapsed += dt; t.abilityCooldown = Math.max(0, t.abilityCooldown - dt); t.abilityTime = Math.max(0, t.abilityTime - dt);
   const units = [...t.members].sort((a, b) => a.id - b.id);
-  const positions = units.map(u => ({ id: u.id, pos: { ...u.pos } }));
+  const positions = [...units, ...t.neighbours.flatMap(n=>n.society?.members??[])].filter(u=>u.health>0).sort((a,b)=>a.id-b.id).map(u => ({ id: u.id, pos: { ...u.pos } }));
   for (const u of units) {
     if (u.health <= 0) continue;
     u.cooldown = Math.max(0, u.cooldown - dt);
@@ -157,6 +164,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
     if (u.species) u.loyalty = clamp(u.loyalty + dt * (u.hunger > 75 ? -.18 : .04), 0, 100);
     const pace = u.species ? clamp(worldSpecies(s.world,u.species).speed, 2.5, 6) : clamp(stats.speed * stats.walk, 2.5, 6);
     const travel = (target: Vec3, stop = 2) => moveUnit(s.world, u, target, positions, pace, dt, stop);
+    const contact = (target: Vec3, stop: number) => { travel(target, tribeContact(s.world,u.pos,target) ? stop : .5); return horizontalDistance(u.pos,target)<=stop+.05 && tribeContact(s.world,u.pos,target); };
     const atHome = horizontalDistance(u.pos, home) < 4;
     if (atHome) {
       if (u.cargo > 0) { t.food += u.cargo * 4; u.cargo = 0; }
@@ -171,7 +179,12 @@ export function stepTribe(s: GameState, dt: number): string[] {
     // An empty camp cannot feed a hungry gatherer. Let it secure the next meal
     // instead of trapping it in a retreat loop just outside the home radius.
     if ((u.hunger > 68 && t.food >= 2 || u.health < 18 && (t.food >= 2 || u.hunger < 60)) && !atHome) { u.intent = 'flee'; travel(home, 3); continue; }
-    if (!order || !target) { u.intent = 'rest'; continue; }
+    if (!order || !target) {
+      u.intent = 'rest';
+      const enemy=t.neighbours.flatMap(n=>!n.resolved&&n.society?.truce===0?n.society.members.filter(v=>v.health>0&&(v.task==='raid'||v.task==='defend')&&horizontalDistance(u.pos,v.pos)<(u.tool==='spear'?4.5:2.5)).map(v=>({n,v})):[]).sort((a,b)=>horizontalDistance(u.pos,a.v.pos)-horizontalDistance(u.pos,b.v.pos)||a.v.id-b.v.id)[0];
+      if(enemy&&tribeContact(s.world,u.pos,enemy.v.pos))strikeNeighbourUnit(u,enemy.n,enemy.v,u.species?1:inheritance.combat);
+      continue;
+    }
     const finish = () => { u.orders.shift(); u.navigation.rethink = 0; u.intent = 'rest'; };
     if (target.kind === 'point') { u.intent = 'forage'; if (travel(target.pos, .5)) finish(); continue; }
     if (target.kind === 'food') {
@@ -192,10 +205,20 @@ export function stepTribe(s: GameState, dt: number): string[] {
         hut.progress = Math.min(1, hut.progress + dt / 14);
         if (hut.progress === 1) { if (hut.tool && !t.unlocked.includes(hut.tool)) { t.unlocked.push(hut.tool); t.unlocked.sort(); } messages.push(TRIBE_COPY.built); finish(); }
       }
+    } else if (target.kind === 'neighbour-unit') {
+      const n=t.neighbours.find(n=>!n.resolved&&n.society?.members.some(v=>v.id===target.id&&v.health>0));
+      const v=n?.society?.members.find(v=>v.id===target.id);
+      if(!n||!v){finish();continue;}
+      if(contact(v.pos,order.kind==='attack'&&u.tool==='spear'?4.5:2.5)){
+        if(order.kind==='attack')strikeNeighbourUnit(u,n,v,u.species?1:inheritance.combat);
+        else {const message=meetNeighbour(t,u,n,'socialize',dt,u.species?undefined:inheritance);if(message)messages.push(message);}
+      }
     } else if (target.kind === 'neighbour') {
       const neighbour = t.neighbours.find(n => n.id === target.id);
       if (!neighbour || neighbour.resolved) { finish(); continue; }
-      if (travel(neighbour.pos, order.kind === 'attack' && u.tool === 'spear' ? 4.5 : 3.5)) {
+      const defender=order.kind==='attack'?neighbour.society?.members.filter(v=>v.health>0&&horizontalDistance(v.pos,u.pos)<9).sort((a,b)=>horizontalDistance(a.pos,u.pos)-horizontalDistance(b.pos,u.pos)||a.id-b.id)[0]:undefined;
+      if(defender){if(contact(defender.pos,u.tool==='spear'?4.5:2.5))strikeNeighbourUnit(u,neighbour,defender,u.species?1:inheritance.combat);continue;}
+      if (contact(neighbour.pos, order.kind === 'attack' && u.tool === 'spear' ? 4.5 : 3.5)) {
         const message = meetNeighbour(t, u, neighbour, order.kind === 'attack' ? 'attack' : 'socialize', dt, u.species ? undefined : inheritance); if (message) messages.push(message);
       }
     } else if (target.kind === 'creature') {
@@ -210,7 +233,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
       }
     } else finish();
   }
-  stepNeighbours(s, t, dt);
+  messages.push(...stepNeighbours(s, t, dt));
   t.members = t.members.filter(u => u.health > 0);
   if (!t.members.length) { s.deathReason = TRIBE_COPY.dead; messages.push(TRIBE_COPY.dead); }
   if (!t.completed && tribeReady(s)) { t.completed = true; messages.push(TRIBE_COPY.allResolved); }

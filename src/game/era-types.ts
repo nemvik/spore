@@ -42,6 +42,28 @@ export interface TribeNeighbour extends NeighbourTribe {
   alarm: number;
   tribute: number;
   cooldown: number;
+  society?: NeighbourSociety;
+}
+export interface NeighbourUnit {
+  id: number;
+  pos: Vec3;
+  heading: number;
+  health: number;
+  hunger: number;
+  cargo: number;
+  cooldown: number;
+  task: 'rest' | 'forage' | 'return' | 'defend' | 'raid';
+  resource: number | null;
+  navigation: UnitNavigation;
+}
+export interface NeighbourSociety {
+  version: 1;
+  food: number;
+  members: NeighbourUnit[];
+  recruitCooldown: number;
+  raidCooldown: number;
+  truce: number;
+  expedition: { phase: 'warning' | 'outbound' | 'return'; members: number[]; time: number } | null;
 }
 export interface ActiveTribeState {
   version: 2;

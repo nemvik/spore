@@ -16,3 +16,9 @@ body:has(.tribe-orders) .toast{bottom:148px;max-width:520px;left:50%;font-size:1
 
 .tribe-neighbours:has([data-inheritance]){max-height:calc(100vh - 250px);overflow:auto}
 .inheritance-link{background:none;color:var(--mint);padding:0;text-decoration:underline;font:inherit}
+
+.neighbour-economy{margin-top:6px;line-height:1.6;color:var(--mint)}
+.neighbour-warning{font-size:11px;line-height:1.5;border-left:2px solid #db9276;padding:6px 8px;margin-top:8px;background:#db927618;color:#f2c5a8}
+
+.tribe-alert{position:absolute;top:198px;left:30px;max-width:520px;text-align:left;font-size:12px;line-height:1.5;padding:12px 16px;color:#f2c5a8;border-color:#db9276;pointer-events:auto}
+@media(max-height:780px){.tribe-alert{top:172px;max-width:440px}}

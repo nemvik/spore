@@ -4,6 +4,7 @@ import { bodyWidth } from '../game/body-shape';
 import * as THREE from 'three';
 import type { GameState, Vec3 } from '../game/types';
 import type { ToolId, TribeBuilding, TribeNeighbour, TribeUnit } from '../game/era-types';
+import { neighbourDisposition } from '../game/tribe-society';
 import { neighbourMaxHealth } from '../game/tribe-neighbours';
 import { groundHeight } from '../game/random';
 import { speciesGroundClearance } from '../game/anatomy';
@@ -156,22 +157,29 @@ export class SettlementPresentation {
     const living = tribe.members.filter(unit => unit.health > 0).sort((a, b) => a.id - b.id);
     // Machine regions replace these settlements at the inherited locations.
     const neighbours = state.stage === 3 ? tribe.neighbours : [];
-    this.retire(this.members, new Set(living.map(unit => unit.id)));
+    this.retire(this.members, new Set([...living.map(unit => unit.id),...neighbours.flatMap(n=>n.society?.members.filter(u=>u.health>0).map(u=>u.id)??[])]));
     this.retire(this.buildings, new Set(tribe.huts.map(hut => hut.id)));
     this.retire(this.neighbours, new Set(neighbours.map(neighbour => neighbour.id)));
     for (const unit of living) this.updateMember(state, unit, selectedIds.has(unit.id), genomeKey, time, reducedMotion);
     for (const hut of [...tribe.huts].sort((a, b) => a.id - b.id)) this.updateBuilding(state, hut);
-    for (const neighbour of [...neighbours].sort((a, b) => a.id - b.id)) this.updateNeighbour(state, neighbour);
+    for (const neighbour of [...neighbours].sort((a, b) => a.id - b.id)) {
+      this.updateNeighbour(state, neighbour);
+      for(const u of neighbour.society?.members??[])if(u.health>0)this.updateMember(state,{
+        ...u,health:u.health/70*100,species:neighbour.identity==='garden'?'gloom':neighbour.identity==='terrace'?'mender':'lantern',
+        benefit:null,loyalty:100,orders:[],tool:u.task==='raid'||u.task==='defend'?'spear':u.task==='forage'||u.cargo>0?'basket':null,
+        intent:u.task==='forage'?'forage':u.task==='raid'||u.task==='defend'?'hunt':'rest',
+      },false,genomeKey,time,reducedMotion,neighbour);
+    }
   }
 
-  private updateMember(state: GameState, unit: TribeUnit, selected: boolean, genomeKey: string, time: number, reducedMotion: boolean): void {
+  private updateMember(state: GameState, unit: TribeUnit, selected: boolean, genomeKey: string, time: number, reducedMotion: boolean, neighbour?: TribeNeighbour): void {
     const key = unit.species ?? genomeKey;
     let view = this.members.get(unit.id);
     if (view && view.key !== key) { this.remove(view.group); this.members.delete(unit.id); view = undefined; }
     const spec = unit.species ? worldSpecies(state.world,unit.species) : null;
     if (!view) {
       const group = new THREE.Group(), body = spec ? createSpeciesModel(spec) : createOrganism(state.player.genome);
-      group.name = `tribe-member-${unit.id}`; group.add(body); this.group.add(group);
+      group.name = neighbour ? `neighbour-unit-${unit.id}` : `tribe-member-${unit.id}`; group.add(body); this.group.add(group);
       if (!spec) applyLivingFinish(body, 'player');
       const radius = spec ? Math.max(.75, spec.size * 1.2) : state.player.genome.version === 2 ? creaturePresentationBounds(body.userData.creatureAnatomy.bounds).radius : Math.max(1, bodyWidth(state.player.genome), state.player.genome.length * 1.5);
       const ring = groundRing(group, radius + .2, COLORS.selected); ring.name = 'selection-ring';
@@ -187,7 +195,8 @@ export class SettlementPresentation {
     const ground = groundHeight(unit.pos.x, unit.pos.z, state.world.stage), localGround = ground - unit.pos.y;
     view.group.position.set(unit.pos.x, unit.pos.y, unit.pos.z); view.group.rotation.y = unit.heading;
     view.body.position.y = localGround + (spec ? speciesGroundClearance(spec) : organismGroundClearance(state.player.genome));
-    view.ring.visible = selected;
+    view.ring.visible = selected || !!neighbour;
+    if(neighbour)(view.ring.material as THREE.MeshBasicMaterial).color.setHex(neighbourDisposition(neighbour)==='hostile'?COLORS.hostile:neighbourDisposition(neighbour)==='friendly'?COLORS.ally:COLORS.pale);
     drapeGround(view.ring, unit.pos, unit.heading, state.world.stage, .055);
     drapeGround(view.group.getObjectByName('ground-contact') as THREE.Mesh, unit.pos, unit.heading, state.world.stage, .035);
     alignBar(view.health, unit.pos, unit.heading, state.world.stage); view.health.group.visible = selected || unit.health < 75 || unit.hunger > 70;
@@ -206,7 +215,7 @@ export class SettlementPresentation {
     if (spec) { animateSpeciesModel(view.body, animationTime, view.speed, spec); setPartnerActivity(view.body, unit.hunger < 70 && unit.loyalty > 0); }
     else animateOrganism(view.body, animationTime, view.speed, unit.heading - view.heading, 2, unit.intent === 'forage' && unit.cooldown > 0 ? .65 : 0, 0, undefined, state.player.genome.version === 2 ? { position: { x: unit.pos.x, y: unit.pos.y + view.body.position.y, z: unit.pos.z }, heading: unit.heading, groundAt: (x, z) => groundHeight(x, z, state.world.stage) } : undefined);
     view.previous = { ...unit.pos }; view.heading = unit.heading; view.time = time;
-    this.volumes.push({ target: { kind: 'member', id: unit.id }, center: { x: unit.pos.x, y: unit.pos.y + view.body.position.y, z: unit.pos.z }, radius: view.radius });
+    this.volumes.push({ target: { kind: neighbour ? 'neighbour-unit' : 'member', id: unit.id }, center: { x: unit.pos.x, y: unit.pos.y + view.body.position.y, z: unit.pos.z }, radius: view.radius });
   }
 
   private updateBuilding(state: GameState, hut: TribeBuilding): void {
@@ -233,7 +242,7 @@ export class SettlementPresentation {
     view.group.position.set(neighbour.pos.x, ground, neighbour.pos.z);
     alignBar(view.relation, view.group.position, 0, state.world.stage); alignBar(view.health, view.group.position, 0, state.world.stage);
     const ring = view.group.getObjectByName('sanctuary-ring'); if (ring) drapeGround(ring as THREE.Mesh, view.group.position, 0, state.world.stage, .055);
-    const color = neighbour.resolved === 'allied' ? COLORS.ally : neighbour.resolved === 'conquered' ? COLORS.conquered : COLORS.hostile;
+    const color = neighbour.resolved === 'allied' ? COLORS.ally : neighbour.resolved === 'conquered' ? COLORS.conquered : neighbourDisposition(neighbour)==='friendly' ? COLORS.ally : neighbourDisposition(neighbour)==='neutral' ? COLORS.pale : COLORS.hostile;
     view.accent.color.setHex(color); view.accent.emissive.setHex(color); view.accent.emissiveIntensity = neighbour.resolved ? .18 : Math.min(.28, neighbour.alarm / 12 * .28);
     fillBar(view.relation, (neighbour.relation + 100) / 200); view.relation.fill.material.color.setHex(neighbour.resolved ? color : COLORS.ally);
     const maxHealth = neighbourMaxHealth(neighbour);

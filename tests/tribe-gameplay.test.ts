@@ -39,6 +39,9 @@ function game(seed = 481516, finale: NonNullable<GameState['campaign']['finale']
   // independently in unit-motion.test.ts and the deterministic scene below.
   s.world.obstacles = []; s.world.resources = []; s.world.creatures = [];
   s.tribe = createTribe(s); s.stage = 3;
+  // Isolate the original player-economy cases from competing NPC harvests.
+  // Active scarcity/competition is covered in tribe-society.test.ts.
+  for(const n of s.tribe.neighbours){n.society!.food=48;n.society!.recruitCooldown=120;for(const u of n.society!.members)u.hunger=0;}
   return s as TribeGame;
 }
 
@@ -261,10 +264,10 @@ describe('tribe conflict, diplomacy and inherited abilities', () => {
   });
 
   it('does not charge or resolve a diplomatic meeting before the visitor arrives', () => {
-    const s = game(), n = s.tribe.neighbours[0], stock = s.tribe.food;
+    const s = game(), n = s.tribe.neighbours[0], stock = s.tribe.food, relation = n.relation;
     issueTribeOrder(s, [s.tribe.members[0].id], 'socialize', { kind: 'neighbour', id: n.id });
     stepTribe(s, DT);
-    expect(s.tribe.food).toBe(stock); expect(n.relation).toBe(0); expect(n.tribute).toBe(0);
+    expect(s.tribe.food).toBe(stock); expect(n.relation).toBe(relation); expect(n.tribute).toBe(0);
     expect(n.resolved).toBeNull();
   });
 

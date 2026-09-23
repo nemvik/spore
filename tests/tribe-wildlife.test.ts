@@ -36,6 +36,9 @@ function fixture({ seed = 481516, legacy = true, isolated = true, jaw = false } 
   }
   Object.assign(s.campaign, { won: true, finale: 'restoration' });
   expect(continueToTribeEra(s)).toBe(true);
+  // These scenes isolate wildlife versus player, not the new third competitor.
+  if(isolated&&s.tribe?.version===2)for(const n of s.tribe.neighbours){n.society!.food=48;n.society!.recruitCooldown=120;for(const u of n.society!.members)u.hunger=0;}
+  makeCheckpoint(s);
   return s as TribeGame;
 }
 
