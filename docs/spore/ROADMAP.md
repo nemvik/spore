@@ -28,7 +28,7 @@ Návaznosti určují potřebné výstupy při realizaci, nikoli zákaz připravi
 | [SP-004 · Objevování a generace](#sp-004) | A | Hotovo | SP-003 | [Objevy, alfa, generace a migrace](SP-004-REPORT.md); [plán](../superpowers/plans/2026-09-23-sp-004-discovery-generations.md), pracovní strom nad `5aed4ba93` |
 | [SP-005 · Knihovna výtvorů a společný genom](#sp-005) | A–E | Rozpracováno | SP-002; další typy spolu s příslušnými editory | **A hotovo:** [knihovna tvorů a NPC](SP-005-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-005-creature-library.md); B–E čeká na příslušné editory |
 | [SP-006 · Buněčný růst a přestavba](#sp-006) | A | Hotovo | SP-001 | [Plán](../superpowers/plans/2026-09-23-sp-006-cell-growth.md), [růst, kontakty a objevování](SP-006-REPORT.md); 2 267 testů, nová linie bez připraveného stavu, meze lidského playtestu v reportu |
-| [SP-007 · Dědictví celé linie](#sp-007) | A–D | K plánu | SP-003; výsledky dalších etap průběžně | — |
+| [SP-007 · Dědictví celé linie](#sp-007) | A–D | Rozpracováno | SP-003; výsledky dalších etap průběžně | **A hotovo:** [smlouva](SP-007A-CONTRACT.md), [report](SP-007A-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-007a-lineage-history.md); B1/B2/D otevřené |
 | [SP-008 · Aktivní kmenová společnost](#sp-008) | B | K plánu | SP-003, SP-007 (smlouva dědictví) | — |
 | [SP-009 · Města a civilizace](#sp-009) | B | K plánu | SP-008, SP-010 | — |
 | [SP-010 · Celá planeta](#sp-010) | B | K plánu | SP-001 | — |
@@ -161,7 +161,16 @@ Dokončeno nad `a5250214b`: [report](SP-006-REPORT.md), [plán](../superpowers/p
 - [ ] Výsledky zaznamenávají jídelníček, sociální/bojovou cestu tvora, řešení kmenů a způsob civilizační expanze.
 - [ ] Mírové a násilné sjednocení kmene mají různé následky i při stejném pobřežním závěru.
 - [ ] Bonusy a vesmírná filozofie vznikají z doložené historie; hráč v přehledu rozumí jejich původu a účinku.
-- [ ] Dvě rozdílné historie vedou k prokazatelně odlišným možnostem. Staré kampaně mají vysvětlené výchozí hodnoty bez smyšlených minulých událostí.
+- [x] Dvě rozdílné historie vedou k prokazatelně odlišným možnostem. Staré kampaně mají vysvětlené výchozí hodnoty bez smyšlených minulých událostí. Doloženo v A skutečným účinkem v kmeni.
+
+| Část | Stav | Rozsah / doložení |
+| --- | --- | --- |
+| **SP-007.A — smlouva a záznam výsledků linie** | Hotovo | [Smlouva v1](SP-007A-CONTRACT.md), skutečná potrava/lov a výsledky existujících etap, přehled dědictví, vyvážený důsledek tvora v kmeni. [Report](SP-007A-REPORT.md): 2 291 testů, dvě hrané historie ze stejné připravené souše a nová buňka bez fixture. |
+| **SP-007.B1 — následky řešení kmenů** | K plánu | Doložené allied/conquered/mixed ovlivní další etapu i při stejném organismovém finále; navazuje na SP-008. |
+| **SP-007.B2 — civilizační expanze a její následky** | K plánu | Skutečně volené způsoby expanze SP-009 a jejich dědictví. Dnešní region.method pouze eviduje existující zděděný archetyp. |
+| **SP-007.D — vesmírná filozofie říše** | K plánu | Odvození filozofie a vesmírných schopností z doložené historie; navazuje na SP-011–014. |
+
+A nezavírá celou SP-007: současné kmenové/regionální výsledky se uchovávají, jejich nové následky a vesmírná filozofie zbývají. Neznámý jídelníček starých saveů se neodvozuje z těla. Připravené vstupy, obnova checkpointu a meze lidského playtestu jsou výslovně rozlišené v reportu.
 
 <a id="sp-008"></a>
 ### SP-008 — Kmen jako aktivní společnost

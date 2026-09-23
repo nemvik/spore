@@ -4,17 +4,20 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
+const lineage=process.argv.includes('--lineage');
 const base=process.env.LUMAVORA_URL??'http://127.0.0.1:5187';
 const out=path.resolve(process.env.CREATURE_STAGE_OUTPUT??'evidence/sp-003/browser');
 await mkdir(out,{recursive:true});
 const ssr=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom',logLevel:'error'});
 try{
  const {creatureStageFixture}=await ssr.ssrLoadModule('/tests/fixtures/creature-stage.ts');
+ const {enableLineageHistory}=await ssr.ssrLoadModule('/src/game/lineage-history.ts');
+ const {makeCheckpoint}=await ssr.ssrLoadModule('/src/game/simulation.ts');
  const {serializeGame,parseGame}=await ssr.ssrLoadModule('/src/game/persistence.ts');
- for(const kind of ['biped','quadruped']){const s=creatureStageFixture(kind);const text=serializeGame(s);parseGame(text);await writeFile(path.join(out,`${kind}.fixture.json`),text);}
+ for(const kind of ['biped','quadruped']){const s=creatureStageFixture(kind);if(lineage){enableLineageHistory(s);makeCheckpoint(s);}const text=serializeGame(s);parseGame(text);await writeFile(path.join(out,`${kind}.fixture.json`),text);}
 }finally{await ssr.close();}
 if(process.argv.includes('--fixtures-only'))process.exit(0);
-const browser=await chromium.launch({headless:true,args:process.platform==='darwin'?['--use-gl=angle','--use-angle=metal']:[]});
+const browser=await chromium.launch({headless:true,...(process.env.LUMAVORA_BROWSER_CHANNEL?{channel:process.env.LUMAVORA_BROWSER_CHANNEL}:{}),args:process.platform==='darwin'?['--use-gl=angle','--use-angle=metal']:[]});
 const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1,acceptDownloads:true});
 if(process.env.LUMAVORA_TRACE==='1')await context.tracing.start({screenshots:true,snapshots:true,sources:true});
 const page=await context.newPage(),errors=[];
@@ -104,13 +107,39 @@ async function defeat(index){
   // Native ability keys; the first two visits exercise charge and arms as well.
   let key='4';
   if(attempts===1&&index===0)key='2';
-  if(kind==='biped'&&index===1){await walkTo(v=>v.world.creatures.find(c=>c.id===id)?.pos??n.pos,2.8);key='3';}
+  if(kind==='biped'&&index===1&&!lineage){await walkTo(v=>v.world.creatures.find(c=>c.id===id)?.pos??n.pos,2.8);key='3';}
   await page.keyboard.press(key);await page.waitForTimeout(key==='2'?1500:400);
   if(index===0&&attempts===2)await page.screenshot({path:path.join(out,'combat.png')});
  }
  s=await read();assert.equal(s.creatureStage.nests[index].outcome,'predator');console.log('Defeated nest',index);await eatNearby();return s;
 }
 async function exportSave(name){await release();await page.keyboard.press('Escape');await action('saves');const download=page.waitForEvent('download');await action('export');const file=path.join(out,`${name}.save.json`);await(await download).saveAs(file);return file;}
+async function verifyInheritance(){
+ let s=await read();
+ const row=s.lineageHistory.stages[2];assert.equal(row.closed.outcome,route);assert.equal(row.facts.filter(f=>f.key.startsWith('nest:')).length,3);
+ assert.equal(row.closed.source,'action');assert.equal(row.coverage,'partial');
+ const expected=route==='social'?{social:1.15,combat:1}:route==='predator'?{social:1,combat:1.15}:{social:1.075,combat:1.075};
+ assert.equal(s.inheritance.social,expected.social);assert.equal(s.inheritance.combat,expected.combat);
+ await action('journal');await page.locator('[aria-label="Dědictví linie"]').waitFor();
+ const journal=await page.locator('[aria-label="Dědictví linie"]').innerText();assert.ok(journal.includes('Částečný záznam'));assert.ok(journal.includes('odehráno'));
+ await page.screenshot({path:path.join(out,'inheritance-journal.png')});await action('close');
+ const member=s.tribe.members.find(u=>!u.species),neighbour=s.tribe.neighbours.find(n=>n.identity==='terrace');
+ await action(`tribe-select:${member.id}`);await action(`tribe-focus:${neighbour.id}`);await action(`tribe-socialize:${neighbour.id}`);
+ await page.waitForFunction(id=>JSON.parse(window.render_game_to_text()).tribe.neighbours.find(n=>n.id===id).relation>1,neighbour.id,{timeout:60000});
+ const before=await read();await page.waitForTimeout(1500);s=await read();
+ const relationRate=(s.tribe.neighbours.find(n=>n.id===neighbour.id).relation-before.tribe.neighbours.find(n=>n.id===neighbour.id).relation)/((s.tick-before.tick)/60);
+ assert.ok(Math.abs(relationRate-.45*expected.social)<.005,`actual diplomacy rate ${relationRate}`);
+ await action('tribe-stop');await action(`tribe-attack:${neighbour.id}`);
+ const health=s.tribe.neighbours.find(n=>n.id===neighbour.id).health;
+ await page.waitForFunction(({id,health})=>JSON.parse(window.render_game_to_text()).tribe.neighbours.find(n=>n.id===id).health<health,{id:neighbour.id,health},{timeout:30000});
+ s=await read();await action('tribe-stop');const damage=health-s.tribe.neighbours.find(n=>n.id===neighbour.id).health;
+ assert.ok(Math.abs(damage-5*expected.combat)<.001,`actual first attack ${damage}`);
+ assert.deepEqual(s.lineageHistory.stages[2],row);report.effect={expected,relationRate,damage};
+ await page.screenshot({path:path.join(out,'tribe-effect.png')});
+ const file=await exportSave('effect');const saved=JSON.parse(await readFile(file,'utf8')).state;assert.deepEqual(saved.lineageHistory.stages[2],row);
+ await page.locator('#import-save').setInputFiles(file);await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).mode==='game');assert.deepEqual((await read()).lineageHistory.stages[2],row);
+ results.push({name:'earned inheritance changes actual diplomacy and attack through native tribe orders',passed:true});
+}
 try{
  await importFixture(kind);
  report.runtime=await page.evaluate(()=>({advanceTime:typeof window.advanceTime,renderer:JSON.parse(window.render_game_to_text()).render,gpu:(()=>{const gl=document.querySelector('#world').getContext('webgl2'),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):null;})()}));
@@ -135,6 +164,7 @@ try{
  if(process.argv.includes('--smoke')){assert.equal((await read()).creatureStage.nests.length,4);results.push({name:'land UI smoke',passed:true});}
  else{
   let s;
+  if(lineage){await eatNearby();s=await read();assert.ok(Object.values(s.lineageHistory.stages[2].counts.meals).reduce((a,b)=>a+b,0)>0);results.push({name:'actual meals recorded by food',passed:true});}
   if(route!=='predator'){
    s=await befriend(0);await page.keyboard.press('r');await page.waitForTimeout(250);s=await read();assert.equal(s.creatureStage.pack.length,1);assert.ok(!(await page.locator('[data-action="bond"]').innerText()).includes('Do smečky'),'after recruitment the selected pack member does not promise another recruitment');const member=s.creatureStage.pack[0],before=s.world.creatures.find(c=>c.id===member).pos;
    await walkTo({x:s.player.pos.x+9,z:s.player.pos.z+2},2);await page.waitForTimeout(1200);s=await read();const after=s.world.creatures.find(c=>c.id===member).pos;assert.ok(Math.hypot(after.x-before.x,after.z-before.z)>2);results.push({name:'friendship and real pack following',passed:true});
@@ -145,7 +175,9 @@ try{
   await action('continue-era');await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).stage===3);results.push({name:'tribe continuation',passed:true});
   const finalSave=await exportSave('tribe');await page.locator('#import-save').setInputFiles(finalSave);
   await page.waitForFunction(()=>{const s=JSON.parse(window.render_game_to_text());return s.mode==='game'&&s.stage===3;});
-  assert.equal((await read()).creatureStage.completed,route);results.push({name:'tribe export/import preserves history',passed:true});
+  assert.equal((await read()).creatureStage.completed,route);
+  if(lineage)await verifyInheritance();
+  results.push({name:'tribe export/import preserves history',passed:true});
  }
  assert.deepEqual(errors,[]);
 }catch(error){report.failure=String(error);throw error;}finally{

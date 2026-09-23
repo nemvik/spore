@@ -1,3 +1,4 @@
+import { HISTORY_FOODS, HISTORY_METHODS, stageFacts, stageOutcome, type StageHistory } from './lineage-history';
 import { CELL_PARTS, CELL_THRESHOLDS } from './cell-growth';
 import { validateNpcDesigns } from './npc-genome';
 import { DISCOVERY_PARTS } from './creature-discovery';
@@ -749,14 +750,80 @@ function validatePlanet(value: unknown): void {
   else validatePlanetPreview(value);
 }
 
+function validateLineageHistory(value: unknown, state: GameState): void {
+  const path = 'state.lineageHistory', h = object(value, path, ['version', 'stages']);
+  oneOf(h.version, [1], `${path}.version`);
+  const stamp = (value: unknown, at: string) => {
+    const t = object(value, at, ['tick', 'generation']);
+    number(t.tick, `${at}.tick`, 0, state.tick, true);
+    number(t.generation, `${at}.generation`, 1, state.player.generation, true);
+    return t as unknown as { tick: number; generation: number };
+  };
+  let totalMeals = 0, totalHunts = 0;
+  array(h.stages, `${path}.stages`, state.stage + 1, state.stage + 1).forEach((value, index) => {
+    const at = `${path}.stages[${index}]`, row = object(value, at, ['stage', 'coverage', 'started', 'counts', 'facts', 'closed']);
+    oneOf(row.stage, [index], `${at}.stage`);
+    oneOf(row.coverage, ['complete', 'partial', 'unknown'], `${at}.coverage`);
+    const start = row.started === null ? null : stamp(row.started, `${at}.started`);
+    if ((row.coverage === 'unknown') !== (start === null)) invalid(at, SAVE_ERRORS.unknownValue);
+    if ((index <= 2 && start !== null) !== (row.counts !== null)) invalid(`${at}.counts`, SAVE_ERRORS.unknownValue);
+    if (row.counts !== null) {
+      const c = object(row.counts, `${at}.counts`, ['meals', 'hunts']);
+      const meals = object(c.meals, `${at}.counts.meals`, [...HISTORY_FOODS]);
+      for (const food of HISTORY_FOODS) totalMeals += number(meals[food], `${at}.counts.meals.${food}`, 0, MAX_COUNT, true);
+      totalHunts += number(c.hunts, `${at}.counts.hunts`, 0, MAX_COUNT, true);
+    }
+    const known = stageFacts(state, index as Stage), keys = new Set<string>();
+    const evidence = (record: Record<string, unknown>, at: string) => {
+      oneOf(record.source, ['action', 'saved'], `${at}.source`);
+      if (record.source === 'saved') { if (record.at !== null) invalid(at, SAVE_ERRORS.unknownValue); return null; }
+      const t = stamp(record.at, `${at}.at`);
+      if (!start || t.tick < start.tick || t.generation < start.generation) invalid(at, SAVE_ERRORS.unknownValue);
+      return t;
+    };
+    const times: { tick: number; generation: number }[] = [];
+    array(row.facts, `${at}.facts`, 12).forEach((value, i) => {
+      const where = `${at}.facts[${i}]`, fact = object(value, where, ['key', 'method', 'source', 'at']);
+      const key = string(fact.key, `${where}.key`, 80);
+      oneOf(fact.method, HISTORY_METHODS, `${where}.method`);
+      if (keys.has(key) || !known.some(f => f.key === key && f.method === fact.method)) invalid(where, SAVE_ERRORS.unknownValue);
+      keys.add(key); const t = evidence(fact, where); if (t) times.push(t);
+    });
+    const outcome = stageOutcome(state, index as Stage);
+    if ((row.closed !== null) !== (outcome !== null)) invalid(`${at}.closed`, SAVE_ERRORS.unknownValue);
+    if (row.closed !== null) {
+      const closed = object(row.closed, `${at}.closed`, ['outcome', 'source', 'at']);
+      oneOf(closed.outcome, [outcome], `${at}.closed.outcome`);
+      const end = evidence(closed, `${at}.closed`);
+      if (end && times.some(t => t.tick > end.tick || t.generation > end.generation)) invalid(at, SAVE_ERRORS.unknownValue);
+      // The frozen three-nest route may precede a fourth sandbox resolution.
+      const nests = (value as StageHistory).facts.filter(f => f.key.startsWith('nest:'));
+      if (index === 2 && closed.source === 'action' && state.creatureStage?.completed) {
+        const friends = nests.filter(f => f.method === 'friend').length, predators = nests.length - friends;
+        if (nests.length < 3 || closed.outcome !== (friends && predators ? 'mixed' : friends ? 'social' : 'predator')) invalid(at, SAVE_ERRORS.invalidFinale);
+      }
+    } else if (known.some(f => !keys.has(f.key))) invalid(`${at}.facts`, SAVE_ERRORS.unknownValue);
+  });
+  if (totalMeals > state.player.meals || totalHunts > state.player.kills) invalid(path, SAVE_ERRORS.unknownValue);
+}
+
+// Compare semantic fields, not imported JSON property ordering.
+function historyRowSignature(row: StageHistory): string {
+  const time = (t: StageHistory['started']) => t ? [t.tick, t.generation] : null;
+  return JSON.stringify([row.stage, row.coverage, time(row.started), row.counts ? [HISTORY_FOODS.map(f => row.counts!.meals[f]), row.counts.hunts] : null,
+    [...row.facts].sort((a,b) => a.key.localeCompare(b.key)).map(f => [f.key, f.method, f.source, time(f.at)]),
+    row.closed ? [row.closed.outcome, row.closed.source, time(row.closed.at)] : null]);
+}
+
 function validateState(value: unknown, nestedCheckpoint = false, expectedVersion?: 1 | 2 | 3): GameState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid('state', SAVE_ERRORS.objectRequired);
   const version = (value as Record<string, unknown>).version;
   if ((version !== 1 && version !== 2 && version !== 3) || (expectedVersion !== undefined && version !== expectedVersion)) invalid('state.version', SAVE_ERRORS.unsupportedStateVersion);
   const sliceKeys = (['tribe', 'machines', 'planet'] as const).filter(key => version === 3 && Object.prototype.hasOwnProperty.call(value, key));
+  const hasLineageHistory = version === 3 && Object.hasOwn(value, 'lineageHistory');
   const hasCellGrowth = version === 3 && Object.hasOwn(value, 'cellGrowth');
   const hasCreatureStage = version === 3 && Object.prototype.hasOwnProperty.call(value, 'creatureStage');
-  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
+  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasLineageHistory ? ['lineageHistory'] : []), ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
   gameId(s.id, 'state.id'); const seed = number(s.seed, 'state.seed', 0, UINT32, true);
   oneOf(s.stage, version === 3 ? [0, 1, 2, 3, 4, 5] : [0, 1, 2], 'state.stage'); const stage = s.stage as Stage;
   const worldStage = worldStageFor(stage);
@@ -902,6 +969,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     number(message.id, `${at}.id`, 0, MAX_COUNT + 16, true); string(message.text, `${at}.text`, 1024); number(message.time, `${at}.time`);
   });
   if (s.deathReason !== null) string(s.deathReason, 'deathReason', 1024);
+  if (hasLineageHistory) validateLineageHistory(s.lineageHistory, { ...s, journey } as unknown as GameState);
   if (s.checkpoint !== null) {
     if (nestedCheckpoint) invalid('checkpoint', SAVE_ERRORS.nestedCheckpoint);
     const checkpoint = string(s.checkpoint, 'checkpoint', MAX_BYTES);
@@ -917,6 +985,12 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     // The rule marker is fixed at birth; the earlier filter opening may differ.
     if (restored.journey.reefEvolution?.version !== journey.reefEvolution?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if (restored.lineageHistory?.version !== (s.lineageHistory as GameState['lineageHistory'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    for (const prior of restored.lineageHistory?.stages ?? []) {
+      const current = (s.lineageHistory as GameState['lineageHistory'])!.stages[prior.stage];
+      if (prior.closed && (prior.closed.source === 'action' || current.closed?.source === 'action') && historyRowSignature(prior) !== historyRowSignature(current)) invalid('checkpoint.lineageHistory', SAVE_ERRORS.checkpointMismatch);
+      if (prior.counts && current.counts && (prior.counts.hunts > current.counts.hunts || HISTORY_FOODS.some(f => prior.counts!.meals[f] > current.counts!.meals[f]))) invalid('checkpoint.lineageHistory', SAVE_ERRORS.checkpointMismatch);
+    }
     if (restored.cellGrowth?.version !== (s.cellGrowth as GameState['cellGrowth'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.creatureStage?.version !== (s.creatureStage as GameState['creatureStage'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.creatureStage?.discovery?.version !== (s.creatureStage as GameState['creatureStage'])?.discovery?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);

@@ -1,3 +1,4 @@
+import { observeLineageHistory } from './lineage-history';
 import { speciesCollisionRadius } from './anatomy';
 import { npcFoodDistance, worldSpecies } from './npc-genome';
 import { initializeDiscovery, isAlpha, resolveAlpha, rewardSpeciesDiscovery, socialGoal, stepNestMigration } from './creature-discovery';
@@ -320,5 +321,5 @@ export function completeCreatureStage(s: GameState): boolean {
   s.campaign.won = true; s.campaign.finale = life.completed === 'social' ? 'restoration' : life.completed === 'predator' ? 'predator' : 'migration';
   life.encounter = null; life.attack = null; life.guards = [];
   s.lineage.push({ generation: s.player.generation, stage: 2, time: s.tick / 60, name: s.player.genome.name, parts: s.player.genome.parts.map(p => p.kind), event: `Život druhu: ${life.completed === 'social' ? 'přátelství' : life.completed === 'predator' ? 'predace' : 'smíšená cesta'}` });
-  notice(s, 'Tvůj druh je připraven založit kmen.'); return true;
+  observeLineageHistory(s);notice(s, 'Tvůj druh je připraven založit kmen.'); return true;
 }

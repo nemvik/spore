@@ -6,14 +6,14 @@ import { TRIBE_COPY } from './tribe-copy.cs';
 export const neighbourGift = (n: TribeNeighbour) => n.identity === 'garden' ? 8 : n.identity === 'terrace' ? 12 : 16;
 export const neighbourMaxHealth = (n: Pick<TribeNeighbour, 'identity'>) => n.identity === 'garden' ? 160 : n.identity === 'terrace' ? 220 : 180;
 
-export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbour: TribeNeighbour, kind: 'attack' | 'socialize', dt: number): string | null {
+export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbour: TribeNeighbour, kind: 'attack' | 'socialize', dt: number, inheritance = { social: 1, combat: 1 }): string | null {
   if (neighbour.resolved) return null;
   if (kind === 'attack') {
     unit.intent = 'hunt';
     if (unit.cooldown > 0) return null;
     neighbour.alarm = 12;
     neighbour.relation = Math.max(-100, neighbour.relation - 8);
-    neighbour.health = Math.max(0, neighbour.health - (unit.tool === 'spear' ? 18 : 5));
+    neighbour.health = Math.max(0, neighbour.health - (unit.tool === 'spear' ? 18 : 5) * inheritance.combat);
     unit.cooldown = unit.tool === 'spear' ? 1.15 : 1.5;
     if (neighbour.health === 0) {
       neighbour.resolved = 'conquered'; neighbour.alarm = 0; tribe.food += 12;
@@ -27,7 +27,7 @@ export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbou
     }
     // A drummer must be physically present. Unarmed visitors can still make
     // peace, while a waterskin reduces the danger of an interrupted audience.
-    neighbour.relation = clamp(neighbour.relation + dt * (unit.tool === 'drum' ? 3.2 : .45) * (neighbour.identity === 'sanctuary' ? 1.2 : 1), -100, 100);
+    neighbour.relation = clamp(neighbour.relation + dt * inheritance.social * (unit.tool === 'drum' ? 3.2 : .45) * (neighbour.identity === 'sanctuary' ? 1.2 : 1), -100, 100);
     if (unit.tool === 'waterskin') neighbour.alarm = Math.max(0, neighbour.alarm - dt * 3);
     if (neighbour.relation >= 100) {
       neighbour.resolved = 'allied'; neighbour.alarm = 0; tribe.food += 8;

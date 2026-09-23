@@ -1,3 +1,4 @@
+import { creatureInheritance } from './lineage-history';
 import { worldSpecies } from './npc-genome';
 import { recordEcologyContact } from './ecology-catalog';
 import type { ActiveTribeState, ToolId, TribeBuilding, TribeNeighbour, TribeUnit } from './era-types';
@@ -142,6 +143,7 @@ export function useTribeAbility(s: GameState, ids: readonly number[]): TribeActi
 
 export function stepTribe(s: GameState, dt: number): string[] {
   const t = activeTribe(s); if (!t) return [];
+  const inheritance = creatureInheritance(s);
   const messages: string[] = [], home = tribeHome(t), stats = computeStats(s.player.genome);
   t.elapsed += dt; t.abilityCooldown = Math.max(0, t.abilityCooldown - dt); t.abilityTime = Math.max(0, t.abilityTime - dt);
   const units = [...t.members].sort((a, b) => a.id - b.id);
@@ -194,7 +196,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
       const neighbour = t.neighbours.find(n => n.id === target.id);
       if (!neighbour || neighbour.resolved) { finish(); continue; }
       if (travel(neighbour.pos, order.kind === 'attack' && u.tool === 'spear' ? 4.5 : 3.5)) {
-        const message = meetNeighbour(t, u, neighbour, order.kind === 'attack' ? 'attack' : 'socialize', dt); if (message) messages.push(message);
+        const message = meetNeighbour(t, u, neighbour, order.kind === 'attack' ? 'attack' : 'socialize', dt, u.species ? undefined : inheritance); if (message) messages.push(message);
       }
     } else if (target.kind === 'creature') {
       const prey = s.world.creatures.find(c => c.id === target.id);

@@ -29,6 +29,7 @@
     "test:creature-discovery": "node scripts/creature-discovery-browser.mjs",
     "test:creature-library": "node scripts/creature-library-browser.mjs",
     "test:creature-stage": "node scripts/creature-stage-browser.mjs",
+    "test:lineage-history": "node scripts/creature-stage-browser.mjs --lineage",
     "test:cell-growth": "node scripts/cell-growth-browser.mjs"
   },
   "dependencies": {
