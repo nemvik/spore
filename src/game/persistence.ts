@@ -1,3 +1,5 @@
+import { cityId, cityNameValid, cityProgression, citySite, CITY_COST, type City } from './cities';
+import { cityPositionClear } from './city-spatial';
 import { bindActiveWorld, createField, fieldGround, fieldId, FIELD_LIMIT, campaignWorld, activeField } from './planet-travel';
 import { planetAtlas } from './planet-geography';
 import { LOCATION_KINDS, locationId, type HomePlanet } from './home-planet';
@@ -137,6 +139,39 @@ function validateNavigation(s: GameState): void {
     number(visit.tick, at + '.tick', 0, s.tick, true); visits.push(visit.locationId as string);
   }
   if (new Set(visits).size !== visits.length || ids.some(id => !visits.includes(id))) invalid(at, SAVE_ERRORS.duplicateIds);
+}
+
+function citySignature(c: City): string {
+  const p=c.address.position;
+  return JSON.stringify([c.id,c.name,c.owner.kind,c.owner.id,c.address.planetId,c.address.locationId,p.x,p.y,p.z,c.founded.source,c.founded.stage,c.founded.tick,c.founded.paidAmber,c.founded.springId,c.local.version]);
+}
+function validateCities(s: GameState): void {
+  const at='state.cities', registry=object(s.cities,at,['version','entries','selectedId']);
+  oneOf(registry.version,[1],at+'.version');
+  if(s.homePlanet?.version!==3)invalid(at,SAVE_ERRORS.unknownValue);
+  const ids:string[]=[];
+  for(const raw of array(registry.entries,at+'.entries',FIELD_LIMIT)) {
+    const row=object(raw,at+'.city',['id','name','owner','address','founded','local']);
+    string(row.id,at+'.id',140);string(row.name,at+'.name',40);
+    if(!cityNameValid(row.name))invalid(at+'.name',SAVE_ERRORS.invalidText);
+    const owner=object(row.owner,at+'.owner',['kind','id']);
+    if(owner.kind!=='lineage'||owner.id!==s.homePlanet!.id)invalid(at+'.owner',SAVE_ERRORS.unknownValue);
+    const address=object(row.address,at+'.address',['planetId','locationId','position']);
+    string(address.planetId,at+'.planetId',101);string(address.locationId,at+'.locationId',130);vector(address.position,at+'.position');
+    const founded=object(row.founded,at+'.founded',['source','stage','tick','paidAmber','springId']);
+    oneOf(founded.source,['player'],at+'.source');oneOf(founded.stage,[4,5],at+'.stage');number(founded.tick,at+'.tick',0,s.tick,true);
+    oneOf(founded.paidAmber,[CITY_COST],at+'.paidAmber');number(founded.springId,at+'.springId',1,MAX_COUNT,true);
+    const local=object(row.local,at+'.local',['version']);oneOf(local.version,[1],at+'.local.version');
+    const city=raw as City, field=(s.homePlanet as Extract<HomePlanet,{version:3}>).navigation.fields.find(f=>f.id===city.address.locationId);
+    const visit=(s.homePlanet as Extract<HomePlanet,{version:3}>).navigation.visits.find(v=>v.locationId===city.address.locationId);
+    if(!cityProgression(s)||city.founded.stage>s.stage||!field||!visit||visit.tick>city.founded.tick
+      ||field.world.patches.some(p=>!p.discovered)||city.id!==cityId(field.id)
+      ||s.machines?.version!==2||!s.machines.springs.some(p=>p.id===city.founded.springId&&p.owner==='player')
+      ||citySite(s,city.address)!==null||!cityPositionClear(s,field,field.position))invalid(at+'.city',SAVE_ERRORS.unknownValue);
+    ids.push(city.id);
+  }
+  if(new Set(ids).size!==ids.length)invalid(at,SAVE_ERRORS.duplicateIds);
+  if(registry.selectedId!==null&&!ids.includes(registry.selectedId as string))invalid(at+'.selectedId',SAVE_ERRORS.unknownValue);
 }
 
 function validateCreatureActions(value: unknown, path: string): void {
@@ -939,10 +974,11 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   if ((version !== 1 && version !== 2 && version !== 3) || (expectedVersion !== undefined && version !== expectedVersion)) invalid('state.version', SAVE_ERRORS.unsupportedStateVersion);
   const sliceKeys = (['tribe', 'machines', 'planet'] as const).filter(key => version === 3 && Object.prototype.hasOwnProperty.call(value, key));
   const hasLineageHistory = version === 3 && Object.hasOwn(value, 'lineageHistory');
+  const hasCities = version === 3 && Object.hasOwn(value, 'cities');
   const hasHomePlanet = version === 3 && Object.hasOwn(value, 'homePlanet');
   const hasCellGrowth = version === 3 && Object.hasOwn(value, 'cellGrowth');
   const hasCreatureStage = version === 3 && Object.prototype.hasOwnProperty.call(value, 'creatureStage');
-  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasHomePlanet ? ['homePlanet'] : []), ...(hasLineageHistory ? ['lineageHistory'] : []), ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
+  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasCities ? ['cities'] : []), ...(hasHomePlanet ? ['homePlanet'] : []), ...(hasLineageHistory ? ['lineageHistory'] : []), ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
   gameId(s.id, 'state.id'); const seed = number(s.seed, 'state.seed', 0, UINT32, true);
   oneOf(s.stage, version === 3 ? [0, 1, 2, 3, 4, 5] : [0, 1, 2], 'state.stage'); const stage = s.stage as Stage;
   const worldStage = worldStageFor(stage);
@@ -1095,6 +1131,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   validateMusicContext({ ...s, world: worlds[worldStage] } as unknown as GameState);
   validateChiefContext({ ...s, world: worlds[worldStage] } as unknown as GameState);
   validateDomesticationContext({ ...s, world: worlds[worldStage] } as unknown as GameState);
+  if (hasCities) validateCities(s as unknown as GameState);
   if (s.checkpoint !== null) {
     if (nestedCheckpoint) invalid('checkpoint', SAVE_ERRORS.nestedCheckpoint);
     const checkpoint = string(s.checkpoint, 'checkpoint', MAX_BYTES);
@@ -1113,6 +1150,9 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     }
     if (restored.machines?.version !== (s.machines as GameState['machines'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    const liveCities = (s as unknown as GameState).cities;
+    if (restored.cities?.version !== liveCities?.version) invalid('checkpoint.cities', SAVE_ERRORS.checkpointMismatch);
+    if (restored.cities?.entries.some(c => !liveCities!.entries.some(l => l.id === c.id && citySignature(l) === citySignature(c)))) invalid('checkpoint.cities.entries', SAVE_ERRORS.checkpointMismatch);
     const home = s.homePlanet as HomePlanet | undefined;
     if (restored.homePlanet?.version !== home?.version || restored.homePlanet?.id !== home?.id) invalid('checkpoint.homePlanet', SAVE_ERRORS.checkpointMismatch);
     if (home && home.version !== 1 && restored.homePlanet && restored.homePlanet.version !== 1 && restored.homePlanet.geography.provenance !== home.geography.provenance) invalid('checkpoint.homePlanet.geography', SAVE_ERRORS.checkpointMismatch);

@@ -57,3 +57,7 @@ Evidence `evidence/sp-010c/`: výsledky browserů, kompaktní logy testů, hashe
 `AddressSelection { id, name, address: LocationAddress }` + `selectAddress` je konkrétní rozhraní pro skutečná města SP-009: řeší místní/geografickou adresu a World, vybere buňku/kameru, nevytváří entity, vlastnictví ani cestu. **Výběr skutečných měst zůstává otevřený**, protože SP-009 ještě nevytváří města. Žádná demonstrační města nejsou v produkci. Celé SP-010 ani SP-017 se neuzavírají; mimo rozsah jsou městská ekonomika, státy, vesmír a SP-007.B2/D.
 
 Přesný další krok: **SP-009.A — model stabilních ID měst a `LocationAddress`, skutečné založení, persistence/validace/checkpointy a napojení uloženého registru do `selectAddress`; potom produkčně ověřit výběr skutečného města a uzavřít příslušné kritérium C.** Bez ruční migrace. Lidský playtest/poslech, Safari/mobil, dlouhý soak a celá nová kampaň neprovedeny.
+
+## Navazující ověření SP-009.A (25. 9. 2026)
+
+Historický závěr reportu výše popisuje stav commitu `a24f2cf06`. [Report SP-009.A v1](SP-009A-REPORT.md) nyní dokládá zbývající integrační kritérium C: skutečně založené město s vlastní identitou/adresou, globální výběr přes původní API, místní zobrazení, opakované návštěvy a persistence. Tento dodatek nemění historická čísla ani generátory a automaticky neuzavírá celou SP-010/SP-009/SP-017.

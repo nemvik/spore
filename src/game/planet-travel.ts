@@ -1,3 +1,4 @@
+import { cityPositionClear } from './city-spatial';
 import type { GameState, Input, Vec3, World } from './types';
 import { enableHomePlanet, locationId, resolveLocationAddress, type LocationAddress } from './home-planet';
 import { planetAtlas, geographicAddress, locationGeography, type AtlasCell } from './planet-geography';
@@ -101,8 +102,10 @@ export function stepField(s: GameState, input: Input, dt: number): void {
   const field = activeField(s), nav = navigation(s); if (!field || !nav || nav.mode !== 'local' || s.deathReason || s.player.health <= 0) return;
   dt = Math.max(0, Math.min(1 / 30, dt)); const length = Math.hypot(input.x, input.z), speed = 8;
   if (length > 0) {
-    field.position.x = Math.max(-78, Math.min(78, field.position.x + input.x / Math.max(1, length) * speed * dt));
-    field.position.z = Math.max(-78, Math.min(78, field.position.z + input.z / Math.max(1, length) * speed * dt));
+    const x = Math.max(-78, Math.min(78, field.position.x + input.x / Math.max(1, length) * speed * dt));
+    const z = Math.max(-78, Math.min(78, field.position.z + input.z / Math.max(1, length) * speed * dt));
+    if (cityPositionClear(s,field,{...field.position,x})) field.position.x=x;
+    if (cityPositionClear(s,field,{...field.position,z})) field.position.z=z;
     field.heading = Math.atan2(input.x, input.z);
   }
   field.position.y = fieldGround(s.seed, planetAtlas(s.homePlanet!)!.cells[field.cellId], field.position.x, field.position.z);
