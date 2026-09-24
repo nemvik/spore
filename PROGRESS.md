@@ -2,6 +2,20 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-010.A · trvalá identita domova · 2026-09-24
+
+- Výchozí čistý `main` / `d90a22e8c`, disk 22 GiB volných. Přečtené instrukce, aktuální roadmapa/brief/progress, SP-007.A smlouva a závěrečné reporty F/B1. [Plán](docs/superpowers/plans/2026-09-24-sp-010a-home-planet.md) sepsán před implementací; bez commitu/pushe/deploye.
+- **SP-010.A hotovo:** `homePlanet` v1, tři existující habitaty, stabilní ID nezávislé na importním slotu/etapě/kameře; [konkrétní místní adresa a resolver pro SP-009](docs/spore/SP-010A-CONTRACT.md). UI nová linie/load/import aktivují identitu včetně checkpointu před importním rekey; parser absenci nemění. Žádné návštěvy/rozhodnutí/kontinenty se nedoplňují. `planet` zůstává původní lokální terraformací.
+- Všech 11 historických fixtures je byte-identických podle SHA-256 manifestu. Aktivace mění pouze nové rozšíření; 120 kroků parity pro všech šest etap zachovává původní svět, RNG, organismus, historii, kmen, stroje/terraformaci a B1. Oba organismové přechody, pozdější přechody i P0 návrat, import/export, lokální save/load, starší checkpoint, opakovaný vstup a chybné reference mají regrese.
+- **53 nových regresí; finální celá sada 143 souborů / 2 696 testů, 77,24 s** s jedním pracovníkem a původními limity. Typecheck/build/diff-check prošly. Node 22.23.1 / pnpm 11.24.0; JS `index-Bjv2-URM.js` 1 238,68 kB / gzip 381,39 kB. Známý Vite chunk warning trvá; lockfile/závislosti beze změn.
+- Produkční Chrome **9/9 skupin, 0 chyb**, native RAF/UI bez setterů/localStorage zápisů nebo advanceTime. Nová linie a krátký pohyb, deník J, opakovaný import/rekey/reload/load; připravené oba přechody, historická výhra→kmen, dokončený historický kmen→stroje/B1, připravená mrtvá větev→UI checkpoint, dokončené stroje→lokální T0 a historický T3 sandbox. Přesné připravené vstupy a meze v [reportu](docs/spore/SP-010A-REPORT.md); nejde o novou šestietapovou kampaň.
+- Osm finálních snímků otevřeno/prohlédnuto včetně 1024×720. Text planety/lokality a detail bez vymyšlených návštěv; zpráva při příchodu, čitelný odstup nad kmenovým panelem. Původní skill klient z byte-identické kopie přes Chrome/skutečné čekání také prošel; canvas snímek prohlédnutý a jako duplicita uklizený.
+- Nezávislé review skutečně ověřilo 52 testů; P3 přepsané hlášení pobřeží opraveno spojením se suchem a regresí poslední zprávy. Následné review bez produkčních nálezů; zpřesněna browser viditelnost toastu a aktuální viewport. Detekce mezery HUD odhalila malý překryv, opraven line-height/padding. Jedno čekání testovacího ovladače na neexistující panel v etapě 0 opraveno podmínkou existence; žádné timeouty/herní limity se nezvyšovaly.
+- Úklid `evidence/sp-010a/cleanup-manifest.json`: 11 souborů / 1 713 217 B odstraněno, ponecháno přibližně 4,6 MiB (8 snímků, nutné vstupy, aktivní exporty, malé logy). Původní aktivní kampaně a cizí evidence nedotčené. Bez trace/video/archivů, `.playwright-mcp/traces/` neexistuje; vlastní preview/browsery uzavřené. Disk po úklidu 22,23 GiB.
+- Pokračovat **SP-010.B** geografickou návazností/terénem a zasazením habitatů; **SP-010.C** globální kamerou/návraty. **SP-009.A** může použít hotovou adresu pro založení/persistenci měst. Celé SP-010/SP-009, SP-007.B2/D a SP-017 zůstávají otevřené. Bez lidského playtestu/poslechu, Safari/mobilu a dlouhého soaku; ruční migrace není potřeba.
+
+- Navazující pokyn uživatele autorizoval commit a push SP-010.A na `main`. Před publikací se hashe všech deseti ověřovaných zdrojů/scénářů shodují se závěrečným ověřením; vzdálený `main` odpovídá výchozímu `d90a22e8c`. Bez deploye. Další vývojový krok: SP-010.B podle roadmapy a smlouvy A.
+
 ## SP-007.B1 · následky sjednocení kmene · 2026-09-24
 
 - Zadání: dokončit pouze B1 nad SP-008.A–F, bez commitu/pushe/deploye. Výchozí čistý main `8d009f0d1`, disk 23 GiB volných. Přečtené instrukce, roadmapa, progress, briefy, smlouva A a report F.
