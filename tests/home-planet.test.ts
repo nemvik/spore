@@ -174,7 +174,7 @@ describe('SP-009 address contract', () => {
 
 describe('strict home planet persistence', () => {
   it.each([
-    ['unknown field',(p:any)=>p.visited=[]], ['unknown version',(p:any)=>p.version=2],
+    ['unknown field',(p:any)=>p.visited=[]], ['unknown version',(p:any)=>p.version=3],
     ['invalid ID',(p:any)=>p.id='bad:planet'], ['null',(p:any,s:any)=>s.homePlanet=null],
     ['extra locality',(p:any)=>p.locations.push({id:locationId(p.id,2),kind:'coast',worldSlot:2})],
     ['missing locality',(p:any)=>p.locations=[]], ['duplicate',(p:any)=>p.locations.push({...p.locations[0]})],

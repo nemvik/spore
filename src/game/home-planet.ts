@@ -6,7 +6,8 @@ import { WORLD_BOUND } from './world';
 export const LOCATION_KINDS = ['microhabitat', 'reef', 'coast'] as const;
 export type LocationKind = typeof LOCATION_KINDS[number];
 export interface PlanetLocation { id: string; kind: LocationKind; worldSlot: WorldStage; }
-export interface HomePlanet { version: 1; id: string; locations: PlanetLocation[]; currentLocationId: string; }
+interface HomePlanetIdentity { id: string; locations: PlanetLocation[]; currentLocationId: string; }
+export type HomePlanet = HomePlanetIdentity & ({ version: 1 } | { version: 2; geography: import('./planet-geography').GeographyRecipe });
 /** SP-009 cities own this address; position is LOCAL to the referenced habitat. */
 export interface LocationAddress { planetId: string; locationId: string; position: Vec3; }
 export const HOME_PLANET_NAME = 'Lumavora';
@@ -30,17 +31,21 @@ export function syncHomePlanet(s: GameState): void {
 /** Called on UI birth/load/import, before an imported storage slot gets a new ID.
  * Original slot ID is a deterministic migration namespace, never a live link.
  * Pure historical constructors/parser remain compatible with pre-extension data. */
-export function enableHomePlanet(s: GameState): void {
-  if (!s.homePlanet) {
-    const id = `home-${s.id}`;
-    s.homePlanet = { version: 1, id, locations: [], currentLocationId: '' };
-    syncHomePlanet(s);
-  }
+export function enableHomePlanet(s: GameState, birth = false): void {
+  const activate = (state: GameState, id: string, provenance: 'birth' | 'legacy-assigned') => {
+    if (!state.homePlanet) {
+      state.homePlanet = { version: 1, id, locations: [], currentLocationId: '' };
+      syncHomePlanet(state);
+    }
+    // Explicit v1 -> v2 migration; preserve identity, registry and all local data.
+    if (state.homePlanet.version === 1) state.homePlanet = { ...state.homePlanet, version: 2,
+      geography: { generator: 1, seed: state.seed, provenance } };
+  };
+  activate(s, `home-${s.id}`, birth ? 'birth' : 'legacy-assigned');
   if (s.checkpoint) {
     const checkpoint = JSON.parse(s.checkpoint) as GameState;
-    if (!checkpoint.homePlanet) {
-      checkpoint.homePlanet = { version: 1, id: s.homePlanet.id, locations: [], currentLocationId: '' };
-      syncHomePlanet(checkpoint);
+    if (checkpoint.homePlanet?.version !== 2) {
+      activate(checkpoint, s.homePlanet!.id, s.homePlanet!.version === 2 ? s.homePlanet!.geography.provenance : 'legacy-assigned');
       s.checkpoint = JSON.stringify(checkpoint);
     }
   }

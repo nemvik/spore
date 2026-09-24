@@ -63,7 +63,7 @@ export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution
  if(npcDesigns&&creatureLife&&!legacy)s.worlds[2]=createWorld(seed,2,npcDesigns);
  if(ecology)s.journey.ecology={version:1,contacts:[]};
  if(lineageHistory)enableLineageHistory(s,true);
- if(homePlanet)enableHomePlanet(s);
+ if(homePlanet)enableHomePlanet(s,true);
  initializeJourneyStage(s);if(cellGrowth&&!legacy&&discoveries&&creatureLife)initializeCell(s);announce(s,activeCell(s)?'Jez malé řasy · mezerník. Tři sousta tě zvětší. Pak najdi zářící schránku ✧ a prozkoumej ji klávesou T.':legacy?TEXT.welcome:'WASD · plavba. Mezerník · potrava. T u živého porostu · poznání. Západně čeká zahrada.'); makeCheckpoint(s);return s;
 }
 export function makeCheckpoint(s:GameState) { syncHomePlanet(s);observeLineageHistory(s);s.checkpoint=JSON.stringify({...s,checkpoint:null}); }

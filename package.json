@@ -37,6 +37,7 @@
     "test:domestication": "node scripts/domestication-browser.mjs",
     "test:chief": "node scripts/chief-browser.mjs",
     "test:five-neighbours": "node scripts/five-neighbours-browser.mjs",
+    "test:geography": "node scripts/home-planet-browser.mjs --geography",
     "test:home-planet": "node scripts/home-planet-browser.mjs",
     "test:tribe-inheritance": "node scripts/tribe-inheritance-browser.mjs"
   },

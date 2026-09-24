@@ -71,9 +71,17 @@ function gameId(value: unknown, path: string): string {
   return id;
 }
 
-function validateHomePlanet(value: unknown, worlds: unknown[], stage: Stage): HomePlanet {
-  const at = 'state.homePlanet', planet = object(value, at, ['version', 'id', 'locations', 'currentLocationId']);
-  oneOf(planet.version, [1], `${at}.version`);
+function validateHomePlanet(value: unknown, worlds: unknown[], stage: Stage, seed: number): HomePlanet {
+  const at = 'state.homePlanet';
+  const v2 = !!value && typeof value === 'object' && (value as HomePlanet).version === 2;
+  const planet = object(value, at, ['version', 'id', 'locations', 'currentLocationId', ...(v2 ? ['geography'] : [])]);
+  oneOf(planet.version, [1, 2], `${at}.version`);
+  if (v2) {
+    const geography = object(planet.geography, `${at}.geography`, ['generator', 'seed', 'provenance']);
+    oneOf(geography.generator, [1], `${at}.geography.generator`);
+    if (geography.seed !== seed) invalid(`${at}.geography.seed`, SAVE_ERRORS.unknownValue);
+    oneOf(geography.provenance, ['birth', 'legacy-assigned'], `${at}.geography.provenance`);
+  }
   const id = string(planet.id, `${at}.id`, 101);
   if (!/^home-[a-zA-Z0-9_-]{1,96}$/.test(id)) invalid(`${at}.id`, SAVE_ERRORS.invalidLineageId);
   const locations = array(planet.locations, `${at}.locations`, 3, 1);
@@ -912,7 +920,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   // Saves carry the active alias for readability. Refuse conflicting duplicate states.
   validateWorld(s.world, worldStage, seed, 'state.world');
   if (JSON.stringify(s.world) !== JSON.stringify(worlds[worldStage])) invalid('state.world', SAVE_ERRORS.activeWorldMismatch);
-  if (hasHomePlanet) validateHomePlanet(s.homePlanet, worlds, stage);
+  if (hasHomePlanet) validateHomePlanet(s.homePlanet, worlds, stage, seed);
   const journey = version === 1 ? emptyJourney(true) : validateJourney(s.journey, worldStage, worlds as (World | null)[]);
   if (hasCreatureStage) {
     if (journey.legacy) invalid('state.creatureStage', SAVE_ERRORS.eraSliceMismatch);
@@ -1065,6 +1073,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     const home = s.homePlanet as HomePlanet | undefined;
     if (restored.homePlanet?.version !== home?.version || restored.homePlanet?.id !== home?.id) invalid('checkpoint.homePlanet', SAVE_ERRORS.checkpointMismatch);
+    if (home?.version === 2 && restored.homePlanet?.version === 2 && restored.homePlanet.geography.provenance !== home.geography.provenance) invalid('checkpoint.homePlanet.geography', SAVE_ERRORS.checkpointMismatch);
     if (restored.homePlanet?.locations.some(location => !home!.locations.some(live => live.id === location.id && live.worldSlot === location.worldSlot))) invalid('checkpoint.homePlanet.locations', SAVE_ERRORS.checkpointMismatch);
     // The rule marker is fixed at birth; the earlier filter opening may differ.
     if (restored.journey.reefEvolution?.version !== journey.reefEvolution?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);

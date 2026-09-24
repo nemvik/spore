@@ -30,8 +30,8 @@ Návaznosti určují potřebné výstupy při realizaci, nikoli zákaz připravi
 | [SP-006 · Buněčný růst a přestavba](#sp-006) | A | Hotovo | SP-001 | [Plán](../superpowers/plans/2026-09-23-sp-006-cell-growth.md), [růst, kontakty a objevování](SP-006-REPORT.md); 2 267 testů, nová linie bez připraveného stavu, meze lidského playtestu v reportu |
 | [SP-007 · Dědictví celé linie](#sp-007) | A–D | Rozpracováno | SP-003; výsledky dalších etap průběžně | **A hotovo:** [smlouva](SP-007A-CONTRACT.md), [report](SP-007A-REPORT.md), [plán](../superpowers/plans/2026-09-23-sp-007a-lineage-history.md); **B1 hotovo:** [následky kmene](SP-007B1-REPORT.md); B2/D otevřené |
 | [SP-008 · Aktivní kmenová společnost](#sp-008) | B | Hotovo | SP-003, SP-007.A (smlouva dědictví) | **A–F hotovo:** [aktivní sousedé](SP-008A-REPORT.md), [kulturní výstroj](SP-008B-REPORT.md), [hudební setkání](SP-008C-REPORT.md), [domestikace](SP-008D-REPORT.md), [náčelník](SP-008E-REPORT.md), [pět sousedů a souhrn kritérií A–F](SP-008F-REPORT.md); F v pracovním stromu nad `190f55f` |
-| [SP-009 · Města a civilizace](#sp-009) | B | K plánu | SP-008, SP-010.A; globální integrace s B/C | [Hotové adresní rozhraní SP-010.A](SP-010A-CONTRACT.md); navazuje A — založení a persistence měst |
-| [SP-010 · Celá planeta](#sp-010) | B | Rozpracováno | SP-001 | **A hotovo:** [identita domova a lokalit](SP-010A-REPORT.md), [smlouva pro města](SP-010A-CONTRACT.md), [plán](../superpowers/plans/2026-09-24-sp-010a-home-planet.md); B/C otevřené |
+| [SP-009 · Města a civilizace](#sp-009) | B | K plánu | SP-008, SP-010.A; globální integrace s B/C | [Místní adresa A](SP-010A-CONTRACT.md) a [geografický kontext B](SP-010B-CONTRACT.md); navazuje A — založení a persistence měst |
+| [SP-010 · Celá planeta](#sp-010) | B | Rozpracováno | SP-001 | **A hotovo:** [identita domova a lokalit](SP-010A-REPORT.md), [smlouva pro města](SP-010A-CONTRACT.md), [plán A](../superpowers/plans/2026-09-24-sp-010a-home-planet.md); **B hotovo:** [geografie a ověření](SP-010B-REPORT.md), [smlouva B](SP-010B-CONTRACT.md); C otevřené |
 | [SP-011 · Loď a vesmírné cestování](#sp-011) | C–D | K plánu | SP-009, SP-010, SP-005 (knihovna a formát) | — |
 | [SP-012 · Terraformace cizích světů](#sp-012) | C–D | K plánu | SP-011, SP-005 (organismy) | — |
 | [SP-013 · Kolonie, obchod a říše](#sp-013) | C–D | K plánu | SP-011, SP-012 | — |
@@ -220,7 +220,7 @@ A–F zachovávají tělo, jídelníček, pracovní nástroje, boj a jednorázov
 **Rozdělení plánů:** identita planety/lokalit a migrace → generování a návaznost terénu → globální kamera a integrace měst. Nejprve definovat datové rozhraní pro SP-009. Navázat na [svět](../../src/game/world.ts), [typy](../../src/game/types.ts), [mapování etap](../../src/game/stage.ts), [kameru](../../src/game/camera.ts) a [persistenci](../../src/game/persistence.ts). Měřítko referenční civilizace a vesmíru: [manuál][manual].
 
 - [x] Identita planety a jejích lokalit je oddělená od aktuálně vykreslené scény a čísla etapy. **SP-010.A:** trvalá ID tří existujících habitatů, zapojená UI aktivace/přechody/save/checkpointy, místní adresy pro SP-009; [report a meze](SP-010A-REPORT.md).
-- [ ] Kontinenty, oceány a biomy tvoří použitelný svět; lokální výchozí místo je jeho rozpoznatelnou součástí.
+- [x] Kontinenty, oceány a biomy tvoří použitelný svět; lokální výchozí místo je jeho rozpoznatelnou součástí. **SP-010.B:** deterministický regionální atlas sféry, původní habitaty s explicitním měřítkem a převodem adres, společné API pro mapu a budoucí města, migrace v1→v2; [report a hranice detailu](SP-010B-REPORT.md). Globální detailní scény a cestování zůstávají C.
 - [ ] Kamera přechází od místního dění ke globálnímu přehledu s čitelnou navigací a výběrem měst.
 - [ ] Návrat mezi vzdálenými místy i save/load zachová jejich stav; staré kampaně mají ověřenou migraci.
 - [ ] Zaznamenat výkon a paměť při přechodech měřítek a opakovaných návratech; neudržovat všechny detailní scény trvale načtené.
@@ -228,10 +228,10 @@ A–F zachovávají tělo, jídelníček, pracovní nástroje, boj a jednorázov
 | Část | Stav | Přesný rozsah |
 | --- | --- | --- |
 | SP-010.A — identita a místní adresy | Hotovo | `homePlanet` v1, původní světy bez regenerace, opakovatelná aktivace historických kampaní bez vymyšlených návštěv, HUD/deník a 53 nových regresí. |
-| SP-010.B — geografická návaznost | K plánu | Kontinenty, oceány, terén a explicitní zasazení původních habitatů; žádná tichá reinterpretace místních souřadnic. |
+| SP-010.B — geografická návaznost | Hotovo | HomePlanet v2 / generator 1, regionální výšky/povrchy/biomy, kotvy a obousměrné převody, atlas v deníku, 63 nových regresí a produkční průchod. [Plán](../superpowers/plans/2026-09-24-sp-010b-geography.md), [kontrakt](SP-010B-CONTRACT.md), [report](SP-010B-REPORT.md). |
 | SP-010.C — globální navigace a města | K plánu | Globální kamera, výběr měst, vzdálené návraty a zachování stavu, měření výkonu/paměti. |
 
-A prokazuje migraci a zachování **dosavadních** světů; kritérium skutečného cestování mezi vzdálenými místy zůstává otevřené. `GameState.planet` nadále označuje lokální terraformaci pobřeží. SP-009.A má navázat založením a persistencí měst podle adresního kontraktu; ekonomiku/strategie řeší SP-009 a jejich následky SP-007.B2, vesmírnou filozofii SP-007.D. Celé SP-010, SP-009 a SP-007.B2/D se tím neuzavírají.
+A/B prokazují migraci a zachování **dosavadních** světů; B přidává regionální geografii, nikoli globální detailní scény; kritérium skutečného cestování mezi vzdálenými místy zůstává otevřené. `GameState.planet` nadále označuje lokální terraformaci pobřeží. SP-009.A má navázat založením a persistencí měst podle adresního kontraktu; ekonomiku/strategie řeší SP-009 a jejich následky SP-007.B2, vesmírnou filozofii SP-007.D. Celé SP-010, SP-009 a SP-007.B2/D se tím neuzavírají.
 
 <a id="sp-011"></a>
 ### SP-011 — Vlastní loď, soustavy a galaxie
@@ -353,6 +353,7 @@ Zdroje byly dohledány v auditu 17. září 2026. Manuál a oficiální web tvo�
 
 | Datum | Změna | Doložení |
 | --- | --- | --- |
+| 2026-09-24 | SP-010.B dokončeno: deterministický atlas, geografické kotvy a převody, migrace v1→v2 bez změny světa/historie/RNG, 63 nových regresí, 2 759 testů, produkční browser 12/12, review a úklid. Další krok C; celá SP-010, SP-009 a SP-007.B2/D otevřené. Pracovní strom nad `93e5f4b9`. | [Report](SP-010B-REPORT.md), [kontrakt](SP-010B-CONTRACT.md), [plán](../superpowers/plans/2026-09-24-sp-010b-geography.md) |
 | 2026-09-24 | SP-007.B1 dokončeno: tři cesty sjednocení mění strojový příjem/výkon, tři i pět sousedů, historická kompatibilita bez zpětných odměn. 52 nových regresí, celkem 2 643 testů s původními limity; typecheck/build. Produkční tři cesty 21/21 a finální replay 15/15 po opravě čekání na HUD; devět prohlédnutých snímků, nezávislé review a úklid. B2/D, SP-009/SP-010 a celá SP-017 otevřené. Bez commitu, pushe a deploye. | [Report a meze](SP-007B1-REPORT.md), [plán](../superpowers/plans/2026-09-24-sp-007b1-tribal-inheritance.md) |
 | 2026-09-24 | SP-008.F dokončeno: pět hospodařících sousedů, fyzické cesty/těla/výstroj, konečné zdroje, obě cesty a přesné výsledky/savey. 2 591 testů s jedním pracovníkem a globálním limitem 60 s po diagnostice timeoutů; typecheck/build. Diplomatické UI 10/10 na předchozím buildu, finální boj 9/9 a diplomatický replay 3/3. Kritéria A–F doložena, celá SP-008 uzavřena; SP-007.B1 a SP-017 otevřené. Bez lidského playtestu/poslechu, commitu a pushe. | [Report včetně souhrnu A–F](SP-008F-REPORT.md), [plán](../superpowers/plans/2026-09-24-sp-008f-five-neighbours.md) |
 | 2026-09-24 | SP-008.E dokončeno: zvolený původní člen, placený kontaktní sněm, skutečný účinek, omezení, přerušení a předání bez resetu cooldownu. UI 7/7, šest prohlédnutých snímků, 2 528 testů s jedním pracovníkem a globálním limitem 30 s po diagnostice staršího timeoutu; typecheck/build. F, SP-007.B1 a celá SP-017 otevřené, bez skutečného poslechu/lidského playtestu. | [Report](SP-008E-REPORT.md), [plán](../superpowers/plans/2026-09-24-sp-008e-chief.md) |

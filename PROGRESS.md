@@ -2,6 +2,20 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-010.B · geografická návaznost · 2026-09-24
+
+- **B hotovo:** čistý výchozí `main` / `93e5f4b9`; [plán před implementací](docs/superpowers/plans/2026-09-24-sp-010b-geography.md), [geografický kontrakt](docs/spore/SP-010B-CONTRACT.md), [verzovaný report s důkazy a mezemi](docs/spore/SP-010B-REPORT.md). Bez commitu, pushe, deploye, závislostí nebo změny lockfilu.
+- HomePlanet v2 / generator 1: recept deterministického regionálního atlasu sféry 72×36, obvod 36 km, výšky/povrchy/biomy/regiony a explicitní kotvy původních habitatů. Původní LocationAddress beze změny; nové GeographicAddress a obousměrné převody. API addressGeography vrací původní World/terén i nový kontext pro mapu a budoucí SP-009. GameState.planet nadále místní terraformace, její klima a výsledky se nesměšují.
+- Parser zachovává absenci i v1; UI před rekey migruje v1→v2 včetně checkpointu. Původ birth / legacy-assigned, žádné vymyšlené návštěvy/objevy/vlastnictví/rozhodnutí. Všech 11 fixtures byte-identických, přidán skutečný A browser export jako trvalý regresní vstup. 120 simulačních kroků parity všech fixtures zachovává svět, RNG, historii a B1; A regrese chrání etapy, přechody, ID, NPC, save/load/import/export/checkpointy.
+- **63 nových regresí; finální celá sada 144 souborů / 2 759 testů, 82,83 s** s jedním workerem a původními limity; cíleně 116/116. Typecheck/build/diff-check prošly. JS index-TTg_sO7R.js 1 246,80 kB / gzip 384,92 kB; původní chunk warning zůstává. Nezměněné timeouty, simulační kroky a historické hashe; unknown-version test A nyní odmítá 3 místo nově podporované 2.
+- Nezávislé review: dva read-only průchody, 115 testů v každém + průzkum 1000 seedů. Opraven P2 sloupec za zaokrouhleným švem 180° s regresí a P3 nepřesný slib tří oddělených pevnin. Následně bez nálezů; třetí závěrečná kontrola UI formátu/dokumentace a devíti zdrojových hashů také bez nálezů. Vlastní kontrola finálního diffu dokončena.
+- Produkční Chrome **12/12 skupin, 0 chyb, 12,176 s**, běžné vstupy/native RAF bez live zápisů nebo advanceTime. Nová linie/pohyb/J/detail/save/load, výslovně připravené organismové brány a mrtvá checkpointová větev, historické přechody všech pozdějších etap, T3 sandbox a skutečný v1 export. Nejde o novou šestietapovou kampaň. Přehled ukazuje aktuální lokalitu, mapu, číselné značky, legendu, fyzická měřítka a původ; 1024×720 prohlédnuto. Naměřené dvě odezvy otevření J 8/15 ms nejsou globální benchmark.
+- Browser odhalil kolizi s CSS lokální terraformace; opravena vlastní třídou home-atlas bez změny původní mapy. Prohlídka odhalila desetinný zbytek 15.600…; zobrazení opraveno na 15,6 m, doplněna regrese. Všech devět finálních snímků otevřeno/prohlédnuto, také canvas doplňkového skill klienta se skutečným časem. Lidský playtest/poslech, Safari/mobil, dlouhý soak a globální navigace neověřeny.
+- Úklid evidence/sp-010b/cleanup-manifest.json: odstraněno 15 vlastních souborů / 3 804 047 B, ponecháno asi 3,3 MiB, aktivní sandbox, čerstvá linie, migrovaný A save, vstupy a devět finálních snímků. Disk před/po 22 GiB; žádné trace/video, vlastní procesy zavřené, cizí data nedotčená.
+- Další krok **SP-010.C:** globální kamera a výběr geografických míst, explicitní vstup/návrat a persistence vzdálených detailních scén, benchmark opakovaných návratů. SP-009.A: založení/persistence města s původní LocationAddress a kontextem B. Celé SP-010, SP-009, SP-007.B2/D a SP-017 zůstávají otevřené. Ruční migrace není potřeba.
+
+- Navazující výslovný pokyn autorizoval commit a push SP-010.B. Před publikací se všech devět ověřovaných zdrojových hashů a identifikace finálního buildu shodují s evidencí; vzdálený `main` odpovídá výchozímu `93e5f4b9`. Další vývojový krok je SP-010.C — globální navigace a návraty.
+
 ## SP-010.A · trvalá identita domova · 2026-09-24
 
 - Výchozí čistý `main` / `d90a22e8c`, disk 22 GiB volných. Přečtené instrukce, aktuální roadmapa/brief/progress, SP-007.A smlouva a závěrečné reporty F/B1. [Plán](docs/superpowers/plans/2026-09-24-sp-010a-home-planet.md) sepsán před implementací; bez commitu/pushe/deploye.
