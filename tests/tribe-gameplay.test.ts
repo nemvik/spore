@@ -244,7 +244,7 @@ describe('paid construction, equipment and population', () => {
 });
 
 describe('tribe conflict, diplomacy and inherited abilities', () => {
-  it.each([['socialize', 'drum', 'allied'], ['attack', 'spear', 'conquered']] as const)('can resolve all three real neighbours through %s', (kind, tool, resolution) => {
+  it.each([['socialize', 'drum', 'allied'], ['attack', 'spear', 'conquered']] as const)('can resolve all five real neighbours through %s', (kind, tool, resolution) => {
     const s = game(481516, 'predator'); s.tribe.food = 250;
     workshop(s, tool);
     expect(equipTribeUnits(s, s.tribe.members.map(u => u.id), tool).ok).toBe(true);

@@ -1,3 +1,6 @@
+import { connectedGround } from './navigation';
+import { tribeMemberRadius } from './tribe-motion';
+import { neighbourProfile } from './tribe-roster';
 import { interruptChiefOnDamage } from './tribe-chief';
 import { interruptDomesticationOnDamage } from './tribe-domestication';
 import { interruptMusicOnDamage } from './tribe-music';
@@ -21,7 +24,10 @@ export function tribeContact(world: World, a: Vec3, b: Vec3): boolean {
   });
 }
 function resident(s: GameState, t: ActiveTribeState, n: TribeNeighbour): NeighbourUnit {
-  const id = t.nextId++, pos = openGround(s.world, n.pos, id, 4.5);
+  const id = t.nextId++, radius=t.roster==='five'?tribeMemberRadius(s,{species:neighbourProfile(n).species,tool:null}):.72;
+  const reachable=radius>6?connectedGround(s.world,n.pos,radius+.16):()=>true;
+  let pos = openGround(s.world, n.pos, id, Math.max(4.5,radius+3),radius+.2);
+  for(let attempt=0;attempt<32&&(!reachable(pos)||n.society?.members.some(u=>horizontalDistance(u.pos,pos)<radius*2+.2)||horizontalDistance(pos,n.pos)<radius+2.5);attempt++)pos=openGround(s.world,n.pos,id+attempt,Math.max(5,radius+3)+Math.floor(attempt/8)*3,radius+.2);
   return { id, pos, heading: 0, health: 70, hunger: 28, cargo: 0, cooldown: 0, task: 'rest', resource: null, navigation: unitNavigation(pos) };
 }
 export function initializeNeighbours(s: GameState, t: ActiveTribeState): void {
@@ -66,14 +72,17 @@ export function stepSociety(s: GameState, t: ActiveTribeState, n: TribeNeighbour
   // A real shortage, a hostile relation and spare people are all required.
   if (!n.resolved && disposition==='hostile' && !a.expedition && a.raidCooldown===0 && a.truce===0 && a.food<10 && t.food>=8 && a.members.length>=3 && !invading.length) {
     const ready=a.members.filter(u=>u.health>=50&&u.hunger<65&&u.cargo===0&&horizontalDistance(u.pos,n.pos)<7);
-    const count=Math.min(2,Math.max(1,Math.floor(t.members.length/2)),a.members.length-2);
-    if(ready.length>=count){a.expedition={phase:'warning',members:ready.slice(0,count).map(u=>u.id),time:0};messages.push(`${name}: chybí jídlo. Za ${SOCIETY.warning} s vyrazí výprava. Připrav obranu nebo přines dar.`);}
+    const available=t.roster==='five'?Math.max(0,2-t.neighbours.reduce((sum,other)=>sum+(other.society?.expedition?.members.length??0),0)):2;
+    const count=Math.min(available,Math.max(1,Math.floor(t.members.length/2)),a.members.length-2);
+    if(count>0&&ready.length>=count){a.expedition={phase:'warning',members:ready.slice(0,count).map(u=>u.id),time:0};messages.push(`${name}: chybí jídlo. Za ${SOCIETY.warning} s vyrazí výprava. Připrav obranu nebo přines dar.`);}
   }
+  const radius=t.roster==='five'?tribeMemberRadius(s,{species:neighbourProfile(n).species,tool:null}):.72;
+  const reachable=radius>6?connectedGround(s.world,n.pos,radius+.16):()=>true;
   for (const u of a.members) {
     u.cooldown=Math.max(0,u.cooldown-dt); u.hunger=Math.min(100,u.hunger+dt*.25);
     if(u.hunger>=90)u.health=Math.max(0,u.health-dt*.45);
     if(u.health<=0)continue;
-    const travel=(p:Vec3,stop=2)=>moveUnit(s.world,u,p,positions,n.identity==='terrace'?3.6:4,dt,stop);
+    const travel=(p:Vec3,stop=2)=>moveUnit(s.world,u,p,positions,neighbourProfile(n).speed,dt,stop,radius,.72,t.roster==='five'&&radius>6);
     const contact=(p:Vec3,stop=2)=>{travel(p,tribeContact(s.world,u.pos,p)?stop:.5);return horizontalDistance(u.pos,p)<=stop+.05&&tribeContact(s.world,u.pos,p);};
     const atHome=horizontalDistance(u.pos,n.pos)<5 && tribeContact(s.world,u.pos,n.pos);
     if(atHome){
@@ -90,7 +99,7 @@ export function stepSociety(s: GameState, t: ActiveTribeState, n: TribeNeighbour
       if(contact(target.pos,2.2)&&u.cooldown===0){
         const guarded=t.legacyAbility==='predator'&&t.abilityTime>0;
         const shield=t.members.some(v=>v.health>0&&v.benefit==='shield'&&v.hunger<70&&horizontalDistance(v.pos,target.pos)<9);
-        target.health=Math.max(0,target.health-(n.identity==='terrace'?5:4)*(guarded?.45:1)*(shield?.65:1)*cultureEffects(target.outfit).damageTaken);interruptMusicOnDamage(s,target.id,target.health);interruptDomesticationOnDamage(s,target.id);interruptChiefOnDamage(s,target.id);u.cooldown=1.8;
+        target.health=Math.max(0,target.health-neighbourProfile(n).damage*(guarded?.45:1)*(shield?.65:1)*cultureEffects(target.outfit).damageTaken);interruptMusicOnDamage(s,target.id,target.health);interruptDomesticationOnDamage(s,target.id);interruptChiefOnDamage(s,target.id);u.cooldown=1.8;
       }
       continue;
     }
@@ -110,11 +119,11 @@ export function stepSociety(s: GameState, t: ActiveTribeState, n: TribeNeighbour
     }
     if(u.cargo>=SOCIETY.cargo||u.cargo>0&&!s.world.resources.some(r=>r.id===u.resource&&r.amount>=1)||u.health<28||u.hunger>65&&a.food>=2){u.task='return';travel(n.pos,3.5);continue;}
     if(a.food>=SOCIETY.stock-8){u.task='rest';u.resource=null;travel(n.pos,5);continue;}
-    let source=s.world.resources.find(r=>r.id===u.resource&&r.amount>=1&&(disposition!=='friendly'||horizontalDistance(r.pos,home)>18));
+    let source=s.world.resources.find(r=>r.id===u.resource&&r.amount>=1&&reachable(r.pos)&&(disposition!=='friendly'||horizontalDistance(r.pos,home)>18));
     if(!source){
       const range=a.food<4?72:38;
-      source=s.world.resources.filter(r=>r.kind!=='meat'&&r.amount>=1&&horizontalDistance(r.pos,n.pos)<range && (disposition!=='friendly'||horizontalDistance(r.pos,home)>18) && s.world.obstacles.every(o=>horizontalDistance(o.pos,r.pos)>o.radius+.9))
-        .sort((x,y)=>horizontalDistance(x.pos,u.pos)-horizontalDistance(y.pos,u.pos)||x.id-y.id)[0];
+      source=s.world.resources.filter(r=>r.kind!=='meat'&&r.amount>=1&&reachable(r.pos)&&horizontalDistance(r.pos,n.pos)<range && (disposition!=='friendly'||horizontalDistance(r.pos,home)>18) && s.world.obstacles.every(o=>horizontalDistance(o.pos,r.pos)>o.radius+radius+.2))
+        .sort((x,y)=>Number(y.kind===neighbourProfile(n).preferred)-Number(x.kind===neighbourProfile(n).preferred)||horizontalDistance(x.pos,u.pos)-horizontalDistance(y.pos,u.pos)||x.id-y.id)[0];
       u.resource=source?.id??null;
     }
     if(!source){u.task='rest';travel(n.pos,4);continue;}
@@ -125,7 +134,7 @@ export function stepSociety(s: GameState, t: ActiveTribeState, n: TribeNeighbour
   if(a.expedition){a.expedition.members=a.expedition.members.filter(id=>a.members.some(u=>u.id===id));if(!a.expedition.members.length){a.expedition=null;a.raidCooldown=60;}}
   const atHome=a.members.some(u=>horizontalDistance(u.pos,n.pos)<5&&tribeContact(s.world,u.pos,n.pos));
   if(atHome&&!invading.length&&n.alarm===0&&a.food>=4){
-    const max=n.identity==='garden'?160:n.identity==='terrace'?220:180;
+    const max=neighbourProfile(n).health;
     const repair=Math.min(max-n.health,dt*1.5,a.food*4);
     if(repair>0){n.health+=repair;a.food-=repair/4;}
     if(a.members.length<SOCIETY.capacity&&a.food>=SOCIETY.recruit+4&&a.recruitCooldown===0){a.food-=SOCIETY.recruit;a.members.push(resident(s,t,n));a.recruitCooldown=30;}

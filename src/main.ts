@@ -506,7 +506,7 @@ function action(a:string){if(mode==='editor'){finishEditorInput();finishCreature
   else if(command==='tribe-chief-cancel')commandResult(cancelChiefCouncil(state));
   else if(command==='tribe-chief-focus'){const u=chiefMember(state);if(u){selectUnits([{kind:'member',id:u.id}]);graphics.focusCommand(u.pos);}}
   else if(command==='tribe-retreat')commandResult(issueTribeOrder(state,ids,'move',{kind:'point',pos:tribeHome(tribe)}));
-  else if(command==='tribe-expedition-focus'){const n=tribe.neighbours.find(n=>n.id===Number(arg));const u=n?.society?.members.find(u=>n.society?.expedition?.members.includes(u.id));if(u)graphics.focusCommand(u.pos);}
+  else if((command==='tribe-expedition-focus'||command==='tribe-expedition-alert')){const n=tribe.neighbours.find(n=>n.id===Number(arg));const u=n?.society?.members.find(u=>n.society?.expedition?.members.includes(u.id));if(u)graphics.focusCommand(u.pos);}
   else if(command==='tribe-intercept'||command==='tribe-parley'){const n=tribe.neighbours.find(n=>n.id===Number(arg));const u=n?.society?.members.find(u=>n.society?.expedition?.members.includes(u.id)&&u.health>0);if(u)commandResult(issueTribeOrder(state,ids,command==='tribe-intercept'?'attack':'socialize',{kind:'neighbour-unit',id:u.id}));}
   else if(command==='tribe-tame')commandResult(startDomestication(state,ids,Number(arg)));
   else if(command==='tribe-tame-cancel')commandResult(cancelDomestication(state));
@@ -516,7 +516,7 @@ function action(a:string){if(mode==='editor'){finishEditorInput();finishCreature
   else if(command==='tribe-animal-gather')commandResult(orderDomesticAnimal(state,Number(rest[0]),Number(rest[1])));
   else if(command==='tribe-animal-release')commandResult(releaseDomesticAnimal(state,Number(arg)));
   else if(command==='tribe-home')graphics.focusCommand(tribeHome(tribe));
-  else if(command==='tribe-focus'){const n=tribe.neighbours.find(n=>n.id===Number(arg));if(n)graphics.focusCommand(n.pos);}
+  else if((command==='tribe-focus'||command==='tribe-map')){const n=tribe.neighbours.find(n=>n.id===Number(arg));if(n)graphics.focusCommand(n.pos);}
   else if(command==='tribe-next'){if(continueToMachinesEra(state)){resetCommands();persistState();audio.stage(state.stage);switchMode('game');}else announce(state,TRIBE_COPY.notReady);}
   else if(command==='tribe-music')commandResult(startMusic(state,ids,Number(arg)));
   else if(command==='tribe-music-answer')commandResult(answerMusic(state,arg as Instrument));

@@ -26,7 +26,7 @@ it.each([false, true])('physically collects and delivers the larger bag load (ba
   expect(largest).toBe(capacity); expect(t.food - start).toBe(capacity * 4); expect(resource.amount).toBe(10 - capacity);
 });
 it('stacks plume with the actual drum and SP-007.A factor without discounting the gift', () => {
-  const s = isolated(), t = s.tribe, u = t.members[0], n = t.neighbours[0];
+  const s = cultureGame(), t = s.tribe, u = t.members[0], n = t.neighbours[0];
   equipOutfit(s, [u.id], envoy); u.tool = 'drum'; const food = t.food, relation = n.relation;
   meetNeighbour(t, u, n, 'socialize', 1, { social: 1.15, combat: 1 });
   expect(n.relation - relation).toBeCloseTo(4.6); expect(food - t.food).toBe(8); expect(n.tribute).toBe(8);

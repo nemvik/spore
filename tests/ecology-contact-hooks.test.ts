@@ -55,7 +55,10 @@ function mealFixture(stage: WorldStage, provenance: 'natural' | 'planted' | 'off
 function tribeScene(jawed = false): GameState & { tribe: ActiveTribeState } {
   const s = scene(2); if (jawed) jaw(s); Object.assign(s.campaign, { won: true, finale: 'restoration' });
   expect(continueToTribeEra(s)).toBe(true); const game = s as GameState & { tribe: ActiveTribeState };
-  game.tribe.members.forEach(u => { u.pos = point(s, -50, 50); }); return game;
+  game.tribe.members.forEach(u => { u.pos = point(s, -50, 50); });
+  // Isolate the player's ledger from five societies harvesting the same mother.
+  for(const n of game.tribe.neighbours){n.society!.food=48;for(const u of n.society!.members)u.hunger=0;}
+  return game;
 }
 
 describe('ecology ledger opt-in preserves original gameplay', () => {

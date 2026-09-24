@@ -1,10 +1,10 @@
+import { moveTribeMember } from './tribe-motion';
 import type { ActiveTribeState, TribeNeighbour, TribeUnit } from './era-types';
 import type { GameState, Vec3 } from './types';
 import { clamp, horizontalDistance } from './random';
 import { computeStats } from './genome';
 import { cultureEffects } from './culture';
 import { creatureInheritance } from './lineage-history';
-import { moveUnit } from './unit-motion';
 import { recallExpedition, tribeContact } from './tribe-society';
 import { resolveNeighbourAlliance } from './tribe-neighbours';
 
@@ -96,7 +96,7 @@ export function stepChiefMember(s: GameState,u: TribeUnit,dt: number,positions: 
   const n=t.neighbours.find(n=>n.id===e.neighbour),h=n?.society?.members.find(v=>v.id===e.host&&v.health>0);
   u.intent='socialize';
   if(n&&h){const stats=computeStats(s.player.genome),target=horizontalDistance(h.pos,n.pos)<=12?h.pos:n.pos;
-    moveUnit(s.world,u,target,positions,clamp(stats.speed*stats.walk,2.5,6)*cultureEffects(u.outfit).speed,dt,tribeContact(s.world,u.pos,target)?3:.5);
+    moveTribeMember(s,u,target,positions,clamp(stats.speed*stats.walk,2.5,6)*cultureEffects(u.outfit).speed,dt,tribeContact(s.world,u.pos,target)?3:.5);
     if(chiefContact(s))u.heading=Math.atan2(h.pos.x-u.pos.x,h.pos.z-u.pos.z);
   }
   return true;

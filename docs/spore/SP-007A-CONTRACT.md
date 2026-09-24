@@ -24,7 +24,7 @@ Rozšíření `GameState.lineageHistory` je volitelné uvnitř stávající kamp
 | --- | --- |
 | 0–1 | `site:<id>` → `cultivate/hunt/guide`; uzavření `passage` při skutečném přechodu. |
 | 2 | Ekologická místa a `nest:<species>` → `friend/predator`; uzavření `social/predator/mixed` z SP-003, případně historické `restoration/predator/migration` ekologického finále. |
-| 3 | `neighbour:garden/terrace/sanctuary` → `allied/conquered`; dokončení `allied/conquered/mixed`. |
+| 3 | `neighbour:garden/terrace/sanctuary` a v nové pětikmenové kampani SP-008.F také `neighbour:reed/basalt` → `allied/conquered`; dokončení `allied/conquered/mixed` vyžaduje všechny sousedy příslušného rosteru. |
 | 4 | `region:gardens/terraces/highlands` → uložený `restoration/predator/migration`; uzavření podle dokončených regionů. Současná implementace volí metodu podle zděděného archetypu, **nejde o nezávisle hranou civilizační strategii**. |
 | 5 | `planet:local-t3` → `stable` po skutečném dosažení T3, živé opory a 30 sekund stabilizace bez nástroje; uzavření `stable`. Záznam netvrdí návštěvy cizích planet, kolonizaci ani filozofii. |
 

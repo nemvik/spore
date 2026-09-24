@@ -14,7 +14,7 @@ export const TRIBE_COPY = {
   shelter: 'Chýše', workshop: 'Dílna', build: 'Postavit', gather: 'Sbírat', move: 'Přesun',
   attack: 'Zaútočit', socialize: 'Spřátelit', stop: 'Zastavit', home: 'Tábor',
   ability: 'Dědictví linie', next: 'Vstoupit do éry strojů', ready: 'Všichni sousedé patří do společného kruhu. Kmen je připraven stavět stroje.',
-  objective: 'Spoj se se všemi třemi sousedy, nebo je poraz. Zachovej alespoň jednoho člena.',
+  objective: (count: number) => `Vyřeš všechny sousedy (${count}): spojenectvím nebo dobytím. Zachovej alespoň jednoho člena.`,
   help: 'Levý klik nebo rámeček vybírá členy. Shift přidává výběr či rozkaz do fronty. Pravý klik na cizího člena útočí, Alt + pravý klik nabízí smír. Ústup domů vrátí vybrané členy. Pravý klik posílá jednotky, pravý tah otáčí pohled. WASD posouvá kameru; kolečko přibližuje. H vrátí pohled k táboru, Tab otevře výstroj, T použije dědictví, G pokračuje po sjednocení sousedů.',
   selectFirst: 'Nejprve vyber živé členy tlupy.', unavailable: 'Tato akce není v aktuální etapě dostupná.',
   notFood: 'Vybraní členové tento druh potravy nejedí. Rozhoduje zděděné tělo a druh symbionta.',
@@ -50,6 +50,8 @@ export const TRIBE_COPY = {
     migration: { name: 'Společná cesta', hint: 'Nasytí a ošetří vybrané členy; blízké sousedy naladí k dohodě.' },
   } satisfies Record<LegacyAbility, { name: string; hint: string }>,
   neighbours: {
+    reed: { name: 'Sběrači rákosových tůní', hint: 'Rychlí sběrači přednostně hledají řasy. Lehčí osada a slabší obrana; v písni žádají dvě píšťaly.' },
+    basalt: { name: 'Hlídači čedičové meze', hint: 'Pomalejší sběrači zbytků s pevnou osadou a silnou obranou. V písni žádají dvě chřestidla.' },
     garden: { name: 'Kmen pramenných sadů', hint: 'Přátelští sběrači nechávají zdroje u tvého domova tobě. Jídlem živí a obnovují vlastní osadu.' },
     terrace: { name: 'Strážci jantarové terasy', hint: 'Nepřátelští strážci při nedostatku vyšlou malou výpravu. Dar a osobní setkání ji uklidní.' },
     sanctuary: { name: 'Poutníci severního kruhu', hint: 'Největší společná hostina přináší nejpevnější přátelství.' },

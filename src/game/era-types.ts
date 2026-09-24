@@ -42,7 +42,7 @@ export interface TribeBuilding extends Omit<Hut, 'tool'> {
   health: number;
 }
 export interface TribeNeighbour extends NeighbourTribe {
-  identity: 'garden' | 'terrace' | 'sanctuary';
+  identity: import('./tribe-roster').NeighbourIdentity;
   health: number;
   alarm: number;
   tribute: number;
@@ -72,6 +72,8 @@ export interface NeighbourSociety {
 }
 export interface ActiveTribeState {
   version: 2;
+  /** Absent only in historical three-neighbour campaigns. Fixed at founding. */
+  roster?: 'five';
   chief?: TribeChief;
   domestication?: TribeDomestication;
   culture?: TribeCulture;

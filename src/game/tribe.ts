@@ -1,3 +1,6 @@
+import { connectedGround } from './navigation';
+import { moveTribeMember, tribeMemberRadius } from './tribe-motion';
+import { completeNeighbourRoster, FIVE_NEIGHBOURS, NEIGHBOURS, settlementGround } from './tribe-roster';
 import { chiefBusy, cancelChiefCouncil, stepChiefMember, stepChief } from './tribe-chief';
 import { acquisitionCaretaker, cancelDomestication, domesticAnimal, stepAcquisitionMember, stepDomestication, damageDomesticAnimal } from './tribe-domestication';
 import { cancelMusic, musicParticipant, stepMusic } from './tribe-music';
@@ -11,8 +14,8 @@ import type { UnitOrder, UnitTarget } from './unit-order';
 import { MAX_UNIT_ORDERS, orderedIds, validOrderShape } from './unit-order';
 import { computeStats, has } from './genome';
 import { clamp, groundHeight, horizontalDistance } from './random';
-import { moveUnit, openGround, unitNavigation } from './unit-motion';
-import { meetNeighbour, neighbourGift, neighbourMaxHealth, stepNeighbours, strikeNeighbourUnit } from './tribe-neighbours';
+import { openGround, unitNavigation } from './unit-motion';
+import { meetNeighbour, neighbourGift, stepNeighbours, strikeNeighbourUnit } from './tribe-neighbours';
 import { TRIBE_COPY } from './tribe-copy.cs';
 import { removeTribePrey } from './tribe-wildlife';
 import { cultureEffects, memberCapacity } from './culture';
@@ -26,35 +29,40 @@ export const activeTribe = (s: GameState): ActiveTribeState | null => s.tribe?.v
 export const tribeCapacity = (t: ActiveTribeState): number => Math.min(12, 2 + t.huts.filter(h => h.kind === 'shelter' && h.progress >= 1 && h.health > 0).length * 4);
 export const memberDiet = (s: GameState, u: TribeUnit): readonly string[] => u.species ? worldSpecies(s.world,u.species).diet : computeStats(s.player.genome).diet;
 export const tribeHome = (t: ActiveTribeState): Vec3 => t.huts.filter(h => h.kind === 'shelter' && h.progress === 1 && h.health > 0).sort((a,b) => a.id-b.id)[0].pos;
-export const tribeReady = (s: GameState): boolean => { const t = activeTribe(s); return !!t && t.members.some(u => u.health > 0) && t.neighbours.length === 3 && t.neighbours.every(n => n.resolved !== null); };
+export const tribeReady = (s: GameState): boolean => { const t = activeTribe(s); return !!t && t.members.some(u => u.health > 0) && completeNeighbourRoster(t) && t.neighbours.every(n => n.resolved !== null); };
 
 function makeMember(id: number, pos: Vec3): TribeUnit {
   return { id, pos, heading: 0, health: 100, hunger: 8, tool: null, species: null, benefit: null, loyalty: 100, cargo: 0, cooldown: 0, orders: [], intent: 'rest', navigation: unitNavigation(pos) };
 }
-function memberSpawn(s: GameState, home: Vec3, members: readonly TribeUnit[], huts: readonly TribeBuilding[], id: number): Vec3 {
+function memberSpawn(s: GameState, home: Vec3, members: readonly TribeUnit[], huts: readonly TribeBuilding[], id: number, species: string | null = null, reachable?: (point:Vec3)=>boolean): Vec3 {
+  const radius=tribeMemberRadius(s,{species,tool:null});
+  reachable??=radius>6?connectedGround(s.world,home,radius+.16):()=>true;
   for(let ring=0;ring<8;ring++)for(let offset=0;offset<16;offset++){
-    const pos=openGround(s.world,home,id+offset,5+ring*3);
-    if(members.every(u=>horizontalDistance(u.pos,pos)>=3.4)&&huts.every(h=>horizontalDistance(h.pos,pos)>=4.5))return pos;
+    const pos=openGround(s.world,home,id+offset,Math.max(5,radius+3)+ring*3,radius+.2);
+    if(reachable(pos)&&members.every(u=>horizontalDistance(u.pos,pos)>=tribeMemberRadius(s,u)+radius+.2)&&huts.every(h=>horizontalDistance(h.pos,pos)>=2.5+radius))return pos;
   }
-  return openGround(s.world,home,id,26);
+  return openGround(s.world,home,id,26,radius+.2);
 }
 export function createTribe(s: GameState): ActiveTribeState {
-  const home = openGround(s.world, s.world.landmarks.find(l => l.kind === 'nest')!.pos, 0, 4);
+  // Reserve enough open ground for the inherited body and every local NPC body.
+  const clearance=Math.max(6,tribeMemberRadius(s,{species:null,tool:'spear'})+.5,...FIVE_NEIGHBOURS.map(identity=>tribeMemberRadius(s,{species:NEIGHBOURS[identity].species,tool:null})+.5));
+  const home = settlementGround(s.world, openGround(s.world,s.world.landmarks.find(l => l.kind === 'nest')!.pos,0,4), [],clearance);
+  const reachable=clearance>6?connectedGround(s.world,home,clearance-.34):()=>true;
   let nextId = 1;
   const hut: TribeBuilding = { id: nextId++, kind: 'shelter', pos: home, tool: null, progress: 1, health: 100 };
   const members:TribeUnit[]=[];
-  for(let i=0;i<3;i++){const pos=memberSpawn(s,home,members,[hut],nextId);members.push(makeMember(nextId++,pos));}
+  for(let i=0;i<3;i++){const pos=memberSpawn(s,home,members,[hut],nextId,null,reachable);members.push(makeMember(nextId++,pos));}
   for (const bond of s.player.bonds) {
-    const pos=memberSpawn(s,home,members,[hut],nextId),unit = makeMember(nextId++,pos);
+    const pos=memberSpawn(s,home,members,[hut],nextId,bond.species,reachable),unit = makeMember(nextId++,pos);
     Object.assign(unit, { species: bond.species, benefit: bond.benefit, hunger: clamp(bond.hunger,0,100), loyalty: clamp(bond.loyalty,0,100) });
     members.push(unit);
   }
-  const centers = [{ x: -38, y: 0, z: -28 }, { x: 42, y: 0, z: 6 }, { x: -12, y: 0, z: 46 }];
-  const neighbours: TribeNeighbour[] = (['garden', 'terrace', 'sanctuary'] as const).map((identity, i) => ({
-    id: nextId++, identity, pos: openGround(s.world, centers[i], i, 4), relation: identity === 'terrace' ? -35 : identity === 'garden' ? 30 : 0,
-    resolved: null, health: neighbourMaxHealth({ identity }), alarm: 0, tribute: 0, cooldown: 0,
-  }));
-  const tribe: ActiveTribeState = { version: 2, food: 36, members, huts: [hut], unlocked: [], neighbours, legacyAbility: s.campaign.finale!, abilityCooldown: 0, abilityTime: 0, nextId, elapsed: 0, completed: false };
+  const occupied = [home];
+  const neighbours: TribeNeighbour[] = FIVE_NEIGHBOURS.map(identity => {
+    const profile=NEIGHBOURS[identity], pos=settlementGround(s.world,profile.center,occupied,clearance,reachable); occupied.push(pos);
+    return { id:nextId++,identity,pos,relation:profile.relation,resolved:null,health:profile.health,alarm:0,tribute:0,cooldown:0 };
+  });
+  const tribe: ActiveTribeState = { version: 2, roster: 'five', food: 36, members, huts: [hut], unlocked: [], neighbours, legacyAbility: s.campaign.finale!, abilityCooldown: 0, abilityTime: 0, nextId, elapsed: 0, completed: false };
   initializeNeighbours(s, tribe);
   return tribe;
 }
@@ -86,6 +94,7 @@ export function issueTribeOrder(s: GameState, ids: readonly number[], kind: Unit
   } else if (target.kind === 'neighbour') {
     const n = t.neighbours.find(n => n.id === target.id && !n.resolved);
     if (!n) return fail(TRIBE_COPY.badTarget);
+    if (kind === 'socialize' && n.society && !n.society.members.some(u=>u.health>0)) return fail('Osada nemá živé obyvatele. Lze ji obsadit útokem.');
     if (kind === 'socialize' && n.tribute < neighbourGift(n) && t.food < neighbourGift(n)) return fail(TRIBE_COPY.noGift);
   } else if (target.kind !== 'point') return fail(TRIBE_COPY.badTarget);
   if (units.some(u => chiefBusy(t,u.id))) cancelChiefCouncil(s);
@@ -181,7 +190,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
     if (u.species) u.loyalty = clamp(u.loyalty + dt * (u.hunger > 75 ? -.18 : .04), 0, 100);
     const pace = u.species ? clamp(worldSpecies(s.world,u.species).speed, 2.5, 6) : clamp(stats.speed * stats.walk, 2.5, 6);
     const cultural = cultureEffects(u.outfit);
-    const travel = (target: Vec3, stop = 2) => moveUnit(s.world, u, target, positions, pace * cultural.speed, dt, stop);
+    const travel = (target: Vec3, stop = 2) => moveTribeMember(s, u, target, positions, pace * cultural.speed, dt, stop);
     const contact = (target: Vec3, stop: number) => { travel(target, tribeContact(s.world,u.pos,target) ? stop : .5); return horizontalDistance(u.pos,target)<=stop+.05 && tribeContact(s.world,u.pos,target); };
     const atHome = horizontalDistance(u.pos, home) < 4;
     if (atHome) {
@@ -217,7 +226,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
       const food = s.world.resources.find(r => r.id === target.id);
       if (!food || !memberDiet(s, u).includes(food.kind) || food.amount < 1) { finish(); continue; }
       u.intent = 'forage';
-      if (travel(food.pos, 2) && u.cooldown === 0) {
+      if (contact(food.pos, 2) && u.cooldown === 0) {
         const portion = Math.min(1, capacity - u.cargo);
         const mother=s.journey.sites.find(site=>site.stage===s.world.stage&&(site.sourceId===food.id||site.plantedId===food.id));if(mother)recordEcologyContact(s,`culture:${mother.id}`,'culture',s.world.stage,mother.patch as 0|1|2);
         food.amount -= portion; u.cargo += portion; u.cooldown = 1.8;

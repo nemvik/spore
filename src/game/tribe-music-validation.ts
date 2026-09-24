@@ -1,3 +1,4 @@
+import { neighbourGift } from './tribe-neighbours';
 import type { GameState } from './types';
 import { creatureInheritance } from './lineage-history';
 import { cultureEffects } from './culture';
@@ -29,7 +30,7 @@ export function validateMusic(value: unknown, t: ActiveTribeState): void {
     if (r.success !== success) invalid(); number(r.multiplier,1,success ? 1.4375 : 1);
     return r as unknown as MusicRound;
   });
-  const cooldowns = list(m.cooldowns,0,3).map(v => { const c=exact(v,['neighbour','remaining']); neighbour(c.neighbour); number(c.remaining,0,MUSIC.cooldown); return c.neighbour; });
+  const cooldowns = list(m.cooldowns,0,t.neighbours.length).map(v => { const c=exact(v,['neighbour','remaining']); neighbour(c.neighbour); number(c.remaining,0,MUSIC.cooldown); return c.neighbour; });
   if (new Set(cooldowns).size !== cooldowns.length) invalid();
   if (m.active !== null) {
     const e = exact(m.active,['neighbour','host','members','phase','remaining','contactLost','paid','rounds']), n = neighbour(e.neighbour), ids = memberIds(e.members,1);
@@ -40,7 +41,7 @@ export function validateMusic(value: unknown, t: ActiveTribeState): void {
     number(e.remaining,0,MUSIC[e.phase as 'travel'|'listen'|'respond'|'feedback']);
     if (e.phase === 'travel') { if (e.paid !== 0 || rs.length || e.contactLost !== 0) invalid(); }
     else {
-      const gift = n.identity === 'garden' ? 8 : n.identity === 'terrace' ? 12 : 16;
+      const gift = neighbourGift(n);
       if (![MUSIC.fee,MUSIC.fee+gift].includes(e.paid as number) || n.tribute < gift) invalid();
       if (e.phase === 'feedback' ? !rs.length : rs.length > 2 || rs.filter(r => !r.success).length > 1) invalid();
     }
@@ -49,7 +50,7 @@ export function validateMusic(value: unknown, t: ActiveTribeState): void {
   if (m.result !== null) {
     const r=exact(m.result,['neighbour','members','reason','rounds','delta','paid']), n=neighbour(r.neighbour), ids=memberIds(r.members,1), rs=rounds(r.rounds,ids,n);
     if (typeof r.reason !== 'string' || !Object.hasOwn(MUSIC_REASONS,r.reason)) invalid();
-    number(r.paid,0,20,true); const gift=n.identity==='garden'?8:n.identity==='terrace'?12:16;
+    number(r.paid,0,20,true); const gift=neighbourGift(n);
     if (![0,MUSIC.fee,MUSIC.fee+gift].includes(r.paid as number)) invalid();
     if (r.reason === 'success') { if (rs.length!==3 || rs.filter(v=>v.success).length<2 || !r.paid) invalid(); number(r.delta,0,rs.reduce((sum,v)=>sum+(v.success?20*v.multiplier:0),0)); }
     else { number(r.delta,r.paid ? r.reason==='mistakes'?-10:-5 : 0,0); if (r.reason==='mistakes' && (rs.filter(v=>!v.success).length!==2 || !r.paid)) invalid(); }

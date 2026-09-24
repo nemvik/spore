@@ -1,3 +1,4 @@
+import { FIVE_NEIGHBOURS, HISTORIC_NEIGHBOURS } from './tribe-roster';
 import { validateChief, validateChiefContext } from './tribe-chief-validation';
 import { validateDomestication, validateDomesticationContext } from './tribe-domestication-validation';
 import { validateMusic, validateMusicContext } from './tribe-music-validation';
@@ -565,7 +566,10 @@ function validateActiveTribe(value: unknown): void {
   const hasDomestication = !!value && typeof value === 'object' && Object.hasOwn(value, 'domestication');
   const hasMusic = !!value && typeof value === 'object' && Object.hasOwn(value, 'music');
   const hasCulture = !!value && typeof value === 'object' && Object.hasOwn(value, 'culture');
-  const t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed', ...(hasCulture ? ['culture'] : []), ...(hasMusic ? ['music'] : []), ...(hasDomestication ? ['domestication'] : []), ...(hasChief ? ['chief'] : [])]);
+  const hasRoster = !!value && typeof value === 'object' && Object.hasOwn(value, 'roster');
+  const t = object(value, path, [...(hasRoster ? ['roster'] : []), 'version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed', ...(hasCulture ? ['culture'] : []), ...(hasMusic ? ['music'] : []), ...(hasDomestication ? ['domestication'] : []), ...(hasChief ? ['chief'] : [])]);
+  if (hasRoster) oneOf(t.roster, ['five'], `${path}.roster`);
+  const required = hasRoster ? FIVE_NEIGHBOURS : HISTORIC_NEIGHBOURS;
   if (hasCulture) validateCulture(t.culture);
   oneOf(t.version, [2], `${path}.version`);
   number(t.food, `${path}.food`);
@@ -623,14 +627,14 @@ function validateActiveTribe(value: unknown): void {
   const capacity = Math.min(12, 2 + 4 * shelters.length);
   if (members.filter(member => Number(member.health) > 0).length > capacity) invalid(`${path}.members`, SAVE_ERRORS.invalidCount);
   const identities: unknown[] = [];
-  const neighbours = array(t.neighbours, `${path}.neighbours`, 3, 3).map((value, index) => {
+  const neighbours = array(t.neighbours, `${path}.neighbours`, required.length, required.length).map((value, index) => {
     const at = `${path}.neighbours[${index}]`;
     const hasSociety=!!value&&typeof value==='object'&&Object.prototype.hasOwnProperty.call(value,'society');
     const neighbour = object(value, at, ['id', 'pos', 'relation', 'resolved', 'identity', 'health', 'alarm', 'tribute', 'cooldown',...(hasSociety?['society']:[])]);
     ids.push(number(neighbour.id, `${at}.id`, 1, nextId - 1, true)); vector(neighbour.pos, `${at}.pos`);
     number(neighbour.relation, `${at}.relation`, -100, 100);
     oneOf(neighbour.resolved, [null, 'conquered', 'allied'], `${at}.resolved`);
-    oneOf(neighbour.identity, ['garden', 'terrace', 'sanctuary'], `${at}.identity`); identities.push(neighbour.identity);
+    oneOf(neighbour.identity, required, `${at}.identity`); identities.push(neighbour.identity);
     number(neighbour.health, `${at}.health`, 0, 250); number(neighbour.alarm, `${at}.alarm`, 0, 100);
     number(neighbour.tribute, `${at}.tribute`); number(neighbour.cooldown, `${at}.cooldown`);
     if(hasSociety)validateNeighbourSociety(neighbour.society,`${at}.society`,ids,nextId,neighbour.resolved);
@@ -1031,6 +1035,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     if (restored.tribe?.version !== (s.tribe as GameState['tribe'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if(restored.tribe?.version===2&&(s.tribe as ActiveTribeState)?.version===2){
       const live=s.tribe as ActiveTribeState;
+      if(restored.tribe.roster!==live.roster)invalid('checkpoint.tribe.roster',SAVE_ERRORS.checkpointMismatch);
       for(const n of restored.tribe.neighbours)if(n.society?.version!==live.neighbours.find(v=>v.identity===n.identity)?.society?.version)invalid('checkpoint.tribe.neighbours',SAVE_ERRORS.checkpointMismatch);
     }
     if (restored.machines?.version !== (s.machines as GameState['machines'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);

@@ -1,3 +1,4 @@
+import { neighbourProfile } from '../game/tribe-roster';
 import { syncChiefMarker, chiefSpeaking } from './chief';
 import { musicPerformance } from '../game/tribe-music';
 import { worldSpecies } from '../game/npc-genome';
@@ -132,6 +133,14 @@ function neighbourModel(identity: TribeNeighbour['identity']): NeighbourView {
       mesh(group, new THREE.BoxGeometry(5.6 - i * .7, .28 + i * .15, .75), stone, 0, .2 + i * .15, 1.45 + i * .9);
       mesh(group, new THREE.BoxGeometry(4.8 - i * .6, .08, .55), green, 0, .39 + i * .23, 1.45 + i * .9);
     }
+  } else if (identity === 'reed') {
+    const pipes=new THREE.Group();pipes.name='reed-pipes';group.add(pipes);
+    for(let i=0;i<5;i++){const x=-2.4+i*1.2;mesh(pipes,new THREE.CylinderGeometry(.12,.18,2.3+(i%2)*.6,7),green,x,1.4,2.2);}
+    for(const x of [-2,2]){const basket=equipment('basket');basket.position.set(x,.8,.2);basket.scale.setScalar(1.5);group.add(basket);}
+  } else if (identity === 'basalt') {
+    const stones=new THREE.Group();stones.name='basalt-stones';group.add(stones);
+    for(const x of [-2.6,2.6])for(let i=0;i<3;i++)mesh(stones,new THREE.DodecahedronGeometry(.7,0),stone,x,.65+i*.95,1.2);
+    for(const x of [-1.6,1.6]){const rattle=equipment('rattle');rattle.position.set(x,2.9,-1.1);group.add(rattle);}
   } else {
     for (const x of [-2.45, 2.45]) { const pillar = mesh(group, new THREE.CylinderGeometry(.36, .53, 3.1, 6), stone, x, 1.55, 1.2); pillar.rotation.z = x > 0 ? -.07 : .07; }
     mesh(group, new THREE.BoxGeometry(5.4, .45, .65), stone, 0, 3.14, 1.2);
@@ -174,7 +183,7 @@ export class SettlementPresentation {
     for (const neighbour of [...neighbours].sort((a, b) => a.id - b.id)) {
       this.updateNeighbour(state, neighbour);
       for(const u of neighbour.society?.members??[])if(u.health>0)this.updateMember(state,{
-        ...u,health:u.health/70*100,species:neighbour.identity==='garden'?'gloom':neighbour.identity==='terrace'?'mender':'lantern',
+        ...u,health:u.health/70*100,species:neighbourProfile(neighbour).species,
         benefit:null,loyalty:100,orders:[],tool:musicPerformance(state,u.id)?.instrument??(u.task==='raid'||u.task==='defend'?'spear':u.task==='forage'||u.cargo>0?'basket':null),
         intent:u.task==='forage'?'forage':u.task==='raid'||u.task==='defend'?'hunt':'rest',
       },false,genomeKey,time,reducedMotion,neighbour);

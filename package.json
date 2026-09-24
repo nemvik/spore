@@ -35,7 +35,8 @@
     "test:culture": "node scripts/culture-browser.mjs",
     "test:music": "node scripts/music-browser.mjs",
     "test:domestication": "node scripts/domestication-browser.mjs",
-    "test:chief": "node scripts/chief-browser.mjs"
+    "test:chief": "node scripts/chief-browser.mjs",
+    "test:five-neighbours": "node scripts/five-neighbours-browser.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

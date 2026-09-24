@@ -1,3 +1,4 @@
+import { moveTribeMember } from './tribe-motion';
 import type { ActiveTribeState, TribeUnit, UnitNavigation } from './era-types';
 import type { Creature, GameState, Vec3 } from './types';
 import { clamp, groundHeight, horizontalDistance } from './random';
@@ -119,8 +120,8 @@ export function stepAcquisitionMember(s:GameState,u:TribeUnit,dt:number,position
   const t=activeTribe(s),e=t?.domestication?.active;if(!t||!e||e.caretaker!==u.id)return false;
   const c=s.world.creatures.find(c=>c.id===e.creature&&c.health>0);if(!c)return true;
   u.intent='socialize';const stats=computeStats(s.player.genome),speed=clamp(stats.speed*stats.walk,2.5,6)*cultureEffects(u.outfit).speed;
-  if(e.phase==='approach'||e.phase==='lure')moveUnit(s.world,u,c.pos,positions,speed,dt,tribeContact(s.world,u.pos,c.pos)?3:.5);
-  else if(contact(s,u.pos,c.pos,6))moveUnit(s.world,u,home(t),positions,Math.min(speed,2.6),dt,2.5);
+  if(e.phase==='approach'||e.phase==='lure')moveTribeMember(s,u,c.pos,positions,speed,dt,tribeContact(s.world,u.pos,c.pos)?3:.5);
+  else if(contact(s,u.pos,c.pos,6))moveTribeMember(s,u,home(t),positions,Math.min(speed,2.6),dt,2.5);
   return true;
 }
 /** Status is derived once for HUD and effects; no separate preview timers. */

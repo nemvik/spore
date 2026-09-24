@@ -2,6 +2,16 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-008.F · pět sousedních kmenů · 2026-09-24
+
+- Pracovní změna nad E `190f55f` na `main`, výchozí strom čistý. Pět skutečných společností s vlastními lidmi, domovy, sběrem/doručením, placenou obnovou, obranou a výpravami. Noví **Sběrači rákosových tůní** (rychlost, řasy, dvě píšťaly) a **Hlídači čedičové meze** (zbytky, pevná osada, silná obrana, dvě chřestidla) mají odlišná existující těla a čitelnou geometrii osad.
+- Nové založení `roster: 'five'` vyžaduje přesnou pětici a živou tlupu; historické savey zachovávají tři. Jednorázové odměny, ztráta hostitele/populace, všech pět cooldownů hudby, checkpointy a pět zmrazených faktů SP-007.A mají regrese. Strojové regiony se mapují podle identity, archetyp zůstává původní; žádné nové následky SP-007.B1.
+- Rozmístění zachovává zdroje i překážky a respektuje skutečný obal těla/výstroje. Pro široká těla kontroluje průchozí komponent tábora; obdobně širocí NPC při umístění i volbě potravy. Pět seedů, v1/v2, pomalý plášť a platný extrémní poloměr 9,419 m mají fyzické cesty tam/zpět. Zásoby ani regenerace nezvýšeny; nová pětice omezuje současné výpravy na dva skutečné lidi.
+- **63 nových regresí; celá sada 141 souborů / 2 591 testů prošla**, 196,73 s, jeden pracovník / globální limit 60 s. Timeouty starších testů izolovány s původními limity; assertions, herní kroky a limity hudby/sněmu nezměněny. Typecheck/build prošly. Dva celé simulační průchody vycházejí z běžných 36 zásob, fyzicky vydělají na stavbu/nábor/výstroj a dokončí všech pět diplomacií i bojem. Společná ekonomika pět minut na třech seedech.
+- Produkční diplomacie na předchozím buildu **10 skupin kontrol / 0 chyb**, reed hudba **+62,5**, basalt sněm **+31,25**, pět spojenectví, save/import/load a přechod do strojů. Na finálním `index-DDaIel-0.js` celý bojový průchod **9/9**, všech pět mapových cílů a stabilní klávesnicový fokus, šest přeživších a pět dobytí. Diplomatický replay skutečných odehraných saveů na finálním buildu **3/3**: hudba, mapa/fokus a přechod s pěti fakty; není novou celou diplomatickou kampaní. Vstup celých browser průchodů má přiznaných 220 jídla a čtyři dílny, ostatní svět beze změny; běžné UI a skutečný RAF, žádné živé settery.
+- Osm prohlédnutých snímků, výsledky a aktivní savey v `evidence/sp-008f/`. Manifest eviduje odstranění 45 vlastních mezivýstupů / 4 171 712 B; trace/video nevytvářeny, disk po úklidu 240,73 GiB volných. Browser a preview uzavřeny.
+- [Report a meze včetně kritérií A–F](docs/spore/SP-008F-REPORT.md), [plán](docs/superpowers/plans/2026-09-24-sp-008f-five-neighbours.md). **F a celá kmenová SP-008 jsou dokončené; SP-007.B1 a celá SP-017 zůstávají otevřené.** Lidský playtest/poslech, Safari/mobil a dlouhý soak neprovedeny. Implementační průchod bez commitu a pushe; navazující výslovný pokyn uživatele autorizuje commit a push F do `main`.
+
 ## SP-008.E · náčelník · 2026-09-24
 
 - Dokončená **E**, základ D `2b7b8e6`, výchozí pracovní strom čistý. Explicitní volba jednoho původního potomka bez spawnu nebo změny těla/výstroje. Znak ve světě i rosteru, přímý výběr/fokus a ovladatelný **Smírčí sněm**: 8 jídla předem, skutečná cesta/kontakt, 6 s řeči, +25 vztahu násobeného oděvem/dědictvím jednou, 45 s příměří. Bez pasivního bonusu.

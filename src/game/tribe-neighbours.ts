@@ -1,3 +1,4 @@
+import { neighbourProfile } from './tribe-roster';
 import { recallExpedition, stepSociety } from './tribe-society';
 import type { ActiveTribeState, NeighbourUnit, TribeNeighbour, TribeUnit } from './era-types';
 import type { GameState } from './types';
@@ -5,8 +6,8 @@ import { clamp } from './random';
 import { TRIBE_COPY } from './tribe-copy.cs';
 import { cultureEffects } from './culture';
 
-export const neighbourGift = (n: TribeNeighbour) => n.identity === 'garden' ? 8 : n.identity === 'terrace' ? 12 : 16;
-export const neighbourMaxHealth = (n: Pick<TribeNeighbour, 'identity'>) => n.identity === 'garden' ? 160 : n.identity === 'terrace' ? 220 : 180;
+export const neighbourGift = (n: TribeNeighbour) => neighbourProfile(n).gift;
+export const neighbourMaxHealth = (n: Pick<TribeNeighbour, 'identity'>) => neighbourProfile(n).health;
 
 export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbour: TribeNeighbour, kind: 'attack' | 'socialize', dt: number, inheritance = { social: 1, combat: 1 }): string | null {
   if (neighbour.resolved) return null;
@@ -24,6 +25,7 @@ export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbou
       return TRIBE_COPY.conquest(TRIBE_COPY.neighbours[neighbour.identity].name);
     }
   } else {
+    if (neighbour.society && !neighbour.society.members.some(u=>u.health>0)) return null;
     if (tribe.music?.active?.neighbour === neighbour.id || tribe.chief?.active?.neighbour === neighbour.id) return null;
     unit.intent = 'socialize';
     if (neighbour.tribute < neighbourGift(neighbour)) {
@@ -34,7 +36,7 @@ export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbou
     if (neighbour.society) { neighbour.society.truce = 20; recallExpedition(neighbour.society); neighbour.alarm = 0; }
     // A drummer must be physically present. Unarmed visitors can still make
     // peace, while a waterskin reduces the danger of an interrupted audience.
-    neighbour.relation = clamp(neighbour.relation + dt * inheritance.social * cultureEffects(unit.outfit).social * (unit.tool === 'drum' ? 3.2 : .45) * (neighbour.identity === 'sanctuary' ? 1.2 : 1), -100, 100);
+    neighbour.relation = clamp(neighbour.relation + dt * inheritance.social * cultureEffects(unit.outfit).social * (unit.tool === 'drum' ? 3.2 : .45) * neighbourProfile(neighbour).social, -100, 100);
     if (unit.tool === 'waterskin') neighbour.alarm = Math.max(0, neighbour.alarm - dt * 3);
     return resolveNeighbourAlliance(tribe, neighbour);
   }

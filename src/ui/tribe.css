@@ -43,3 +43,9 @@ body:has(.chief-panel) .tribe-selection{display:none}.chief-panel h3{font-size:2
 @media(max-width:1200px){.chief-panel{left:18px;width:284px}}
 .chief-panel:has(.chief-activity)>.tiny,.chief-panel:has(.chief-activity) .chief-candidates,.chief-panel:has(.chief-activity) .chief-rules,.chief-panel:has(.chief-activity) [data-action="tribe-chief-elect"]{display:none}
 .chief-panel:has(.chief-result) .chief-rules{display:none}
+
+.neighbour-map{height:108px;position:relative;margin:10px 0;background:#0b2228;border:1px solid #bddebc25;border-radius:6px;overflow:hidden}
+.neighbour-map button{position:absolute;transform:translate(-50%,-50%);min-width:25px;height:23px;padding:3px 5px;font-size:11px;background:#456259;border:1px solid #b3c996;border-radius:4px}
+.map-home{position:absolute;transform:translate(-50%,-50%);color:#f5e2b0;font-size:18px}.map-north{position:absolute;right:5px;top:3px;font-size:9px;color:#c2d6c5}
+.neighbour-identity{line-height:1.5;margin:6px 0;color:#b6cbc3}
+.tribe-alert>button{display:block;background:none;text-align:left;color:inherit;font-size:11px;padding:5px 0}

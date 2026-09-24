@@ -14,6 +14,8 @@ export const INSTRUMENT_NAMES: Record<Instrument, string> = { drum: 'Buben', flu
 export const INSTRUMENT_SYMBOLS: Record<Instrument, string> = { drum: '◉', flute: '♪', rattle: '⋮' };
 export interface MusicRequest { instrument: Instrument; count: number }
 export const MUSIC_REQUESTS: Record<TribeNeighbour['identity'], readonly MusicRequest[]> = {
+  reed: [{ instrument: 'flute', count: 2 }, { instrument: 'drum', count: 1 }, { instrument: 'rattle', count: 1 }],
+  basalt: [{ instrument: 'rattle', count: 2 }, { instrument: 'flute', count: 1 }, { instrument: 'drum', count: 1 }],
   garden: [{ instrument: 'drum', count: 1 }, { instrument: 'flute', count: 1 }, { instrument: 'rattle', count: 1 }],
   terrace: [{ instrument: 'drum', count: 2 }, { instrument: 'rattle', count: 1 }, { instrument: 'flute', count: 1 }],
   sanctuary: [{ instrument: 'flute', count: 1 }, { instrument: 'rattle', count: 1 }, { instrument: 'drum', count: 1 }],

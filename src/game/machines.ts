@@ -26,7 +26,7 @@ const playable=(s:GameState)=>s.stage===4&&!s.deathReason?activeMachines(s):null
 export function createMachines(s:GameState):ActiveMachineState {
   const t=activeTribe(s)!,home=tribeHome(t);let nextId=1;
   const regions:MachineRegion[]=(['gardens','terraces','highlands'] as const).map((identity,i)=>({id:nextId++,identity,
-    pos:i<2?{...t.neighbours[i].pos}:{x:50,y:groundHeight(50,-48,2),z:-48},airOnly:i===2,owner:'neutral',method:null,
+    pos:i<2?{...t.neighbours.find(n=>n.identity===(i===0?'garden':'terrace'))!.pos}:{x:50,y:groundHeight(50,-48,2),z:-48},airOnly:i===2,owner:'neutral',method:null,
     health:i===1?320:240,soil:i===0?20:0,settlers:0,relation:0,deliveries:0,alarm:0,cooldown:0}));
   const centers=[{x:home.x+10,y:0,z:home.z+10},{x:regions[0].pos.x+10,y:0,z:regions[0].pos.z+5},{x:regions[1].pos.x-10,y:0,z:regions[1].pos.z+8}];
   const springs=centers.map((center,i)=>({id:nextId++,pos:openGround(s.world,center,i,2),owner:'neutral' as const,progress:0,rate:.6+i*.3}));

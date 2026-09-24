@@ -8,6 +8,9 @@ const SIDES = 8;
 const MARGIN = .14;
 const EPSILON = 1e-7;
 const ARRIVAL_DISTANCE = .02;
+// The wider tribal route uses a static coast graph. Cache only ring-to-ring
+// visibility, never moving starts/targets, and invalidate on geometry changes.
+const coastGraphs = new WeakMap<World, Map<number, { signature: string; points: Vec3[]; visibility: Uint8Array }>>();
 const length = (a: Vec3, b: Vec3) => Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
 const finite = (p: Vec3) => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
 
@@ -55,10 +58,11 @@ function clear(world: World, a: Vec3, b: Vec3, radius: number): boolean {
  * rate, cap velocity to distance(waypoint) / .5 to avoid overshooting a corner.
  * No path returns start. Existing heading only breaks nearly equal route choices.
  */
-export function steerToward(world: World, start: Vec3, target: Vec3, bodyRadius: number, previousHeading: number): Vec3 {
+export function steerToward(world: World, start: Vec3, target: Vec3, bodyRadius: number, previousHeading: number, completeGraph = false): Vec3 {
   if (!finite(start) || !finite(target) || !Number.isFinite(bodyRadius) || bodyRadius < 0) {
     return { x: Number.isFinite(start.x) ? start.x : 0, y: Number.isFinite(start.y) ? start.y : 0, z: Number.isFinite(start.z) ? start.z : 0 };
   }
+  completeGraph=completeGraph&&world.stage===2;
   const physicalRadius = Math.max(.05, bodyRadius);
   const radius = physicalRadius + MARGIN;
   const goal = { x: Math.max(-WORLD_BOUND + radius, Math.min(WORLD_BOUND - radius, target.x)), y: world.stage === 1 ? Math.max(groundHeight(target.x, target.z, 1) + 1.3, Math.min(12, target.y)) : start.y, z: Math.max(-WORLD_BOUND + radius, Math.min(WORLD_BOUND - radius, target.z)) };
@@ -86,22 +90,29 @@ export function steerToward(world: World, start: Vec3, target: Vec3, bodyRadius:
     return best ?? { ...start };
   }
 
-  const relevant = world.obstacles.filter(o => segmentDistance2(start, goal, o.pos) < (o.radius + radius + 8) ** 2 || Math.hypot(o.pos.x - start.x, o.pos.z - start.z) < o.radius + radius + 12)
-    .sort((a, b) => Math.hypot(a.pos.x - start.x, a.pos.z - start.z) - Math.hypot(b.pos.x - start.x, b.pos.z - start.z) || a.id - b.id).slice(0, MAX_LOCAL_OBSTACLES);
+  const relevant = world.obstacles.filter(o => completeGraph || segmentDistance2(start, goal, o.pos) < (o.radius + radius + 8) ** 2 || Math.hypot(o.pos.x - start.x, o.pos.z - start.z) < o.radius + radius + 12)
+    .sort((a, b) => Math.hypot(a.pos.x - start.x, a.pos.z - start.z) - Math.hypot(b.pos.x - start.x, b.pos.z - start.z) || a.id - b.id).slice(0, completeGraph ? world.obstacles.length : MAX_LOCAL_OBSTACLES);
+  const sides=completeGraph?24:SIDES;
+  const signature=completeGraph?world.obstacles.map(o=>`${o.id}:${o.pos.x}:${o.pos.z}:${o.radius}`).join('|'):'';
+  let graphs=coastGraphs.get(world);
+  if(completeGraph&&!graphs){graphs=new Map();coastGraphs.set(world,graphs);}
+  const cached=graphs?.get(radius);
+  const reusable=completeGraph&&cached?.signature===signature?cached:null;
   const nodes: Vec3[] = [{ ...start }, goal];
+  if(reusable)nodes.push(...reusable.points.map(p=>({...p,y:start.y})));
   // A ring vertex already reached is the start node, not another first hop.
   // Otherwise its zero-length edge can evade the initial turn cost and win the
   // search forever, leaving a forager beside a tree with food still ahead.
-  const add = (point: Vec3) => { if (length(start, point) >= ARRIVAL_DISTANCE && clear(world, point, point, radius)) nodes.push(point); };
+  const add = (point: Vec3) => { if ((completeGraph || length(start, point) >= ARRIVAL_DISTANCE) && clear(world, point, point, radius)) nodes.push(point); };
   const lineX = goal.x - start.x, lineZ = goal.z - start.z, line2 = lineX * lineX + lineZ * lineZ;
-  for (const obstacle of relevant) {
+  if(!reusable)for (const obstacle of relevant) {
     // Circumscribed rings keep every edge outside the expanded body collision,
     // including the chord between adjacent vertices around the same rock.
-    const ring = (obstacle.radius + radius) / Math.cos(Math.PI / SIDES) + .03;
+    const ring = (obstacle.radius + radius) / Math.cos(Math.PI / sides) + .03;
     const t = line2 < EPSILON ? 0 : Math.max(0, Math.min(1, ((obstacle.pos.x - start.x) * lineX + (obstacle.pos.z - start.z) * lineZ) / line2));
     const y = start.y + (goal.y - start.y) * t;
-    for (let i = 0; i < SIDES; i++) {
-      const angle = i * Math.PI * 2 / SIDES;
+    for (let i = 0; i < sides; i++) {
+      const angle = i * Math.PI * 2 / sides;
       add({ x: obstacle.pos.x + Math.sin(angle) * ring, y, z: obstacle.pos.z + Math.cos(angle) * ring });
     }
     const over = obstacle.pos.y + obstacle.height + radius + .12;
@@ -120,7 +131,8 @@ export function steerToward(world: World, start: Vec3, target: Vec3, bodyRadius:
     }
   }
 
-  const count = nodes.length, costs = new Float64Array(count).fill(Infinity), parents = new Int16Array(count).fill(-1), visited = new Uint8Array(count), visibility = new Uint8Array(count * count);
+  const count = nodes.length, costs = new Float64Array(count).fill(Infinity), parents = new Int16Array(count).fill(-1), visited = new Uint8Array(count), visibility = reusable?.visibility ?? new Uint8Array(count * count);
+  if(completeGraph&&!reusable)graphs!.set(radius,{signature,points:nodes.slice(2),visibility});
   const heading = Number.isFinite(previousHeading) ? previousHeading : 0;
   costs[0] = 0;
   let reached = -1;
@@ -134,13 +146,13 @@ export function steerToward(world: World, start: Vec3, target: Vec3, bodyRadius:
     if (current === 1) { reached = current; break; }
     visited[current] = 1;
     for (let next = 1; next < count; next++) {
-      if (visited[next] || next === current) continue;
+      if (visited[next] || next === current || completeGraph && next>1 && length(start,nodes[next])<ARRIVAL_DISTANCE) continue;
       const edge = length(nodes[current], nodes[next]);
       const initialTurn = current === 0 ? .1 * (1 - Math.cos(Math.atan2(nodes[next].x - start.x, nodes[next].z - start.z) - heading)) : 0;
       const cost = costs[current] + edge + initialTurn;
       if (cost >= costs[next] - EPSILON) continue;
       const key = current * count + next;
-      if (!visibility[key]) visibility[key] = visibility[next * count + current] = clear(world, nodes[current], nodes[next], radius) ? 1 : 2;
+      if (completeGraph&&(current<2||next<2)||!visibility[key]) visibility[key] = visibility[next * count + current] = clear(world, nodes[current], nodes[next], radius) ? 1 : 2;
       if (visibility[key] !== 1) continue;
       costs[next] = cost; parents[next] = current;
     }
@@ -154,4 +166,29 @@ export function steerToward(world: World, start: Vec3, target: Vec3, bodyRadius:
   if (reached < 0) return { ...start };
   while (parents[reached] > 0) reached = parents[reached];
   return parents[reached] === 0 ? { ...nodes[reached] } : { ...start };
+}
+
+/** A founding-time connectivity check for exceptionally wide tribal bodies.
+ * Flood only swept-clear grid edges, so an open pocket enclosed by rocks cannot
+ * be mistaken for a reachable settlement. It changes no saved world geometry. */
+const connectedCoasts=new WeakMap<World,{signature:string;regions:Map<string,(p:Vec3)=>boolean>}>();
+export function connectedGround(world: World, start: Vec3, radius: number): (point: Vec3) => boolean {
+  const signature=world.obstacles.map(o=>`${o.id}:${o.pos.x}:${o.pos.z}:${o.radius}`).join('|');
+  let cached=connectedCoasts.get(world);
+  if(!cached||cached.signature!==signature){cached={signature,regions:new Map()};connectedCoasts.set(world,cached);}
+  const key=`${radius}:${start.x}:${start.z}`,previous=cached.regions.get(key);if(previous)return previous;
+  const bound=Math.floor(WORLD_BOUND-radius),side=bound*2+1,count=side*side;
+  const points=Array.from({length:count},(_,i)=>({x:i%side-bound,y:start.y,z:Math.floor(i/side)-bound}));
+  const open=new Uint8Array(count),seen=new Uint8Array(count),queue=new Int32Array(count);
+  for(let i=0;i<count;i++)open[i]=clear(world,points[i],points[i],radius)?1:0;
+  const near=(p:Vec3)=>{const result:number[]=[];for(const x of [Math.floor(p.x),Math.ceil(p.x)])for(const z of [Math.floor(p.z),Math.ceil(p.z)])if(Math.abs(x)<=bound&&Math.abs(z)<=bound)result.push((z+bound)*side+x+bound);return result;};
+  let head=0,tail=0;
+  for(const i of near(start))if(open[i]&&!seen[i]&&clear(world,start,points[i],radius)){seen[i]=1;queue[tail++]=i;}
+  while(head<tail){const i=queue[head++],p=points[i];for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++){
+    if(!x&&!z||Math.abs(p.x+x)>bound||Math.abs(p.z+z)>bound)continue;
+    const next=i+z*side+x;
+    if(open[next]&&!seen[next]&&clear(world,p,points[next],radius)){seen[next]=1;queue[tail++]=next;}
+  }}
+  const reachable=(p:Vec3)=>near(p).some(i=>seen[i]&&clear(world,p,points[i],radius));
+  cached.regions.set(key,reachable);return reachable;
 }

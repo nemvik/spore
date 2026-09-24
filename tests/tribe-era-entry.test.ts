@@ -75,7 +75,7 @@ describe.each([true, false])('explicit playable tribe entry, legacy=%s', legacy 
     expect(state.tribe).toMatchObject({ version: 2, legacyAbility: 'migration', elapsed: 0, completed: false });
     expect(state.tribe!.members).toHaveLength(3 + before.player.bonds.length);
     expect(state.tribe!.huts).toHaveLength(1);
-    expect(state.tribe!.neighbours).toHaveLength(3);
+    expect(state.tribe!.neighbours).toHaveLength(5);
     expect(state.tribe!.food).toBeGreaterThan(0);
     expect(state.tribe!.members.at(-1)).toMatchObject({ species: 'gloom', benefit: 'recycle', hunger: 29, loyalty: 68 });
     expect(state).not.toHaveProperty('machines');
