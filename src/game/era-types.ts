@@ -2,6 +2,7 @@ import type { Bond, Creature, Vec3 } from './types';
 import type { UnitOrder } from './unit-order';
 import type { VehicleBlueprint } from './blueprint';
 import type { EcologySite } from './journey-types';
+import type { CulturalDesign, TribeCulture } from './culture';
 
 export interface TribeMember { id: number; pos: Vec3; heading: number; health: number; hunger: number; tool: string | null; }
 export interface Hut { id: number; kind: 'shelter' | 'workshop'; pos: Vec3; tool: string | null; }
@@ -21,6 +22,7 @@ export type ToolId = 'basket' | 'spear' | 'drum' | 'waterskin';
 export type LegacyAbility = 'restoration' | 'predator' | 'migration';
 export interface UnitNavigation { waypoint: Vec3; target: Vec3; rethink: number; }
 export interface TribeUnit extends Omit<TribeMember, 'tool'> {
+  outfit?: CulturalDesign;
   tool: ToolId | null;
   species: string | null;
   benefit: Bond['benefit'] | null;
@@ -67,6 +69,7 @@ export interface NeighbourSociety {
 }
 export interface ActiveTribeState {
   version: 2;
+  culture?: TribeCulture;
   food: number;
   members: TribeUnit[];
   huts: TribeBuilding[];

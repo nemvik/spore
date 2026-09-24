@@ -11,6 +11,7 @@ import { speciesGroundClearance } from '../game/anatomy';
 import { createOrganism, createSpeciesModel, animateOrganism, animateSpeciesModel, disposeObject, organismGroundClearance } from './organism';
 import { applyLivingFinish, setPartnerActivity } from './world-style';
 import type { CommandPickVolume, CommandUnitRef } from './command-picking';
+import { syncCulturalOutfit } from './culture';
 
 const COLORS = { timber: 0x72543e, roof: 0xb39d72, clay: 0x9e7054, pale: 0xf1dfb4, selected: 0xc8f2b0, food: 0xdcb777, hostile: 0xdb9276, ally: 0x96d0b2, conquered: 0xe8be78 };
 type Bar = { group: THREE.Group; fill: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>; width: number };
@@ -59,7 +60,7 @@ function alignBar(value: Bar, origin: Vec3, heading: number, stage: number): voi
 }
 
 /** The same equipment geometry is mounted on members and marks its workshop. */
-function equipment(tool: ToolId): THREE.Group {
+export function equipment(tool: ToolId): THREE.Group {
   const group = new THREE.Group(); group.name = `tool-${tool}`;
   const wood = material(COLORS.timber), reed = material(COLORS.food), hide = material(COLORS.clay), pale = material(COLORS.pale);
   group.userData.ownedMaterials = [wood, reed, hide, pale];
@@ -195,6 +196,7 @@ export class SettlementPresentation {
     const ground = groundHeight(unit.pos.x, unit.pos.z, state.world.stage), localGround = ground - unit.pos.y;
     view.group.position.set(unit.pos.x, unit.pos.y, unit.pos.z); view.group.rotation.y = unit.heading;
     view.body.position.y = localGround + (spec ? speciesGroundClearance(spec) : organismGroundClearance(state.player.genome));
+    if (!spec) syncCulturalOutfit(view.body, state.player.genome, unit.outfit);
     view.ring.visible = selected || !!neighbour;
     if(neighbour)(view.ring.material as THREE.MeshBasicMaterial).color.setHex(neighbourDisposition(neighbour)==='hostile'?COLORS.hostile:neighbourDisposition(neighbour)==='friendly'?COLORS.ally:COLORS.pale);
     drapeGround(view.ring, unit.pos, unit.heading, state.world.stage, .055);

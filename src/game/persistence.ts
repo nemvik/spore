@@ -15,6 +15,7 @@ import { ECOLOGY_CATALOG, ecologyTaxon } from './ecology-catalog';
 import { planetTScore } from './planet';
 import { worldStageFor } from './stage';
 import type { ActiveMachineState, ActivePlanetState, ActiveTribeState } from './era-types';
+import { validateCulture, validateOutfit } from './culture';
 import { validateVehicle, vehicleStats } from './blueprint';
 import type { VehicleBlueprint } from './blueprint';
 import { MAX_UNIT_ORDERS, validOrderShape } from './unit-order';
@@ -557,7 +558,9 @@ function validateNeighbourSociety(value: unknown, path: string, ids: number[], n
 
 function validateActiveTribe(value: unknown): void {
   const path = 'state.tribe';
-  const t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed']);
+  const hasCulture = !!value && typeof value === 'object' && Object.hasOwn(value, 'culture');
+  const t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed', ...(hasCulture ? ['culture'] : [])]);
+  if (hasCulture) validateCulture(t.culture);
   oneOf(t.version, [2], `${path}.version`);
   number(t.food, `${path}.food`);
   const nextId = number(t.nextId, `${path}.nextId`, 1, MAX_COUNT, true);
@@ -567,7 +570,9 @@ function validateActiveTribe(value: unknown): void {
   const ids: number[] = [];
   const members = array(t.members, `${path}.members`, 12).map((value, index) => {
     const at = `${path}.members[${index}]`;
-    const member = object(value, at, ['id', 'pos', 'heading', 'health', 'hunger', 'tool', 'species', 'benefit', 'loyalty', 'cargo', 'cooldown', 'orders', 'intent', 'navigation']);
+    const hasOutfit = !!value && typeof value === 'object' && Object.hasOwn(value, 'outfit');
+    const member = object(value, at, ['id', 'pos', 'heading', 'health', 'hunger', 'tool', 'species', 'benefit', 'loyalty', 'cargo', 'cooldown', 'orders', 'intent', 'navigation', ...(hasOutfit ? ['outfit'] : [])]);
+    if (hasOutfit) { validateOutfit(member.outfit); if (member.species !== null || !hasCulture) invalid(`${at}.outfit`, SAVE_ERRORS.invalidPartner); }
     const id = number(member.id, `${at}.id`, 1, nextId - 1, true); ids.push(id);
     vector(member.pos, `${at}.pos`); number(member.heading, `${at}.heading`, -1e9, 1e9);
     for (const key of ['health', 'hunger', 'loyalty']) number(member[key], `${at}.${key}`, 0, 100);
@@ -580,7 +585,7 @@ function validateActiveTribe(value: unknown): void {
       if (member.benefit !== benefit) invalid(`${at}.benefit`, SAVE_ERRORS.partnerBenefitMismatch);
     }
     // Removing a basket does not destroy the larger load already being carried.
-    number(member.cargo, `${at}.cargo`, 0, 5); number(member.cooldown, `${at}.cooldown`);
+    number(member.cargo, `${at}.cargo`, 0, hasCulture && member.species === null ? 7 : 5); number(member.cooldown, `${at}.cooldown`);
     oneOf(member.intent, ['forage', 'flee', 'hunt', 'rest', 'bonded', 'build', 'socialize'], `${at}.intent`);
     array(member.orders, `${at}.orders`, MAX_UNIT_ORDERS).forEach((order, index) => validateUnitOrder(order, id, `${at}.orders[${index}]`));
     const navigation = object(member.navigation, `${at}.navigation`, ['waypoint', 'target', 'rethink']);

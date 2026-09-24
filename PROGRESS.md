@@ -2,6 +2,16 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-008.B · kulturní výstroj · 2026-09-24
+
+- Hotová část **B**: kulturní editor nad zděděným tělem, chochol/hřeben/brašny/plášť, tři barvy a přehled cen, omezení i přínosů. Náhled a svět sdílejí geometrii; herní účinky čerpají ze stejného katalogu. Koš/oštěp/buben/měch zůstávají samostatné, genom a jídelníček beze změny.
+- Knihovna 24 sestav v kampani, oddělené návrhy a oblečené revize, kopie/smazání, přísný import/export sestavy i kampaně. Skupinová platba je atomická; checkpointy, 11 historických save fixtures a přechod do strojů pokrývají regrese. Aktivní sousedé SP-008.A i historie SP-007.A zachované.
+- Produkční UI **6/6**, bez chyb: dvě vytvořené a zaplacené sestavy, koš s brašnami doručil **28 jídla**, chochol s bubnem dosáhl **4,00 vztahu/s**, stráž bojovala se skutečným obráncem. Export/import a save/reload/load zachovaly výstroj i historii. Všech sedm finálních snímků prohlédnuto, včetně editoru/HUD **1280×720**; průběžný náklad 0–6 v HUD navíc ověřen zvlášť.
+- **Připravený vstup výslovně přiznán:** hotové pobřeží → založený kmen, 180 jídla, tři dílny, členové u domova a doplněný existující zdroj. Sestavy ani jejich použití připravené nebyly. Po importu jen běžné UI vstupy a skutečný RAF; bez setterů živého stavu, přepisování localStorage nebo `advanceTime`.
+- Celá sada **125 souborů / 2 364 testů**, 94,91 s, příkaz `pnpm test --maxWorkers=2 --testTimeout=30000`; **40 nových regresí**. Předchozí běhy měly pouze timeouty starších testů; přesné podmínky jsou v reportu. Typecheck, build a diff-check prošly. Známé upozornění na JS bundle >500 kB trvá. Nezávislé review ověřilo opravu pozdního importu po zavření editoru; browser doložil opravu ztrácení tlačítek při obnově HUD.
+- Úklid: **225 souborů / 58 895 001 B** vlastních mezivýstupů odstraněno s manifestem; zůstává přibližně 3,4 MiB finální evidence, připravený vstup a aktivní save. Trace/video nezapnuty, 241 GiB volného disku, cizí artefakty zachované.
+- [Report s výsledky a mezemi](docs/spore/SP-008B-REPORT.md), [provedený plán](docs/superpowers/plans/2026-09-24-sp-008b-cultural-outfits.md), [tracker](docs/spore/ROADMAP.md#sp-008). Pracovní strom nad `18346fb`, bez commitu/pushe/deploye. **C–F**, SP-007.B1, celá SP-008/SP-005/SP-007/SP-017 zůstávají otevřené; lidský playtest/poslech, Safari/mobil, dlouhý soak a celá nová kampaň nebyly ověřeny.
+
 ## SP-001 · testové odchylky vyřešeny · 2026-09-17
 
 - Opravena ztráta pohybu podél útesového sloupu při zaokrouhlení koncového bodu. Nová přímá regrese nejprve selhala; původní uložený vstup i kontroly delšího replaye zůstaly zachované.

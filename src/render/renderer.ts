@@ -40,7 +40,11 @@ import { MigrationCues } from './migration-cues';
 import { FoodCues } from './food-cues';
 import { reefBodyProfile } from '../game/reef-body';
 import { ReefFilterCues, setReefFilterOpening } from './reef-filter-cues';
-import { SettlementPresentation } from './settlement';
+import { SettlementPresentation, equipment } from './settlement';
+import { syncCulturalOutfit } from './culture';
+import type { CulturalDesign } from '../game/culture';
+import type { ToolId } from '../game/era-types';
+import { bodyWidth as culturalBodyWidth } from '../game/body-shape';
 import { FleetPresentation } from './fleet';
 import { commandRay, pickCommandTarget, selectCommandUnits, terrainDestination } from './command-picking';
 import type { CommandPickVolume, CommandTarget, CommandUnitRef, ScreenRect } from './command-picking';
@@ -195,10 +199,18 @@ export class GameRenderer {
  commandGround(s:GameState,x:number,y:number):Vec3|null{const ray=commandRay(this.camera,x,y,this.renderer.domElement.getBoundingClientRect());return ray?terrainDestination(ray,s.world):null;}
  creaturePreview:CreaturePreview|null=null;editorCapabilities:CreatureCapabilities|undefined;editorAnatomy:CreatureAnatomy|undefined;creatureSelection:CreatureSelection|null=null;creatureConstruction=false;private creatureHandles:THREE.Group|null=null;private creatureHandleKey='';
  previewStage:Stage|null=null;
+ culturePreview: { design: CulturalDesign; tool: ToolId | null } | null = null;
  private renderEditor(g:Genome|Blueprint,stage:Stage,legacy=false,reefEvolution=false){
-  const vehicle=isVehicle(g),key=JSON.stringify(g);
+  const vehicle=isVehicle(g),key=JSON.stringify([g,this.culturePreview?.tool??null]);
   if(key!==this.editorKey){if(this.editorModel){this.editorScene.remove(this.editorModel);disposeObject(this.editorModel);}this.editorModel=isVehicle(g)?createMachine(g):createOrganism(g,this.editorAnatomy);this.editorModel.userData.blueprintKind=vehicle?'vehicle':'organism';this.editorScene.add(this.editorModel);this.editorKey=key;}
   const trial=!vehicle&&g.version===2&&!this.creatureConstruction?this.creaturePreview:null;
+  if (!vehicle) {
+   syncCulturalOutfit(this.editorModel!,g,this.culturePreview?.design);
+   const tool=this.culturePreview?.tool;
+   if(tool&&!this.editorModel!.getObjectByName(`tool-${tool}`)){
+    const node=equipment(tool);node.position.set(culturalBodyWidth(g)*.85,.35,.2);node.scale.setScalar(.82);this.editorModel!.add(node);
+   }
+  }
   const time=this.settings.reducedMotion&&this.previewMode==='idle'?0:this.presentationTime;
   this.editorModel!.position.set(0,0,0);this.editorModel!.rotation.y=0;this.previewTarget.visible=!!trial;
   const neutral=!vehicle&&g.version===2;

@@ -12,6 +12,7 @@ import { moveUnit, openGround, unitNavigation } from './unit-motion';
 import { meetNeighbour, neighbourGift, neighbourMaxHealth, stepNeighbours, strikeNeighbourUnit } from './tribe-neighbours';
 import { TRIBE_COPY } from './tribe-copy.cs';
 import { removeTribePrey } from './tribe-wildlife';
+import { cultureEffects, memberCapacity } from './culture';
 
 export const TRIBE_COSTS = { recruit: 12, shelter: 18, workshop: 22, equip: 6, ability: 6 } as const;
 export const TRIBE_TOOLS: readonly ToolId[] = ['basket', 'spear', 'drum', 'waterskin'];
@@ -163,7 +164,8 @@ export function stepTribe(s: GameState, dt: number): string[] {
     if (u.health === 0) continue;
     if (u.species) u.loyalty = clamp(u.loyalty + dt * (u.hunger > 75 ? -.18 : .04), 0, 100);
     const pace = u.species ? clamp(worldSpecies(s.world,u.species).speed, 2.5, 6) : clamp(stats.speed * stats.walk, 2.5, 6);
-    const travel = (target: Vec3, stop = 2) => moveUnit(s.world, u, target, positions, pace, dt, stop);
+    const cultural = cultureEffects(u.outfit);
+    const travel = (target: Vec3, stop = 2) => moveUnit(s.world, u, target, positions, pace * cultural.speed, dt, stop);
     const contact = (target: Vec3, stop: number) => { travel(target, tribeContact(s.world,u.pos,target) ? stop : .5); return horizontalDistance(u.pos,target)<=stop+.05 && tribeContact(s.world,u.pos,target); };
     const atHome = horizontalDistance(u.pos, home) < 4;
     if (atHome) {
@@ -172,7 +174,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
       if (u.hunger < 60) u.health = Math.min(100, u.health + dt * 1.6);
     }
     if (u.tool === 'waterskin' && u.hunger < 70) for (const other of units) if (other.health > 0 && horizontalDistance(u.pos, other.pos) < 7) other.health = Math.min(100, other.health + dt * .9);
-    const order = u.orders[0], target = order?.target, capacity = u.tool === 'basket' ? 5 : 2;
+    const order = u.orders[0], target = order?.target, capacity = memberCapacity(u);
     if (u.cargo >= capacity || u.cargo > 0 && (!order || target?.kind === 'food' && !s.world.resources.some(r => r.id === target.id && r.amount >= 1))) {
       u.intent = 'forage'; travel(home, 3); continue;
     }
@@ -226,7 +228,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
       if (!prey || !has(s.player.genome, 'jaw') || !memberDiet(s, u).includes('meat')) { finish(); continue; }
       u.intent = 'hunt';
       if (travel(prey.pos, u.tool === 'spear' ? 4 : 2) && u.cooldown === 0) {
-        prey.health = Math.max(0, prey.health - (u.tool === 'spear' ? 26 : stats.damage * .65)); u.cooldown = 1.2;
+        prey.health = Math.max(0, prey.health - (u.tool === 'spear' ? 26 : stats.damage * .65) * cultural.combat); u.cooldown = 1.2;
         if (prey.health === 0) {
           recordEcologyContact(s,`species:${prey.species}`,'hunt',worldSpecies(s.world,prey.species).stage as 0|1|2,prey.patch as 0|1|2);removeTribePrey(s,prey); finish();
         }
