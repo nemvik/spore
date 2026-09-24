@@ -1,3 +1,4 @@
+import { cancelDomestication } from './tribe-domestication';
 import { enableLineageHistory, observeLineageHistory, recordLineageMeal, recordLineageHunt, creatureInheritance } from './lineage-history';
 import { activeCell, cellScale, cellContact, cellNotice, initializeCell, inspectCellSite, recordCellMeal, stepCellContacts } from './cell-growth';
 import { speciesCollisionRadius } from './anatomy';
@@ -168,6 +169,7 @@ export function foundTribeFromPreview(s:GameState):boolean {
 
 export function continueToMachinesEra(s:GameState):boolean {
  if(s.stage!==3||s.machines||s.deathReason||!tribeReady(s)||!activeTribe(s)?.completed)return false;
+ cancelDomestication(s,'stage');
  s.machines=createMachines(s);s.stage=4;
  s.lineage.push({generation:s.player.generation,stage:4,time:s.tick/60,name:s.player.genome.name,parts:s.player.genome.parts.map(p=>p.kind),event:CHAPTERS[4].title});
  announce(s,MACHINE_COPY.founded);makeCheckpoint(s);return true;

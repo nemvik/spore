@@ -1,3 +1,5 @@
+import { managedAnimal, damageDomesticAnimal, forgetDomesticAnimal, interruptDomesticationOnDamage } from './tribe-domestication';
+import { tribeContact } from './tribe-society';
 import { interruptMusicOnDamage } from './tribe-music';
 import { speciesCollisionRadius } from './anatomy';
 import { worldSpecies } from './npc-genome';
@@ -14,6 +16,7 @@ import { cultureEffects } from './culture';
  * its intent/velocity/cooldown through saves; it never targets the retired body. */
 export function removeTribePrey(s: GameState, prey: Creature): void {
   const index=s.world.creatures.indexOf(prey);if(index<0)return;
+  forgetDomesticAnimal(s,prey.id,'death');
   s.world.creatures.splice(index,1);s.world.deaths++;
   // Carried tissue dies with its actual carrier, just as on the organism coast.
   const dispersal=s.journey.rootDispersal;
@@ -27,17 +30,17 @@ export function removeTribePrey(s: GameState, prey: Creature): void {
 export function stepTribeWildlife(s: GameState, tribe: ActiveTribeState, dt: number): void {
   const world=s.world,units=tribe.members.filter(u=>u.health>0);
   for(const c of [...world.creatures].sort((a,b)=>a.id-b.id)){
-    if(c.health<=0||!world.creatures.includes(c))continue;
+    if(managedAnimal(s,c.id)||c.health<=0||!world.creatures.includes(c))continue;
     const spec=worldSpecies(s.world,c.species),predator=spec.role==='predator';
     c.age+=dt;c.hunger=Math.min(100,c.hunger+dt*.14);c.cooldown=Math.max(0,c.cooldown-dt);c.fear=Math.max(0,c.fear-dt);
-    const near=[...units].filter(u=>u.health>0).sort((a,b)=>horizontalDistance(a.pos,c.pos)-horizontalDistance(b.pos,c.pos)||a.id-b.id)[0];
+    const near=[...units].filter(u=>u.health>0 && !(tribe.domestication?.active?.creature===c.id && tribe.domestication.active.caretaker===u.id)).sort((a,b)=>horizontalDistance(a.pos,c.pos)-horizontalDistance(b.pos,c.pos)||a.id-b.id)[0];
     if(s.tick%30===0){
       let destination:Vec3|null=null,pace=spec.speed;
       const frightened=near&&horizontalDistance(c.pos,near.pos)<(c.fear>0?14:7)&&(c.fear>0||!predator&&(near.tool==='spear'||has(s.player.genome,'jaw')));
       c.target=null;
       if(frightened){const gap=horizontalDistance(c.pos,near.pos)||1;destination={x:clamp(c.pos.x+(c.pos.x-near.pos.x)/gap*10,-75,75),y:c.pos.y,z:clamp(c.pos.z+(c.pos.z-near.pos.z)/gap*10,-75,75)};c.intent='flee';pace*=1.15;}
       else if(predator&&c.hunger>35){
-        const prey=world.creatures.filter(o=>o.id!==c.id&&['grazer','invasive'].includes(worldSpecies(s.world,o.species).role)&&horizontalDistance(o.pos,c.pos)<20).sort((a,b)=>horizontalDistance(a.pos,c.pos)-horizontalDistance(b.pos,c.pos)||a.id-b.id)[0];
+        const prey=world.creatures.filter(o=>o.id!==c.id&&(s.stage===3||!managedAnimal(s,o.id))&&['grazer','invasive'].includes(worldSpecies(s.world,o.species).role)&&horizontalDistance(o.pos,c.pos)<20).sort((a,b)=>horizontalDistance(a.pos,c.pos)-horizontalDistance(b.pos,c.pos)||a.id-b.id)[0];
         if(near&&horizontalDistance(near.pos,c.pos)<10&&(!prey||horizontalDistance(near.pos,c.pos)<horizontalDistance(prey.pos,c.pos)))destination=near.pos;
         else if(prey){destination=prey.pos;c.target=prey.id;}
         c.intent=destination?'hunt':'rest';
@@ -56,8 +59,8 @@ export function stepTribeWildlife(s: GameState, tribe: ActiveTribeState, dt: num
       const food=world.resources.find(r=>r.id===c.target);
       if(food&&food.amount>=.5&&spec.diet.includes(food.kind)&&horizontalDistance(food.pos,c.pos)<2){recordEcologyMeal(s,c,food);food.amount-=.35;c.hunger=Math.max(0,c.hunger-22);c.cooldown=10;}
     }else if(c.cooldown===0&&c.intent==='hunt'){
-      if(c.target!==null){const prey=world.creatures.find(o=>o.id===c.target);if(prey&&horizontalDistance(prey.pos,c.pos)<2.7){prey.health=Math.max(0,prey.health-(spec.damage??9)*(1-(worldSpecies(s.world,prey.species).armor??0)));prey.fear=5;c.cooldown=3;if(prey.health===0){removeTribePrey(s,prey);c.hunger=0;}}}
-      else if(near&&horizontalDistance(near.pos,c.pos)<2.7){const guarded=tribe.legacyAbility==='predator'&&tribe.abilityTime>0;near.health=Math.max(0,near.health-(spec.damage!==undefined?spec.damage*(guarded?4/9:1):(guarded?4:9))*cultureEffects(near.outfit).damageTaken);interruptMusicOnDamage(s,near.id,near.health);c.cooldown=3;c.hunger=Math.max(0,c.hunger-6);}
+      if(c.target!==null){const prey=world.creatures.find(o=>o.id===c.target);if(prey&&(s.stage===3||!managedAnimal(s,prey.id))&&horizontalDistance(prey.pos,c.pos)<2.7&&tribeContact(world,c.pos,prey.pos)){prey.health=Math.max(0,prey.health-(spec.damage??9)*(1-(worldSpecies(s.world,prey.species).armor??0)));prey.fear=5;damageDomesticAnimal(s,prey.id);c.cooldown=3;if(prey.health===0){removeTribePrey(s,prey);c.hunger=0;}}}
+      else if(near&&horizontalDistance(near.pos,c.pos)<2.7&&tribeContact(world,c.pos,near.pos)){const guarded=tribe.legacyAbility==='predator'&&tribe.abilityTime>0;near.health=Math.max(0,near.health-(spec.damage!==undefined?spec.damage*(guarded?4/9:1):(guarded?4:9))*cultureEffects(near.outfit).damageTaken);interruptMusicOnDamage(s,near.id,near.health);interruptDomesticationOnDamage(s,near.id);c.cooldown=3;c.hunger=Math.max(0,c.hunger-6);}
     }
   }
   if(s.tick%1800===0){

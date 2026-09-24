@@ -1,3 +1,4 @@
+import { acquisitionCaretaker, cancelDomestication, domesticAnimal, stepAcquisitionMember, stepDomestication, damageDomesticAnimal } from './tribe-domestication';
 import { cancelMusic, musicParticipant, stepMusic } from './tribe-music';
 import { initializeNeighbours, tribeContact } from './tribe-society';
 import { creatureInheritance } from './lineage-history';
@@ -72,6 +73,7 @@ export function issueTribeOrder(s: GameState, ids: readonly number[], kind: Unit
     if (!food) return fail(TRIBE_COPY.badTarget);
     if (units.some(u => !memberDiet(s, u).includes(food.kind))) return fail(TRIBE_COPY.notFood);
   } else if (target.kind === 'creature') {
+    if (domesticAnimal(s,target.id)) return fail('Domácí zvíře nejprve uvolni v panelu Zvířata.');
     if (!s.world.creatures.some(c => c.id === target.id)) return fail(TRIBE_COPY.badTarget);
     if (!has(s.player.genome, 'jaw') || units.some(u => !memberDiet(s, u).includes('meat'))) return fail(TRIBE_COPY.noHunting);
   } else if (target.kind === 'hut') {
@@ -86,6 +88,7 @@ export function issueTribeOrder(s: GameState, ids: readonly number[], kind: Unit
     if (kind === 'socialize' && n.tribute < neighbourGift(n) && t.food < neighbourGift(n)) return fail(TRIBE_COPY.noGift);
   } else if (target.kind !== 'point') return fail(TRIBE_COPY.badTarget);
   if (units.some(u => musicParticipant(t,u.id))) cancelMusic(s);
+  if (units.some(u => acquisitionCaretaker(s,u.id))) cancelDomestication(s);
   for (const [i, unit] of units.entries()) {
     const destination = structuredClone(target);
     if (destination.kind === 'point' && units.length > 1) {
@@ -101,6 +104,7 @@ export function issueTribeOrder(s: GameState, ids: readonly number[], kind: Unit
 export function stopTribeUnits(s: GameState, ids: readonly number[]): TribeAction {
   const t = playable(s); if (!t) return fail(TRIBE_COPY.unavailable);
   if (selected(t,ids).some(u => musicParticipant(t,u.id))) cancelMusic(s);
+  if (selected(t,ids).some(u => acquisitionCaretaker(s,u.id))) cancelDomestication(s);
   for (const u of selected(t, ids)) { u.orders = []; u.intent = 'rest'; }
   return success();
 }
@@ -120,6 +124,7 @@ export function buildTribeHut(s: GameState, kind: 'shelter' | 'workshop', tool: 
   if (![pos?.x,pos?.y,pos?.z].every(Number.isFinite) || Math.abs(pos.x) > 72 || Math.abs(pos.z) > 72 || horizontalDistance(pos, tribeHome(t)) > 24 ||
     s.world.obstacles.some(o => horizontalDistance(pos, o.pos) < o.radius + 2.2) || t.huts.some(h => horizontalDistance(pos, h.pos) < 4.5)) return fail(TRIBE_COPY.badPosition);
   if (units.some(u => musicParticipant(t,u.id))) return fail('Nejprve ukonči hudební návštěvu vybraných členů.');
+  if (units.some(u=>acquisitionCaretaker(s,u.id))) return fail('Nejprve ukonči získávání zvířete.');
   const cost = TRIBE_COSTS[kind]; if (t.food < cost) return fail(TRIBE_COPY.noFood);
   const hut: TribeBuilding = { id: t.nextId++, kind, tool, pos: { x: pos.x, y: groundHeight(pos.x, pos.z, 2), z: pos.z }, progress: 0, health: 100 };
   t.food -= cost; t.huts.push(hut);
@@ -131,6 +136,7 @@ export function equipTribeUnits(s: GameState, ids: readonly number[], tool: Tool
   const units = selected(t, ids); if (!units.length || units.length !== orderedIds(ids).length) return fail(TRIBE_COPY.selectFirst);
   if (tool !== null && (!TRIBE_TOOLS.includes(tool) || !t.unlocked.includes(tool))) return fail(TRIBE_COPY.noWorkshop);
   if (units.some(u => musicParticipant(t,u.id))) return fail('Během hudební návštěvy nelze měnit nástroje.');
+  if (tool==='spear' && units.some(u=>acquisitionCaretaker(s,u.id))) return fail('Při získávání nelze vzít oštěp.');
   const changed = units.filter(u => u.tool !== tool), cost = tool === null ? 0 : changed.length * TRIBE_COSTS.equip;
   if (t.food < cost) return fail(TRIBE_COPY.noFood);
   t.food -= cost; for (const u of changed) u.tool = tool;
@@ -180,6 +186,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
     }
     if (u.tool === 'waterskin' && u.hunger < 70) for (const other of units) if (other.health > 0 && horizontalDistance(u.pos, other.pos) < 7) other.health = Math.min(100, other.health + dt * .9);
     const order = u.orders[0], target = order?.target, capacity = memberCapacity(u);
+    if (stepAcquisitionMember(s,u,dt,positions)) continue;
     if (u.cargo >= capacity || u.cargo > 0 && (!order || target?.kind === 'food' && !s.world.resources.some(r => r.id === target.id && r.amount >= 1))) {
       u.intent = 'forage'; travel(home, 3); continue;
     }
@@ -236,9 +243,10 @@ export function stepTribe(s: GameState, dt: number): string[] {
       }
     } else if (target.kind === 'creature') {
       const prey = s.world.creatures.find(c => c.id === target.id);
-      if (!prey || !has(s.player.genome, 'jaw') || !memberDiet(s, u).includes('meat')) { finish(); continue; }
+      if (!prey || domesticAnimal(s,prey.id) || !has(s.player.genome, 'jaw') || !memberDiet(s, u).includes('meat')) { finish(); continue; }
       u.intent = 'hunt';
-      if (travel(prey.pos, u.tool === 'spear' ? 4 : 2) && u.cooldown === 0) {
+      if (contact(prey.pos, u.tool === 'spear' ? 4 : 2) && u.cooldown === 0) {
+        damageDomesticAnimal(s,prey.id);
         prey.health = Math.max(0, prey.health - (u.tool === 'spear' ? 26 : stats.damage * .65) * cultural.combat); u.cooldown = 1.2;
         if (prey.health === 0) {
           recordEcologyContact(s,`species:${prey.species}`,'hunt',worldSpecies(s.world,prey.species).stage as 0|1|2,prey.patch as 0|1|2);removeTribePrey(s,prey); finish();
@@ -248,6 +256,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
   }
   messages.push(...stepNeighbours(s, t, dt));
   stepMusic(s, dt);
+  stepDomestication(s, dt);
   t.members = t.members.filter(u => u.health > 0);
   if (!t.members.length) { s.deathReason = TRIBE_COPY.dead; messages.push(TRIBE_COPY.dead); }
   if (!t.completed && tribeReady(s)) { t.completed = true; messages.push(TRIBE_COPY.allResolved); }
