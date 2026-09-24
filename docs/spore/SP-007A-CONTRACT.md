@@ -50,3 +50,22 @@ Bonus se odvozuje za běhu z nově uzavřeného výsledku tvora a alespoň tří
 Dary, náklady, cooldowny, nástroje a možnost zvolit obě cesty se nemění. Stávající schopnost `legacyAbility` a strojový `archetype` nadále respektují původní finále. U rozehrané staré etapy mohou doložená stará hnízda přispět k novému hranému dokončení; již hotová stará etapa bonus zpětně nezíská. Jídelníček se nyní uchovává a zobrazuje; samostatný bonus z jídla není součástí A.
 
 Navazuje **SP-007.B1 — následky řešení kmenů**, **SP-007.B2 — civilizační expanze a její následky**, **SP-007.D — vesmírná filozofie říše**. V1 nevyplňuje chybějící budoucí data smyšlenými nulami nebo volbami.
+
+## Spotřebitel SP-007.B1: kmen → stroje
+
+B1 nemění datový formát kampaně v3 ani historie v1. `tribeInheritance` používá dokončený aktivní kmen, přesnou sadu jeho tří/pěti sousedů a úplnou sadu odpovídajících jedinečných historických faktů, uzavřenou shodným výsledkem. `source=action` i `source=saved` jsou přípustné důkazy konkrétního řešení. Chybějící historie, neuzavřený výsledek nebo neúplné/neshodné fakty znamenají neutrální sazbu; samotné vztahy, tělo, náčelník, výstroj nebo stav zásob nejsou důkazem sjednocení.
+
+| Cesta kmene | Průběžný příjem obsazených pramenů | Výkon v regionu |
+| --- | --- | --- |
+| allied | ×1,20 | ×1 |
+| conquered | ×1 | ×1,20 |
+| mixed (jakýkoli doložený poměr obou metod) | ×1,10 | ×1,10 |
+| neznámá / neúplná | ×1 | ×1 |
+
+Platí pouze v etapě 4. Regionální výkon je obnova půdy / poškození dělem / růst obchodního vztahu podle původního strojového archetypu. Násobek se použije jednou na základ konstrukce; počet dodávek, cena nákladu, odolnost, pohyb, odvetný zásah i doba záboru pramene zůstávají původní. Účinek tvora v kmeni z části A, kulturní výstroj, schopnost finále a tělo se znovu nezapočítávají. Etapa 5 používá původní příjem a vlastní terraformovací výkon.
+
+Parser nadále nedoplňuje chybějící historii. UI load/import doplní explicitní fakta stejným postupem jako A. U rozehraného kmene se staré doložené výsledky počítají až při skutečném dokončení zbývajících sousedů. **Již dokončený starý kmen, včetně kampaně už ve strojích, smí v B1 získat nové budoucí sazby ze svých úplných uložených řešení.** Jeho časy, nezaznamenané činy a jídelníček zůstanou neznámé. Toto je pravidlo spotřebitele B1; neutralita starého hotového *tvora* v A zůstává zachována. Neexistuje zpětná platba jantaru, doplnění jednotek ani přepis konstrukce či regionu. Historická trojice se nikdy nerozšíří na pět.
+
+Žádný uložený bonus/grant/claim marker nevzniká. Import a opakované načtení jen odvodí sazbu, nevytvářejí další odměnu. Přechod lze provést jednou a checkpoint nahradí celý svět i ekonomiku; neúspěšná větev se nesčítá. Parser kontroluje shodu uzavřené kmenové historie checkpointu a live stavu i pro `source=saved`, protože tento důkaz je nyní spotřebováván hrou. Odlišné nezaznamenané mezikroky před uzavřením jsou stále přípustné.
+
+[Plán a kritéria B1](../superpowers/plans/2026-09-24-sp-007b1-tribal-inheritance.md). Následky budoucí samostatně volené civilizační expanze (B2), vesmírná filozofie (D), města (SP-009) a planetární měřítko (SP-010) se tím neimplementují.

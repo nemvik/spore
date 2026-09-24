@@ -1,6 +1,6 @@
 import { cancelChiefCouncil } from './tribe-chief';
 import { cancelDomestication } from './tribe-domestication';
-import { enableLineageHistory, observeLineageHistory, recordLineageMeal, recordLineageHunt, creatureInheritance } from './lineage-history';
+import { enableLineageHistory, observeLineageHistory, recordLineageMeal, recordLineageHunt, creatureInheritance, tribeInheritance } from './lineage-history';
 import { activeCell, cellScale, cellContact, cellNotice, initializeCell, inspectCellSite, recordCellMeal, stepCellContacts } from './cell-growth';
 import { speciesCollisionRadius } from './anatomy';
 import { npcFoodDistance, worldSpecies, type NpcDesign } from './npc-genome';
@@ -10,7 +10,7 @@ import { prepareInstalledCreatureAnatomy } from './creature-anatomy';
 import { bodyCollisionRadius } from './body-shape';
 import { stepTribeWildlife } from './tribe-wildlife';
 import { activeTribe, createTribe, stepTribe, tribeReady } from './tribe';
-import { activeMachines, createMachines, stepMachines } from './machines';
+import { activeMachines, createMachines, stepMachines, effectiveMachineIncome } from './machines';
 import { MACHINE_COPY } from './machine-copy.cs';
 import { activePlanet, createPlanet, stepPlanet } from './planet';
 import { PLANET_COPY } from './planet-copy.cs';
@@ -454,7 +454,7 @@ function resolveOutcomes(s:GameState) {
  if(s.stage===2&&s.campaign.stageKills>=12)tryWin(s,'predator');
  if(p.health<=0){p.health=0;s.deathReason=p.energy<=0?TEXT.deathEnergy:p.oxygen<=0?TEXT.deathOxygen:p.moisture<=0?TEXT.deathMoisture:TEXT.deathPredator;announce(s,TEXT.death);}
 }
-export function summary(s:GameState) { return {stage:s.stage,...(s.lineageHistory?{lineageHistory:s.lineageHistory,inheritance:creatureInheritance(s)}:{}),...(s.cellGrowth?{cellGrowth:s.cellGrowth,cellScale:cellScale(s)}:{}),...(s.creatureStage?{creatureStage:s.creatureStage}:{}),...(s.tribe?{tribe:s.tribe}:{}),...(s.machines?{machines:s.machines}:{}),...(s.planet?{planet:s.planet}:{}),tick:s.tick,seed:s.seed,player:s.player,campaign:s.campaign,...(s.journey.rootDispersal?{rootDispersal:s.journey.rootDispersal}:{}),world:{...(s.world.creatureDesigns?{creatureDesigns:s.world.creatureDesigns}:{}),time:s.world.time,patches:s.world.patches,landmarks:s.world.landmarks,resources:s.world.resources.filter(r=>r.amount>=1),creatures:s.world.creatures,obstacles:s.world.obstacles,births:s.world.births,deaths:s.world.deaths},requirements:transitionRequirements(s),deathReason:s.deathReason,climate:getClimate(s),field:fieldProgress(s),stats:statsFor(s.player.genome)}; }
+export function summary(s:GameState) { return {stage:s.stage,...(s.lineageHistory?{lineageHistory:s.lineageHistory,inheritance:creatureInheritance(s),tribeInheritance:tribeInheritance(s)}:{}),...(s.cellGrowth?{cellGrowth:s.cellGrowth,cellScale:cellScale(s)}:{}),...(s.creatureStage?{creatureStage:s.creatureStage}:{}),...(s.tribe?{tribe:s.tribe}:{}),...(s.machines?{machines:s.machines,machineIncome:effectiveMachineIncome(s)}:{}),...(s.planet?{planet:s.planet}:{}),tick:s.tick,seed:s.seed,player:s.player,campaign:s.campaign,...(s.journey.rootDispersal?{rootDispersal:s.journey.rootDispersal}:{}),world:{...(s.world.creatureDesigns?{creatureDesigns:s.world.creatureDesigns}:{}),time:s.world.time,patches:s.world.patches,landmarks:s.world.landmarks,resources:s.world.resources.filter(r=>r.amount>=1),creatures:s.world.creatures,obstacles:s.world.obstacles,births:s.world.births,deaths:s.world.deaths},requirements:transitionRequirements(s),deathReason:s.deathReason,climate:getClimate(s),field:fieldProgress(s),stats:statsFor(s.player.genome)}; }
 
 export function senseRange(s:GameState):number { const p=s.player;return statsFor(p.genome).sense+(hasActivePartner(s,'light')?16:0)+(has(p.genome,'sonar')&&p.scan>0?35:0); }
 

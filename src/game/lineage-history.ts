@@ -1,4 +1,5 @@
 import type { FoodKind, GameState, Stage } from './types';
+import { completeNeighbourRoster, requiredNeighbours } from './tribe-roster';
 
 export const HISTORY_FOODS: readonly FoodKind[] = ['algae', 'mineral', 'nectar', 'meat', 'detritus'];
 export const HISTORY_METHODS = ['cultivate', 'hunt', 'guide', 'friend', 'predator', 'allied', 'conquered', 'restoration', 'migration', 'stable'] as const;
@@ -95,4 +96,22 @@ export function creatureInheritance(s: GameState) {
   const social = known && route === 'social' ? .15 : known && route === 'mixed' ? .075 : 0;
   const combat = known && route === 'predator' ? .15 : known && route === 'mixed' ? .075 : 0;
   return { social: 1 + social, combat: 1 + combat, route: social || combat ? route! : null };
+}
+
+/** Frozen, evidenced result only. Saved resolutions are evidence, not guessed choices.
+ * Rates are derived, never deposited or written back to machine designs/springs. */
+export function tribeInheritance(s: GameState) {
+  const neutral = { income: 1, power: 1, route: null, allies: 0, conquests: 0 } as const;
+  const t = s.tribe, row = s.lineageHistory?.stages[3];
+  if (t?.version !== 2 || !t.completed || !completeNeighbourRoster(t) || !row?.closed) return neutral;
+  const roster = requiredNeighbours(t);
+  if (row.facts.length !== roster.length || !roster.every(id => {
+    const neighbour = t.neighbours.find(n => n.identity === id)!;
+    return !!neighbour.resolved && row.facts.filter(f => f.key === `neighbour:${id}` && f.method === neighbour.resolved).length === 1;
+  })) return neutral;
+  const allies = row.facts.filter(f => f.method === 'allied').length, conquests = row.facts.length - allies;
+  const route = allies === roster.length ? 'allied' : conquests === roster.length ? 'conquered' : 'mixed';
+  if (row.closed.outcome !== route) return neutral;
+  return { income: route === 'allied' ? 1.2 : route === 'mixed' ? 1.1 : 1,
+    power: route === 'conquered' ? 1.2 : route === 'mixed' ? 1.1 : 1, route, allies, conquests };
 }

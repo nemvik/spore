@@ -2,6 +2,20 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-007.B1 · následky sjednocení kmene · 2026-09-24
+
+- Zadání: dokončit pouze B1 nad SP-008.A–F, bez commitu/pushe/deploye. Výchozí čistý main `8d009f0d1`, disk 23 GiB volných. Přečtené instrukce, roadmapa, progress, briefy, smlouva A a report F.
+- [Plán](docs/superpowers/plans/2026-09-24-sp-007b1-tribal-inheritance.md): doložené úplné allied → +20 % příjmu pramenů, conquered → +20 % výkonu v regionech, mixed → obojí +10 %. Platí jen ve strojích a pro tři i pět sousedů. Bez nového grantového/save pole; parser historii nedoplňuje, UI přebírá explicitní staré výsledky včetně již hraných strojů, bez zpětného jantaru. Chybějící/neúplný důkaz je neutrální.
+- Implementováno čisté odvození, sazby jednou v simulaci, konkrétní příjem/výkon v HUD, původ v deníku, vysvětlení v kmeni a okamžitá hlášení. Historické saved výsledky mají i ochranu shody checkpointu. Výstroj/tělo/staré schopnosti zachované.
+- **52 nových regresí; celá sada 142 souborů / 2 643 testů prošla**, 77,68 s (`pnpm exec vitest run --maxWorkers=1`, původní timeouty). Node 22.23.1, pnpm 11.24.0. Typecheck/build prošly; finální JS `index-CeSZ0Ply.js` 1 235,72 kB / gzip 380,40 kB. Žádná změna testových limitů. První cílená příprava checkpoint testu opravena na skutečný placený kontakt, assertions zachované.
+- Produkční browser na předchozím buildu: tři cesty × 7 skupin, 0 chyb. Stejné tělo/restoration a zaplacený stroj (výkon 7); skutečný příjem allied/conquered/mixed 0,72/0,60/0,66 jantaru/s, růst půdy 1,960/2,352/2,156 bodu/s. Poslední kontakt, přechod, výroba, pramen, dvě dodávky do regionu, export/import a lokální save/reload/load přes UI/nativní RAF. Připravené čtyři výsledky, poslední osada blízko vyřešení a 100 jídla jsou přiznané; nejde o celou kmenovou kampaň.
+- Nezávislé review našlo chybějící okamžité hlášení výkonového bonusu, opravené s regresí. Následná kontrola bez nálezů, samostatně 52/52 nových testů. Finální replay tří cest **15/15**, 0 browser chyb; první mixed čtení toastu předběhlo refresh HUD, opraveno čekání ovladače na viditelné dokončení a stejná větev prošla. Herní zdroj/očekávání/limity nezměněné. Historický save už ve strojích nativně ověřil pouze budoucí příjem 1,50 → 1,80/s, bez zpětného grantu.
+- Devět ponechaných finálních snímků otevřeno/prohlédnuto (1280×720); původní skill klient z byte-identické kopie přes Chrome a skutečné čekání, bez game advanceTime. Všechny tři finální exporty znovu nativně načteny, smíšený deník ukazuje 4 saved + 1 action. Hranice: browser restoration a jeden region, ostatní archetypy/checkpointy v regresích; žádný lidský playtest/poslech, Safari/mobil nebo dlouhý soak.
+- Úklid `evidence/sp-007b1/cleanup-manifest.json`: 24 souborů / 6 024 451 B odstraněno; asi 5,6 MiB finální evidence, aktivní exporty a potřebné vstupy zachované. Bez trace/video/archivů; vlastní procesy uzavřeny, disk 22 GiB volných, cizí data nedotčená.
+- **SP-007.B1 hotovo**: [report](docs/spore/SP-007B1-REPORT.md), aktualizovaná smlouva a roadmapa. B2/D, SP-009/SP-010 a celá SP-017 zůstávají otevřené. Další krok: plán planetárního rozhraní SP-010 pro města SP-009, potom B2. Bez commitu/pushe/deploye; ruční migrace není třeba.
+
+- Navazující výslovný pokyn uživatele autorizoval commit a push SP-007.B1 na `main`. Před publikací je vzdálený `main` shodný s výchozím `8d009f0d1`; dokončená implementace a ověření z předchozího průchodu zůstávají beze změny. Bez deploye.
+
 ## SP-008.F · pět sousedních kmenů · 2026-09-24
 
 - Pracovní změna nad E `190f55f` na `main`, výchozí strom čistý. Pět skutečných společností s vlastními lidmi, domovy, sběrem/doručením, placenou obnovou, obranou a výpravami. Noví **Sběrači rákosových tůní** (rychlost, řasy, dvě píšťaly) a **Hlídači čedičové meze** (zbytky, pevná osada, silná obrana, dvě chřestidla) mají odlišná existující těla a čitelnou geometrii osad.

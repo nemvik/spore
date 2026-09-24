@@ -1045,7 +1045,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     if (restored.lineageHistory?.version !== (s.lineageHistory as GameState['lineageHistory'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     for (const prior of restored.lineageHistory?.stages ?? []) {
       const current = (s.lineageHistory as GameState['lineageHistory'])!.stages[prior.stage];
-      if (prior.closed && (prior.closed.source === 'action' || current.closed?.source === 'action') && historyRowSignature(prior) !== historyRowSignature(current)) invalid('checkpoint.lineageHistory', SAVE_ERRORS.checkpointMismatch);
+      if (prior.closed && (prior.stage === 3 || prior.closed.source === 'action' || current.closed?.source === 'action') && historyRowSignature(prior) !== historyRowSignature(current)) invalid('checkpoint.lineageHistory', SAVE_ERRORS.checkpointMismatch);
       if (prior.counts && current.counts && (prior.counts.hunts > current.counts.hunts || HISTORY_FOODS.some(f => prior.counts!.meals[f] > current.counts!.meals[f]))) invalid('checkpoint.lineageHistory', SAVE_ERRORS.checkpointMismatch);
     }
     if (restored.cellGrowth?.version !== (s.cellGrowth as GameState['cellGrowth'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);

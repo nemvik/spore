@@ -1,4 +1,8 @@
 export const MACHINE_COPY = {
+  actualIncome:(rate:number)=>`Skutečný příjem: +${rate.toFixed(2)} jantaru/s.`,
+  inheritedWork:(bonus:number)=>`Dědictví kmene: výkon při připojování +${Math.round(bonus*100)} %.`,
+  regionalPower:'Výkon v regionu',
+  basePower:'Základ konstrukce',
   catalog:'Díly stroje',designName:'Název konstrukce',length:'Délka trupu',width:'Šířka trupu',axial:'Poloha · záď ↔ příď',angle:'Poloha kolem trupu',partSize:'Velikost dílu',consequences:'Vlastnosti konstrukce',previewWork:'Práce modulu',drag:'Vyber díl na konstrukci a tažením změň jeho umístění',
   constructionNote:(remaining:number)=>`Zbude ${remaining.toFixed(0)} jantaru. Potvrzení vyrobí a zaplatí jeden nový stroj.`,
   title:'Ruce, které nepatří tělu',resource:'Jantar',income:'Příjem',fleet:'Flotila',regions:'Krajina',

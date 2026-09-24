@@ -517,7 +517,7 @@ function action(a:string){if(mode==='editor'){finishEditorInput();finishCreature
   else if(command==='tribe-animal-release')commandResult(releaseDomesticAnimal(state,Number(arg)));
   else if(command==='tribe-home')graphics.focusCommand(tribeHome(tribe));
   else if((command==='tribe-focus'||command==='tribe-map')){const n=tribe.neighbours.find(n=>n.id===Number(arg));if(n)graphics.focusCommand(n.pos);}
-  else if(command==='tribe-next'){if(continueToMachinesEra(state)){resetCommands();persistState();audio.stage(state.stage);switchMode('game');}else announce(state,TRIBE_COPY.notReady);}
+  else if(command==='tribe-next'){if(continueToMachinesEra(state)){resetCommands();persistState();audio.stage(state.stage);audio.play('evolve');switchMode('game');}else announce(state,TRIBE_COPY.notReady);}
   else if(command==='tribe-music')commandResult(startMusic(state,ids,Number(arg)));
   else if(command==='tribe-music-answer')commandResult(answerMusic(state,arg as Instrument));
   else if(command==='tribe-music-cancel')commandResult(cancelMusic(state));
