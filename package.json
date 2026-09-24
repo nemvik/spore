@@ -32,7 +32,8 @@
     "test:creature-stage": "node scripts/creature-stage-browser.mjs",
     "test:lineage-history": "node scripts/creature-stage-browser.mjs --lineage",
     "test:cell-growth": "node scripts/cell-growth-browser.mjs",
-    "test:culture": "node scripts/culture-browser.mjs"
+    "test:culture": "node scripts/culture-browser.mjs",
+    "test:music": "node scripts/music-browser.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

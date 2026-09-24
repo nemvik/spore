@@ -2,6 +2,16 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-008.C · rozšířená hudební setkání · 2026-09-24
+
+- Hotová část **C**: výběr hudebníků a bubnu/píšťaly/chřestidla, cesta za skutečným sousedem, tři čitelné výzvy s hráčovou odpovědí, cena, časový limit, selhání a ukončení. Hudební nástroje sdílejí pracovní slot, kulturní oděv zůstává oddělený. Chochol a dědictví SP-007.A násobí skutečné správné odpovědi jednou; pasivní diplomacie se během návštěvy nesčítá a spojenectví nepřidává druhou odměnu.
+- Ukládání/export/import zachovávají přesnou fázi, čas, platbu i členy; checkpoint vrací celou větev společně. Přísná validace aktivního skóre, kompatibilita historických saveů, ztráta kontaktu/člena/hostitele a skutečný boj jsou kryté regresí. Tělo, jídelníček, společnosti A, výstroj B a bojová cesta zachované.
+- Produkční UI **9/9**, bez console/pageerror: vhodná skupina s chocholy **30 → 100**, stejné odpovědi se třemi bubny **30 → 20**, špatná volba při vhodné sestavě **−10**, skutečný ústup **−5** bez vratky. Export/import a save/reload/load v rozběhnuté odpovědi pokračovaly bez dvojí odměny. Finální rozložení znovu odehrálo úspěch; všech **7 finálních snímků prohlédnuto**, včetně **1280×720**. Nejdelší výsledek má ověřené nativní posunutí panelu o 33 px a zavření.
+- **Připravený vstup výslovně přiznán:** hotové pobřeží → založený kmen, 220 jídla, tři dokončené hudební dílny a členové u domova. Nástroje/chocholy byly vybrané a zaplacené přes UI, žádný připravený hudební výsledek. Jen běžné vstupy, import/download a skutečný RAF; bez setterů živého stavu, přepisování localStorage nebo `advanceTime`. Zvuk doložen regresí a skutečným Web Audio plánováním, **nikoli lidským poslechem**.
+- **53 nových regresí; celá sada 128 souborů / 2 417 testů**, 173,19 s, `pnpm test --maxWorkers=1 --testTimeout=30000`. Výchozí a následný sériový běh měly timeouty starších testů; izolovaně prošly s původními limity. Diagnostika a všechny změny parametrů jsou v reportu, očekávání ani zdrojové timeouty se neoslabovaly. Typecheck/build/diff-check prošly, známý Vite bundle warning >500 kB trvá. Tři důležité nálezy nezávislého review opravené a ověřené trvalými regresemi.
+- Úklid s manifestem: **166 souborů / 8 632 382 B** odstraněno; zůstává **4,60 MiB** finální evidence, připravený vstup a skutečné UI exporty včetně aktivní kampaně. Trace/video nezapnuty; kontrola disku před běhy i po úklidu **241 GiB volných**. Cizí artefakty zachované.
+- [Report s výsledky a mezemi](docs/spore/SP-008C-REPORT.md), [provedený plán](docs/superpowers/plans/2026-09-24-sp-008c-musical-encounters.md), [tracker](docs/spore/ROADMAP.md#sp-008). Původně necommitnutá B zachovaná, během práce byla mimo tuto relaci commitnuta jako `2aa7afe`; implementační průchod bez commitu/pushe/deploye. Následný výslovný pokyn uživatele žádá commit a push C do `main`. **D–F**, SP-007.B1 a celá SP-008/SP-017 zůstávají otevřené. Lidský playtest/poslech, dlouhý soak, Safari/mobil a nová celá kampaň neověřeny.
+
 ## SP-008.B · kulturní výstroj · 2026-09-24
 
 - Hotová část **B**: kulturní editor nad zděděným tělem, chochol/hřeben/brašny/plášť, tři barvy a přehled cen, omezení i přínosů. Náhled a svět sdílejí geometrii; herní účinky čerpají ze stejného katalogu. Koš/oštěp/buben/měch zůstávají samostatné, genom a jídelníček beze změny.

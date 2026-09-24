@@ -1,3 +1,4 @@
+import { validateMusic, validateMusicContext } from './tribe-music-validation';
 import { HISTORY_FOODS, HISTORY_METHODS, stageFacts, stageOutcome, type StageHistory } from './lineage-history';
 import { CELL_PARTS, CELL_THRESHOLDS } from './cell-growth';
 import { validateNpcDesigns } from './npc-genome';
@@ -512,7 +513,7 @@ function validateTribePreview(value: unknown): void {
   uniqueIds(neighbours, `${path}.neighbours`);
 }
 
-const tribeTools = ['basket', 'spear', 'drum', 'waterskin'] as const;
+const tribeTools = ['basket', 'spear', 'drum', 'waterskin', 'flute', 'rattle'] as const;
 
 function validateUnitOrder(value: unknown, owner: number, path: string): void {
   const order = object(value, path, ['unit', 'kind', 'target']);
@@ -558,8 +559,9 @@ function validateNeighbourSociety(value: unknown, path: string, ids: number[], n
 
 function validateActiveTribe(value: unknown): void {
   const path = 'state.tribe';
+  const hasMusic = !!value && typeof value === 'object' && Object.hasOwn(value, 'music');
   const hasCulture = !!value && typeof value === 'object' && Object.hasOwn(value, 'culture');
-  const t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed', ...(hasCulture ? ['culture'] : [])]);
+  const t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed', ...(hasCulture ? ['culture'] : []), ...(hasMusic ? ['music'] : [])]);
   if (hasCulture) validateCulture(t.culture);
   oneOf(t.version, [2], `${path}.version`);
   number(t.food, `${path}.food`);
@@ -633,6 +635,7 @@ function validateActiveTribe(value: unknown): void {
   if(neighbours.some(n=>n.society)&&neighbours.some(n=>!n.society))invalid(`${path}.neighbours`,SAVE_ERRORS.invalidFields);
   uniqueIds(ids, path);
   if (new Set(identities).size !== identities.length) invalid(`${path}.neighbours`, SAVE_ERRORS.duplicateIds);
+  if (hasMusic) validateMusic(t.music, t as unknown as ActiveTribeState);
   if (t.completed && neighbours.some(neighbour => neighbour.resolved === null)) invalid(`${path}.completed`, SAVE_ERRORS.unknownValue);
 }
 
@@ -1006,6 +1009,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   });
   if (s.deathReason !== null) string(s.deathReason, 'deathReason', 1024);
   if (hasLineageHistory) validateLineageHistory(s.lineageHistory, { ...s, journey } as unknown as GameState);
+  validateMusicContext(s as unknown as GameState);
   if (s.checkpoint !== null) {
     if (nestedCheckpoint) invalid('checkpoint', SAVE_ERRORS.nestedCheckpoint);
     const checkpoint = string(s.checkpoint, 'checkpoint', MAX_BYTES);

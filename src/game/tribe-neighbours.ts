@@ -24,6 +24,7 @@ export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbou
       return TRIBE_COPY.conquest(TRIBE_COPY.neighbours[neighbour.identity].name);
     }
   } else {
+    if (tribe.music?.active?.neighbour === neighbour.id) return null;
     unit.intent = 'socialize';
     if (neighbour.tribute < neighbourGift(neighbour)) {
       if (tribe.food < neighbourGift(neighbour)) return null;
@@ -35,10 +36,7 @@ export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbou
     // peace, while a waterskin reduces the danger of an interrupted audience.
     neighbour.relation = clamp(neighbour.relation + dt * inheritance.social * cultureEffects(unit.outfit).social * (unit.tool === 'drum' ? 3.2 : .45) * (neighbour.identity === 'sanctuary' ? 1.2 : 1), -100, 100);
     if (unit.tool === 'waterskin') neighbour.alarm = Math.max(0, neighbour.alarm - dt * 3);
-    if (neighbour.relation >= 100) {
-      neighbour.resolved = 'allied'; neighbour.alarm = 0; tribe.food += 8;
-      return TRIBE_COPY.alliance(TRIBE_COPY.neighbours[neighbour.identity].name);
-    }
+    return resolveNeighbourAlliance(tribe, neighbour);
   }
   return null;
 }
@@ -56,4 +54,11 @@ export function strikeNeighbourUnit(unit: TribeUnit, n: TribeNeighbour, target: 
 export function stepNeighbours(s: GameState, tribe: ActiveTribeState, dt: number): string[] {
   const positions = [...tribe.members, ...tribe.neighbours.flatMap(n=>n.society?.members??[])].filter(u=>u.health>0).sort((a,b)=>a.id-b.id).map(u=>({id:u.id,pos:{...u.pos}}));
   return [...tribe.neighbours].sort((a,b)=>a.id-b.id).flatMap(n=>stepSociety(s,tribe,n,dt,positions));
+}
+
+export function resolveNeighbourAlliance(tribe: ActiveTribeState, neighbour: TribeNeighbour): string | null {
+  if (neighbour.resolved || neighbour.relation < 100) return null;
+  neighbour.resolved = 'allied'; neighbour.alarm = 0; tribe.food += 8;
+  if (neighbour.society) recallExpedition(neighbour.society);
+  return TRIBE_COPY.alliance(TRIBE_COPY.neighbours[neighbour.identity].name);
 }

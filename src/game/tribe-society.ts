@@ -1,3 +1,4 @@
+import { interruptMusicOnDamage } from './tribe-music';
 import type { ActiveTribeState, NeighbourSociety, NeighbourUnit, TribeNeighbour } from './era-types';
 import type { GameState, Vec3, World } from './types';
 import { horizontalDistance } from './random';
@@ -87,10 +88,12 @@ export function stepSociety(s: GameState, t: ActiveTribeState, n: TribeNeighbour
       if(contact(target.pos,2.2)&&u.cooldown===0){
         const guarded=t.legacyAbility==='predator'&&t.abilityTime>0;
         const shield=t.members.some(v=>v.health>0&&v.benefit==='shield'&&v.hunger<70&&horizontalDistance(v.pos,target.pos)<9);
-        target.health=Math.max(0,target.health-(n.identity==='terrace'?5:4)*(guarded?.45:1)*(shield?.65:1)*cultureEffects(target.outfit).damageTaken);u.cooldown=1.8;
+        target.health=Math.max(0,target.health-(n.identity==='terrace'?5:4)*(guarded?.45:1)*(shield?.65:1)*cultureEffects(target.outfit).damageTaken);interruptMusicOnDamage(s,target.id,target.health);u.cooldown=1.8;
       }
       continue;
     }
+    const music = t.music?.active;
+    if (music?.neighbour === n.id && music.host === u.id && !aggressor) { u.task = 'rest'; travel(n.pos, 3); continue; }
     if(onExpedition&&e){
       u.task=e.phase==='outbound'?'raid':e.phase==='return'?'return':'rest';
       if(e.phase==='warning'){travel(n.pos,4);continue;}

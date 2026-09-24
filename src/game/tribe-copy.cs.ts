@@ -40,6 +40,8 @@ export const TRIBE_COPY = {
     basket: { name: 'Sběračský koš', hint: 'Unese pět porcí místo dvou. Nezmění jídelníček.' },
     spear: { name: 'Oštěp', hint: 'Delší dosah a silnější zásah. Lov potravy stále vyžaduje dravé tělo.' },
     drum: { name: 'Buben', hint: 'Společný rytmus mění dar jídla ve spojenectví.' },
+    flute: { name: 'Píšťala', hint: 'Odpovídá na melodickou výzvu. Zabírá stejný slot jako pracovní nástroj.' },
+    rattle: { name: 'Chřestidlo', hint: 'Odpovídá na šustivou výzvu. Zabírá stejný slot jako pracovní nástroj.' },
     waterskin: { name: 'Měch', hint: 'Péče o zraněné ve skupině a klidnější návštěva sousedů.' },
   } satisfies Record<ToolId, { name: string; hint: string }>,
   abilities: {

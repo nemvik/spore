@@ -47,3 +47,29 @@ export class Soundscape {
   notes.forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type=event==='hurt'?'triangle':'sine';o.frequency.setValueAtTime(f,t+i*.09);o.frequency.exponentialRampToValueAtTime(f*1.02,t+i*.09+.18);g.gain.setValueAtTime(0,t+i*.09);g.gain.linearRampToValueAtTime(.10*this.settings.effects,t+i*.09+.014);g.gain.exponentialRampToValueAtTime(.001,t+i*.09+.5);o.connect(g);g.connect(this.master!);o.start(t+i*.09);o.stop(t+i*.09+.55);});
  }
 }
+
+/** Distinct local instrument voices, with text/shape feedback remaining authoritative. */
+export function musicVoiceRecipe(instrument: Instrument, success = true): CreatureVoiceRecipe {
+ const recipe: Record<Instrument, CreatureVoiceRecipe> = {
+  drum:{wave:'triangle',frequency:120,gain:.12,duration:.35},
+  flute:{wave:'sine',frequency:660,gain:.085,duration:.7},
+  rattle:{wave:'square',frequency:1800,gain:.035,duration:.16},
+ };
+ return success ? recipe[instrument] : {wave:'triangle',frequency:85,gain:.08,duration:.45};
+}
+import type { GameState } from '../game/types';
+import { musicRequest, type Instrument } from '../game/tribe-music';
+export class MusicObserver {
+ private state: GameState | null = null; private key = '';
+ observe(s: GameState): CreatureVoiceRecipe | null {
+  const t=s.stage===3&&s.tribe?.version===2?s.tribe:null, e=t?.music?.active, r=t?.music?.result;
+  const key=e?`${e.neighbour}:${e.phase}:${e.rounds.length}`:r?`result:${r.neighbour}:${r.reason}`:'';
+  if(this.state!==s){this.state=s;this.key=key;return null;}
+  if(this.key===key)return null;this.key=key;
+  if(e?.phase==='listen'){const n=t!.neighbours.find(n=>n.id===e.neighbour)!;return musicVoiceRecipe(musicRequest(n,e).instrument);}
+  if(e?.phase==='respond')return {wave:'sine',frequency:880,gain:.04,duration:.15};
+  if(e?.phase==='feedback'){const last=e.rounds.at(-1)!;return musicVoiceRecipe(last.response??'drum',last.success);}
+  if(r)return {wave:r.reason==='success'?'sine':'triangle',frequency:r.reason==='success'?784:95,gain:.08,duration:.75};
+  return null;
+ }
+}

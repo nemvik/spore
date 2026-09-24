@@ -230,3 +230,18 @@ describe('SP-007.A action evidence and inheritance', () => {
     expect(() => parseGame(JSON.stringify({ format: 'lumavora', version: 3, savedAt: 1, state: s }))).toThrow();
   });
 });
+
+import { startMusic, stepMusic, answerMusic } from '../src/game/tribe-music';
+import { envoy } from './fixtures/culture';
+it.each(['social','mixed'] as const)('applies %s inheritance once to actual successful music, retaining body and diet', route => {
+  const s=finished(route);continueToTribeEra(s);const t=s.tribe!;if(t.version!==2)throw Error('tribe');
+  const body=structuredClone(s.player.genome), n=t.neighbours[0];s.world.obstacles=[];t.food=200;t.culture={version:1,designs:[]};n.relation=-80;n.pos={x:0,y:0,z:0};
+  const own=t.members.filter(u=>!u.species), tools=['drum','flute','rattle'] as const;
+  for(const [i,u] of own.entries()){u.pos={x:i*2,y:0,z:1};u.tool=tools[i];u.outfit=structuredClone(envoy);}
+  for(const tool of tools){t.unlocked.push(tool);t.huts.push({id:t.nextId++,kind:'workshop',tool,pos:{...t.huts[0].pos},progress:1,health:100});}
+  for(const u of n.society!.members)u.pos={...n.pos};
+  expect(startMusic(s,own.map(u=>u.id),n.id).ok).toBe(true);stepMusic(s,.1);
+  for(const tool of tools){stepMusic(s,3);answerMusic(s,tool);expect(()=>parseGame(serializeGame(s))).not.toThrow();stepMusic(s,2.5);}
+  expect(n.relation+80).toBeCloseTo(60*1.25*(route==='social'?1.15:1.075));expect(s.player.genome).toEqual(body);
+  expect(t.music!.result!.rounds.map(r=>r.multiplier)).toEqual(Array(3).fill(1.25*(route==='social'?1.15:1.075)));
+});

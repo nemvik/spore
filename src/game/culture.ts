@@ -56,6 +56,7 @@ export function quoteOutfit(s: GameState, ids: readonly number[], design: Cultur
     if (!units.length || units.some(u => !u || u.health <= 0)) fail('Vyber živé členy kmene.');
     if (units.some(u => u!.species)) fail('Kulturní výstroj nosí vlastní druh. Symbionty z výběru vynech.');
     const own = units as TribeUnit[];
+    if (own.some(u => t.music?.active?.members.includes(u.id))) fail('Během hudební návštěvy nelze měnit kulturní výstroj.');
     cost = design ? own.filter(u => outfitAppearance(u.outfit) !== outfitAppearance(design)).length * outfitCost(design) : 0;
     const home = t.huts.filter(h => h.kind === 'shelter' && h.progress === 1 && h.health > 0).sort((a, b) => a.id - b.id)[0];
     if (!home || own.some(u => horizontalDistance(u.pos, home.pos) > 10)) fail('Přiveď vybrané členy do 10 m od domova (Ústup domů).');

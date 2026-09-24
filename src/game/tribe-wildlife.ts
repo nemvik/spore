@@ -1,3 +1,4 @@
+import { interruptMusicOnDamage } from './tribe-music';
 import { speciesCollisionRadius } from './anatomy';
 import { worldSpecies } from './npc-genome';
 import { recordEcologyMeal } from './ecology-catalog';
@@ -56,7 +57,7 @@ export function stepTribeWildlife(s: GameState, tribe: ActiveTribeState, dt: num
       if(food&&food.amount>=.5&&spec.diet.includes(food.kind)&&horizontalDistance(food.pos,c.pos)<2){recordEcologyMeal(s,c,food);food.amount-=.35;c.hunger=Math.max(0,c.hunger-22);c.cooldown=10;}
     }else if(c.cooldown===0&&c.intent==='hunt'){
       if(c.target!==null){const prey=world.creatures.find(o=>o.id===c.target);if(prey&&horizontalDistance(prey.pos,c.pos)<2.7){prey.health=Math.max(0,prey.health-(spec.damage??9)*(1-(worldSpecies(s.world,prey.species).armor??0)));prey.fear=5;c.cooldown=3;if(prey.health===0){removeTribePrey(s,prey);c.hunger=0;}}}
-      else if(near&&horizontalDistance(near.pos,c.pos)<2.7){const guarded=tribe.legacyAbility==='predator'&&tribe.abilityTime>0;near.health=Math.max(0,near.health-(spec.damage!==undefined?spec.damage*(guarded?4/9:1):(guarded?4:9))*cultureEffects(near.outfit).damageTaken);c.cooldown=3;c.hunger=Math.max(0,c.hunger-6);}
+      else if(near&&horizontalDistance(near.pos,c.pos)<2.7){const guarded=tribe.legacyAbility==='predator'&&tribe.abilityTime>0;near.health=Math.max(0,near.health-(spec.damage!==undefined?spec.damage*(guarded?4/9:1):(guarded?4:9))*cultureEffects(near.outfit).damageTaken);interruptMusicOnDamage(s,near.id,near.health);c.cooldown=3;c.hunger=Math.max(0,c.hunger-6);}
     }
   }
   if(s.tick%1800===0){

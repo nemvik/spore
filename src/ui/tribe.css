@@ -22,3 +22,11 @@ body:has(.tribe-orders) .toast{bottom:148px;max-width:520px;left:50%;font-size:1
 
 .tribe-alert{position:absolute;top:198px;left:30px;max-width:520px;text-align:left;font-size:12px;line-height:1.5;padding:12px 16px;color:#f2c5a8;border-color:#db9276;pointer-events:auto}
 @media(max-height:780px){.tribe-alert{top:172px;max-width:440px}}
+
+.music-plan{font-size:11px;line-height:1.55;margin-top:10px}.music-plan summary{cursor:pointer;color:var(--mint)}.music-plan p{margin:8px 0}.music-plan>.secondary{width:100%}
+.music-encounter{position:absolute;left:30px;width:310px;bottom:153px;max-height:calc(100vh - 345px);overflow:auto;margin:auto;padding:18px 20px;pointer-events:auto;border-color:#bed99180;background:#112c32f5}
+.music-encounter h3{font-size:18px;margin:8px 0 12px}.music-encounter p{line-height:1.5;margin:9px 0}.music-encounter .tiny{font-size:10px}.music-phase{font-size:12px;color:var(--mint)}.music-request{font-size:25px;color:var(--cream)}.music-request small{font-size:11px;margin-left:8px}.music-answers{display:flex;gap:6px;margin:12px 0}.music-answers button{flex:1;flex-direction:column;gap:0;padding:10px 5px;font-size:11px}.music-answers small{display:block;font-size:10px;margin-top:5px}.music-rounds{list-style:none;padding:0;font-size:11px;line-height:1.8;margin:8px 0}.music-good{color:#c8edb1}.music-bad{color:#ffc1a4}.music-outcome{font-size:17px;color:var(--cream)}
+.tribe-selection{max-height:calc(100vh - 345px);overflow:auto}
+@media(max-height:780px){.music-encounter{left:30px;bottom:143px;max-height:calc(100vh - 315px);padding:13px 16px}.music-encounter h3{font-size:16px}.music-encounter .tiny{font-size:10px}.music-request{font-size:21px}.tribe-selection{max-height:calc(100vh - 315px)}}
+body:has(.music-encounter) .tribe-selection{display:none}
+@media(max-width:1200px){.music-encounter{left:18px;width:264px;padding:12px}.music-answers{flex-wrap:wrap}}

@@ -1,3 +1,4 @@
+import { musicPerformance } from '../game/tribe-music';
 import { worldSpecies } from '../game/npc-genome';
 import { creaturePresentationBounds } from './creature-body';
 import { bodyWidth } from '../game/body-shape';
@@ -74,6 +75,12 @@ export function equipment(tool: ToolId): THREE.Group {
     const head = mesh(group, new THREE.ConeGeometry(.18, .52, 4), pale, 0, 1.49); head.scale.z = .35;
     for (const y of [1.09, 1.18]) { const band = mesh(group, new THREE.TorusGeometry(.065, .018, 4, 8), hide, 0, y); band.rotation.x = Math.PI / 2; }
     group.rotation.z = -.22;
+  } else if (tool === 'flute') {
+    const pipe = mesh(group, new THREE.CylinderGeometry(.09,.12,1.5,8), reed, 0,.2); pipe.rotation.z = -.6;
+    for(let i=0;i<4;i++) { const hole=mesh(group,new THREE.SphereGeometry(.035,6,4),wood,.08+i*.14,.31+i*.2,.095); hole.scale.z=.3; }
+    mesh(group,new THREE.TorusGeometry(.105,.018,4,8),pale,-.36,-.32).rotation.x=Math.PI/2;
+  } else if (tool === 'rattle') {
+    for(const x of [-.22,.22]) { mesh(group,new THREE.CylinderGeometry(.04,.06,.75,6),wood,x,-.1); const bulb=mesh(group,new THREE.SphereGeometry(.24,9,6),reed,x,.4); bulb.scale.y=1.25; mesh(group,new THREE.TorusGeometry(.24,.025,4,9),hide,x,.4).rotation.x=Math.PI/2; }
   } else if (tool === 'drum') {
     mesh(group, new THREE.CylinderGeometry(.44, .32, .62, 10), hide);
     mesh(group, new THREE.CylinderGeometry(.45, .45, .045, 12), pale, 0, .33);
@@ -167,7 +174,7 @@ export class SettlementPresentation {
       this.updateNeighbour(state, neighbour);
       for(const u of neighbour.society?.members??[])if(u.health>0)this.updateMember(state,{
         ...u,health:u.health/70*100,species:neighbour.identity==='garden'?'gloom':neighbour.identity==='terrace'?'mender':'lantern',
-        benefit:null,loyalty:100,orders:[],tool:u.task==='raid'||u.task==='defend'?'spear':u.task==='forage'||u.cargo>0?'basket':null,
+        benefit:null,loyalty:100,orders:[],tool:musicPerformance(state,u.id)?.instrument??(u.task==='raid'||u.task==='defend'?'spear':u.task==='forage'||u.cargo>0?'basket':null),
         intent:u.task==='forage'?'forage':u.task==='raid'||u.task==='defend'?'hunt':'rest',
       },false,genomeKey,time,reducedMotion,neighbour);
     }
@@ -197,7 +204,9 @@ export class SettlementPresentation {
     view.group.position.set(unit.pos.x, unit.pos.y, unit.pos.z); view.group.rotation.y = unit.heading;
     view.body.position.y = localGround + (spec ? speciesGroundClearance(spec) : organismGroundClearance(state.player.genome));
     if (!spec) syncCulturalOutfit(view.body, state.player.genome, unit.outfit);
-    view.ring.visible = selected || !!neighbour;
+    const performance = musicPerformance(state,unit.id);
+    view.ring.visible = selected || !!neighbour || !!performance;
+    if(!neighbour)(view.ring.material as THREE.MeshBasicMaterial).color.setHex(performance ? performance.success ? COLORS.ally : COLORS.hostile : COLORS.selected);
     if(neighbour)(view.ring.material as THREE.MeshBasicMaterial).color.setHex(neighbourDisposition(neighbour)==='hostile'?COLORS.hostile:neighbourDisposition(neighbour)==='friendly'?COLORS.ally:COLORS.pale);
     drapeGround(view.ring, unit.pos, unit.heading, state.world.stage, .055);
     drapeGround(view.group.getObjectByName('ground-contact') as THREE.Mesh, unit.pos, unit.heading, state.world.stage, .035);
@@ -210,6 +219,14 @@ export class SettlementPresentation {
     }
     view.equipment.position.set(spec ? .65 : bodyWidth(state.player.genome) * .85, view.body.position.y + .35, .2);
     view.equipment.scale.setScalar(.82);
+    view.equipment.rotation.z = performance && !reducedMotion ? Math.sin(time*(performance.instrument==='rattle'?28:performance.instrument==='drum'?12:4))*.22 : 0;
+    view.equipment.position.y += performance && !reducedMotion ? Math.abs(Math.sin(time*6))*.15 : 0;
+    let cue=view.group.getObjectByName('music-cue');
+    const cueKey=performance?`${performance.role}:${performance.instrument}:${performance.success}`:'';
+    if(cue?.userData.key!==cueKey){if(cue){cue.removeFromParent();disposeObject(cue);}cue=undefined;
+      if(performance){cue=equipment(performance.instrument);cue.name='music-cue';cue.userData.key=cueKey;cue.scale.setScalar(.55);view.group.add(cue);}
+    }
+    if(cue)cue.position.set(0,view.body.position.y+2.5,0);
     view.cargo.visible = unit.cargo > 0; view.cargo.position.set(0, view.body.position.y + .75, -.45); view.cargo.scale.setScalar(.75 + Math.min(1, unit.cargo / 6) * .5);
     const elapsed = time - view.time;
     if (elapsed > 0) view.speed = Math.min(10, Math.hypot(unit.pos.x - view.previous.x, unit.pos.z - view.previous.z) / elapsed);

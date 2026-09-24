@@ -1,3 +1,4 @@
+import type { TribeMusic } from './tribe-music';
 import type { Bond, Creature, Vec3 } from './types';
 import type { UnitOrder } from './unit-order';
 import type { VehicleBlueprint } from './blueprint';
@@ -18,7 +19,7 @@ export interface TribePreviewState {
   neighbours: NeighbourTribe[];
 }
 
-export type ToolId = 'basket' | 'spear' | 'drum' | 'waterskin';
+export type ToolId = 'basket' | 'spear' | 'drum' | 'flute' | 'rattle' | 'waterskin';
 export type LegacyAbility = 'restoration' | 'predator' | 'migration';
 export interface UnitNavigation { waypoint: Vec3; target: Vec3; rethink: number; }
 export interface TribeUnit extends Omit<TribeMember, 'tool'> {
@@ -70,6 +71,7 @@ export interface NeighbourSociety {
 export interface ActiveTribeState {
   version: 2;
   culture?: TribeCulture;
+  music?: TribeMusic;
   food: number;
   members: TribeUnit[];
   huts: TribeBuilding[];

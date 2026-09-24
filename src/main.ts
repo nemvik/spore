@@ -1,3 +1,4 @@
+import { startMusic, answerMusic, cancelMusic, type Instrument } from './game/tribe-music';
 import { syncMarkup } from './ui/sync-markup';
 import { CultureEditor } from './ui/culture';
 import { serializeOutfit } from './game/culture';
@@ -75,7 +76,7 @@ import { groundHeight, horizontalDistance, distance, clamp } from './game/random
 import { saveGame, loadGame, loadGames, deleteGame, serializeGame, parseGame } from './game/persistence';
 import { GameRenderer } from './render/renderer';
 import { CreaturePreviewSession, creaturePreviewTarget, PREVIEW_ENVIRONMENT } from './ui/creature-preview';
-import { Soundscape, CreatureCommunicationObserver } from './render/audio';
+import { Soundscape, CreatureCommunicationObserver, MusicObserver } from './render/audio';
 const root=document.querySelector<HTMLDivElement>('#app')!;
 const ui=document.createElement('div');ui.id='ui';
 let state:GameState=createGame(481516,false,true,true),mode:'menu'|'game'|'editor'|'pause'|'journal'|'saves'|'help'|'death'|'won'|'library'|'culture'='menu';
@@ -92,6 +93,7 @@ let creatureEdit:CreatureEditState={draft:cloneGenome(state.player.genome),selec
 const creatureIds=createCreatureIds();
 const deriveCreaturePreview=createCreaturePreviewCache();
 const creatureTrial=new CreaturePreviewSession();
+const musicObserver=new MusicObserver();
 const previewVoice=new CreatureCommunicationObserver(),worldVoice=new CreatureCommunicationObserver();
 function creaturePreview(){
  const value=deriveCreaturePreview(creatureEdit.draft);
@@ -137,7 +139,7 @@ const selectedMachines=()=>graphics.commandSelection.filter(u=>u.kind==='machine
 const selectedMembers=()=>graphics.commandSelection.filter(u=>u.kind==='member').map(u=>u.id);
 function resetCommands(){speciesCombat=false;pendingSpeciesAction=undefined;planetMap=false;planetBiome=1;if(control()==='vehicle'){graphics.zoom=32;graphics.pitch=.78;}if(control()==='command')graphics.zoom=40;graphics.commandSelection=[];graphics.commandFocus=null;buildChoice=null;selectionBox.style.display='none';tribeMarkup='';}
 function selectUnits(units:CommandUnitRef[],append=false){const combined=append?[...graphics.commandSelection,...units]:units;graphics.commandSelection=[...new Map(combined.map(u=>[`${u.kind}:${u.id}`,u])).values()];updateHud();}
-function commandResult(result:TribeAction){if(result.message)announce(state,result.message);updateHud();}
+function commandResult(result:TribeAction){audio.voice(musicObserver.observe(state));if(result.message)announce(state,result.message);updateHud();}
 const menuPreview=createGame(481516,false,true,true);
 const manualTime=import.meta.env.DEV&&new URLSearchParams(location.search).has('test');
 const escape=(s:unknown)=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -494,6 +496,10 @@ function action(a:string){if(mode==='editor'){finishEditorInput();finishCreature
   else if(command==='tribe-home')graphics.focusCommand(tribeHome(tribe));
   else if(command==='tribe-focus'){const n=tribe.neighbours.find(n=>n.id===Number(arg));if(n)graphics.focusCommand(n.pos);}
   else if(command==='tribe-next'){if(continueToMachinesEra(state)){resetCommands();persistState();audio.stage(state.stage);switchMode('game');}else announce(state,TRIBE_COPY.notReady);}
+  else if(command==='tribe-music')commandResult(startMusic(state,ids,Number(arg)));
+  else if(command==='tribe-music-answer')commandResult(answerMusic(state,arg as Instrument));
+  else if(command==='tribe-music-cancel')commandResult(cancelMusic(state));
+  else if(command==='tribe-music-dismiss'){if(tribe.music&&!tribe.music.active)tribe.music.result=null;updateHud();}
   else if(command==='tribe-stop')commandResult(stopTribeUnits(state,ids));
   else if(command==='tribe-recruit')commandResult(recruitTribeMember(state));
   else if(command==='tribe-equip')commandResult(equipTribeUnits(state,ids,arg==='none'?null:arg as ToolId));
@@ -610,7 +616,7 @@ function finishPointer(e:PointerEvent){const wasMoving=movingPointer,wasDragging
  }
 }
 canvas.addEventListener('pointerup',finishPointer);canvas.addEventListener('pointercancel',finishPointer);canvas.addEventListener('lostpointercapture',finishPointer);
-function tick(input:Input){if(mode!=='game')return;if(state.player.genome.version===2)worldVoice.observe(state.player.genome,state.player.creatureActions?.communicationSerial??0);const before={speciesCue:state.creatureStage?.cue,meals:state.player.meals,bonds:state.player.bonds.length,health:state.player.health,oxygen:state.player.oxygen,discovered:state.campaign.discoveries.length,parts:(activeCell(state)??discoveryState(state))?.parts.length??0,restored:state.world.patches.reduce((n,p)=>n+p.restored,0),cooldown:state.player.cooldown,recharge:state.player.abilityRecharge};step(state,input);if(state.creatureStage?.cue&&state.creatureStage.cue!==before.speciesCue)audio.play(state.creatureStage.cue.success&&SOCIAL_ACTIONS.some(a=>a===state.creatureStage!.cue!.action)?'bond':'hurt');if(state.player.genome.version===2)audio.voice(worldVoice.observe(state.player.genome,state.player.creatureActions?.communicationSerial??0));if(state.stage===1){const measured=(state.player.oxygen-before.oxygen)*60;oxygenReading={world:state.world,rate:state.player.oxygen>=99.95&&measured>=0?0:oxygenReading?.world===state.world?oxygenReading.rate*.8+measured*.2:measured};}if(state.player.meals>before.meals)audio.play('eat');if(state.player.bonds.length>before.bonds)audio.play('bond');if(state.player.health<before.health-1)audio.play('hurt');if(state.campaign.discoveries.length>before.discovered||((activeCell(state)??discoveryState(state))?.parts.length??0)>before.parts)audio.play('discover');if(state.world.patches.reduce((n,p)=>n+p.restored,0)>before.restored)audio.play('tend');if(input.pulse&&(state.journey.legacy?before.cooldown<=0&&state.player.cooldown>0:state.player.abilityRecharge>before.recharge))audio.play('discover');if(state.deathReason){audio.play('death');switchMode('death');}else if(awaitingOrganismVictory(state)||awaitingPlanetVictory(state)){persistState();audio.play('evolve');switchMode('won');}if(state.tick-autoSaveTick>=1800){persistState();autoSaveTick=state.tick;}}
+function tick(input:Input){if(mode!=='game')return;musicObserver.observe(state);if(state.player.genome.version===2)worldVoice.observe(state.player.genome,state.player.creatureActions?.communicationSerial??0);const before={speciesCue:state.creatureStage?.cue,meals:state.player.meals,bonds:state.player.bonds.length,health:state.player.health,oxygen:state.player.oxygen,discovered:state.campaign.discoveries.length,parts:(activeCell(state)??discoveryState(state))?.parts.length??0,restored:state.world.patches.reduce((n,p)=>n+p.restored,0),cooldown:state.player.cooldown,recharge:state.player.abilityRecharge};step(state,input);audio.voice(musicObserver.observe(state));if(state.creatureStage?.cue&&state.creatureStage.cue!==before.speciesCue)audio.play(state.creatureStage.cue.success&&SOCIAL_ACTIONS.some(a=>a===state.creatureStage!.cue!.action)?'bond':'hurt');if(state.player.genome.version===2)audio.voice(worldVoice.observe(state.player.genome,state.player.creatureActions?.communicationSerial??0));if(state.stage===1){const measured=(state.player.oxygen-before.oxygen)*60;oxygenReading={world:state.world,rate:state.player.oxygen>=99.95&&measured>=0?0:oxygenReading?.world===state.world?oxygenReading.rate*.8+measured*.2:measured};}if(state.player.meals>before.meals)audio.play('eat');if(state.player.bonds.length>before.bonds)audio.play('bond');if(state.player.health<before.health-1)audio.play('hurt');if(state.campaign.discoveries.length>before.discovered||((activeCell(state)??discoveryState(state))?.parts.length??0)>before.parts)audio.play('discover');if(state.world.patches.reduce((n,p)=>n+p.restored,0)>before.restored)audio.play('tend');if(input.pulse&&(state.journey.legacy?before.cooldown<=0&&state.player.cooldown>0:state.player.abilityRecharge>before.recharge))audio.play('discover');if(state.deathReason){audio.play('death');switchMode('death');}else if(awaitingOrganismVictory(state)||awaitingPlanetVictory(state)){persistState();audio.play('evolve');switchMode('won');}if(state.tick-autoSaveTick>=1800){persistState();autoSaveTick=state.tick;}}
 let previous=performance.now(),uiTime=0;const frameTimes:number[]=[];let menuTime=0;
 function frame(now:number){const elapsed=(now-previous)/1000;previous=now;const dt=Math.min(.05,elapsed);const steps=simulationClock.advance(now,mode==='game'&&!manualTime);for(let i=0;i<steps&&mode==='game';i++)tick(inputState());
  if(mode==='game'&&control()==='command')graphics.panCommand((keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0),dt);

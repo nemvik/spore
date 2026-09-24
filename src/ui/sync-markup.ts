@@ -10,7 +10,7 @@ export function syncMarkup(root: HTMLElement, markup: string): void {
       if (!current) { parent.appendChild(incoming.cloneNode(true)); continue; }
       if (current.nodeName !== incoming.nodeName) { parent.replaceChild(incoming.cloneNode(true), current); continue; }
       if (current instanceof Element && incoming instanceof Element) {
-        for (const name of current.getAttributeNames()) if (!incoming.hasAttribute(name)) current.removeAttribute(name);
+        for (const name of current.getAttributeNames()) if (!incoming.hasAttribute(name) && !(name === 'open' && current.tagName === 'DETAILS' && incoming.hasAttribute('data-preserve-open'))) current.removeAttribute(name);
         for (const name of incoming.getAttributeNames()) if (current.getAttribute(name) !== incoming.getAttribute(name)) current.setAttribute(name, incoming.getAttribute(name)!);
         sync(current, incoming);
       } else if (current.nodeValue !== incoming.nodeValue) current.nodeValue = incoming.nodeValue;
