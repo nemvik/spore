@@ -35,7 +35,7 @@ if(process.env.LUMAVORA_TRACE==='1')await context.tracing.start({screenshots:tru
 const page=await context.newPage(),errors=[],results=[],started=Date.now();
 page.on('pageerror',e=>errors.push(String(e)));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
 const read=()=>page.evaluate(()=>JSON.parse(window.render_game_to_text()));
-async function action(name){const b=page.locator(`[data-action="${name}"]:visible`).first();await b.scrollIntoViewIfNeeded();await b.press('Enter');}
+async function action(name){const b=page.locator(`[data-action="${name}"]:visible`).first();await b.click();}
 async function importGame(file,mode='game') {
   await page.goto(base);await action('saves');await page.locator('#import-save').setInputFiles(file);
   await page.waitForFunction(mode=>JSON.parse(window.render_game_to_text()).mode===mode,mode);
@@ -59,7 +59,7 @@ const capture=name=>page.screenshot({path:path.join(out,`${name}.png`)});
 async function checkAtlas(name) {
   const start=Date.now();await page.keyboard.press('j');await page.locator('.home-atlas svg').waitFor();
   const openedMs=Date.now()-start, s=await read();
-  assert.equal(s.homePlanet.version,2);
+  assert.equal(s.homePlanet.version,3);
   const dom=page.locator('.home-planet');assert.match(await dom.innerText(),/Uložená lokalita není doklad návštěvy/);
   assert.equal(await dom.locator('[aria-current="location"]').count(),1);
   const current=s.homePlanet.locations.find(l=>l.id===s.homePlanet.currentLocationId);
@@ -124,7 +124,7 @@ try {
   s=await importGame(path.resolve('tests/fixtures/saves/machines-restoration-completed.save.json'));const machines=structuredClone(s.homePlanet);
   await action('machine-next');s=await checkHeading('coast');assert.equal(s.stage,5);assert.deepEqual(s.homePlanet,machines);assert.equal(s.planet.version,2);assert.equal(s.planet.tScore,0);
   await action('planet-map');await capture('terraform');
-  results.push({name:'Historical machines -> local terraform, separate local planet v2 and geographic homePlanet v2',passed:true});
+  results.push({name:'Historical machines -> local terraform, separate local planet v2 and geographic homePlanet v3',passed:true});
 
   s=await importGame(path.resolve('tests/fixtures/saves/stable-sandbox.save.json'));await checkHeading('coast');assert.equal(s.planet.completed,true);assert.equal(s.planet.sandbox,true);
   const stable=structuredClone(s.homePlanet);await page.setViewportSize({width:1024,height:720});await checkHeading('coast');await capture('sandbox-1024');
@@ -133,7 +133,7 @@ try {
   results.push({name:'Historical stable T3 sandbox retained, 1024px HUD and final active export',passed:true});
   if(geography){
     s=await importGame(path.resolve('tests/fixtures/geography/sp-010a-fresh.save.json'));
-    assert.equal(s.homePlanet.version,2);assert.equal(s.homePlanet.geography.provenance,'legacy-assigned');
+    assert.equal(s.homePlanet.version,3);assert.equal(s.homePlanet.geography.provenance,'legacy-assigned');
     const v1=await exportGame('migrated-sp-010a');
     const source=parseGame(await readFile('tests/fixtures/geography/sp-010a-fresh.save.json','utf8'));
     assert.equal(v1.state.homePlanet.id,source.homePlanet.id);

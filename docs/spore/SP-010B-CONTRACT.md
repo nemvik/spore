@@ -80,3 +80,7 @@ Zpětný převod vyžaduje ID existující lokality; cizí planeta, neznámý/ne
 5. Starší checkpoint může mít méně lokalit, ale stejný atlas a rezervované kotvy. Obnova vrací svět, ekonomiku i historii společně. Opětovný vstup používá tatáž ID a kotvy. Bez checkpointu zůstává původní fallback nová linie; její nová geografie nese `birth`.
 
 Save/load, export/import a checkpoint ukládají recept se zbytkem kampaně. Neexistuje ruční migrace nebo dodatečná síťová služba. Nový export používá homePlanet v2; aplikace před B ho nepřečte. B stále čte v1 i všechny starší kampaně.
+
+## Navazující C
+
+[SP-010.C](SP-010C-CONTRACT.md) výslovně přidává homePlanet v3, navigaci a samostatný detailGenerator v1. Tento atlasový generator 1, jeho kotvy a otisky se nemění. Původní v1/v2 zůstávají platnými vstupy parseru.

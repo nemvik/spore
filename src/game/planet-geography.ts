@@ -1,3 +1,4 @@
+import { fieldGround } from './planet-travel';
 import type { GameState } from './types';
 import type { HomePlanet, LocationAddress } from './home-planet';
 import { locationAddress, resolveLocationAddress } from './home-planet';
@@ -52,7 +53,7 @@ export function geographicCell(atlas: PlanetAtlas, point: GeographicPoint): Atla
 }
 
 export function planetAtlas(planet: HomePlanet): PlanetAtlas | null {
-  if (planet.version !== 2) return null;
+  if (planet.version === 1) return null;
   const seed = planet.geography.seed;
   const existing = cache.get(seed);
   if (existing) return existing;
@@ -107,10 +108,11 @@ export function planetAtlas(planet: HomePlanet): PlanetAtlas | null {
 }
 
 export function locationGeography(s: GameState, id = s.homePlanet?.currentLocationId) {
-  const planet = s.homePlanet, location = planet?.locations.find(l => l.id === id);
+  const planet = s.homePlanet, location = planet?.locations.find(l => l.id === id) ?? (planet?.version === 3 ? planet.navigation.fields.find(f => f.id === id) : null);
   const atlas = planet && planetAtlas(planet);
-  if (!location || !atlas || !s.worlds[location.worldSlot]) return null;
-  const anchor = atlas.anchors[location.worldSlot];
+  if (!location || !atlas || (location.kind !== 'field' && !s.worlds[location.worldSlot])) return null;
+  const cell = location.kind === 'field' ? atlas.cells[location.cellId] : null;
+  const anchor: HabitatAnchor = cell ? { cellId: cell.id, longitude: cell.longitude, latitude: cell.latitude, altitudeMeters: cell.elevationMeters, metersPerUnit: Math.min(1, 3 * Math.cos(cell.latitude * Math.PI / 180)) } : atlas.anchors[(location as import('./home-planet').PlanetLocation).worldSlot];
   return { location, anchor, cell: atlas.cells[anchor.cellId] };
 }
 /** Local chart: fixed cos(anchor latitude), no rotation; X east, Z south, Y up.
@@ -148,7 +150,7 @@ export function localAddress(s: GameState, address: GeographicAddress, locationI
 export function addressGeography(s: GameState, address: LocationAddress) {
   const resolved = resolveLocationAddress(s, address), global = geographicAddress(s, address), binding = locationGeography(s, address.locationId);
   if (!resolved || !global || !binding) return null;
-  const localGround = groundHeight(address.position.x, address.position.z, resolved.location.worldSlot);
+  const localGround = resolved.location.kind === 'field' ? fieldGround(s.seed, binding.cell, address.position.x, address.position.z) : groundHeight(address.position.x, address.position.z, resolved.location.worldSlot);
   return { ...binding, address: global, world: resolved.world, localGround,
     groundAltitudeMeters: binding.anchor.altitudeMeters + localGround * binding.anchor.metersPerUnit };
 }

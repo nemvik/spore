@@ -64,3 +64,5 @@ Parser odmítá neznámé klíče/verze, duplicitní nebo chybějící lokality,
 ## Otevřený navazující rozsah
 
 SP-010.B nyní dodává [regionální atlas a explicitní zasazení habitatů](SP-010B-CONTRACT.md); stav a důkazy uvádí [report B](SP-010B-REPORT.md). Výše uvedený popis bez globálního transformu platí pro v1; B přidává samostatný explicitní převod, nereinterpretuje místní adresu. SP-010.C doplní globální kameru, navigaci, návraty a výběr měst. SP-009.A použije tuto adresu při založení a ukládání měst; ekonomika a nezávislé strategie zůstávají SP-009. SP-007.B2 následně spotřebuje skutečné civilizační volby, SP-007.D vesmírné výsledky. Tento kontrakt nezavádí cestování ani nové navštívené světy.
+
+C nyní rozšiřuje resolver o uložené vzdálené lokality diskriminované `kind:field`; původní formát místní adresy a sloty zůstávají zachované. [Smlouva C a konkrétní výběrové API pro SP-009](SP-010C-CONTRACT.md).

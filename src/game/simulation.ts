@@ -1,3 +1,4 @@
+import { navigation, activeField, stepField, bindActiveWorld, enablePlanetTravel } from './planet-travel';
 import { enableHomePlanet, syncHomePlanet, locationArrival } from './home-planet';
 import { cancelChiefCouncil } from './tribe-chief';
 import { cancelDomestication } from './tribe-domestication';
@@ -66,14 +67,14 @@ export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution
  if(homePlanet)enableHomePlanet(s,true);
  initializeJourneyStage(s);if(cellGrowth&&!legacy&&discoveries&&creatureLife)initializeCell(s);announce(s,activeCell(s)?'Jez malé řasy · mezerník. Tři sousta tě zvětší. Pak najdi zářící schránku ✧ a prozkoumej ji klávesou T.':legacy?TEXT.welcome:'WASD · plavba. Mezerník · potrava. T u živého porostu · poznání. Západně čeká zahrada.'); makeCheckpoint(s);return s;
 }
-export function makeCheckpoint(s:GameState) { syncHomePlanet(s);observeLineageHistory(s);s.checkpoint=JSON.stringify({...s,checkpoint:null}); }
+export function makeCheckpoint(s:GameState) { syncHomePlanet(s);if(!activeField(s))observeLineageHistory(s);s.checkpoint=JSON.stringify({...s,checkpoint:null}); }
 export function recoverGeneration(s:GameState):GameState {
- if(!s.checkpoint)return createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth,!!s.lineageHistory,!!s.homePlanet);
- const restored=JSON.parse(s.checkpoint) as GameState; restored.world=restored.worlds[worldStageFor(restored.stage)]!;restored.checkpoint=s.checkpoint;restored.deathReason=null;restored.player.invulnerable=10;announce(restored,TEXT.restored);return restored;
+ if(!s.checkpoint){const fresh=createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth,!!s.lineageHistory,!!s.homePlanet);if(navigation(s)){enablePlanetTravel(fresh);makeCheckpoint(fresh);}return fresh;}
+ const restored=JSON.parse(s.checkpoint) as GameState; bindActiveWorld(restored);restored.checkpoint=s.checkpoint;restored.deathReason=null;restored.player.invulnerable=10;announce(restored,TEXT.restored);return restored;
 }
 export function nearNest(s:GameState) { return horizontalDistance(s.player.pos,s.world.landmarks.find(l=>l.kind==='nest')!.pos)<11; }
 export function evolve(s:GameState,draft:Genome):{ok:boolean;errors:string[];cost:number} {
- if(!isOrganismStage(s.stage))return {ok:false,errors:[ERA_COPY.bodyLocked],cost:0};
+ if(activeField(s)||navigation(s)?.mode==='global'||!isOrganismStage(s.stage))return {ok:false,errors:[ERA_COPY.bodyLocked],cost:0};
  const problem=reproductionProblem(s);if(problem)return {ok:false,errors:[problem],cost:0};
  const mutation=s.journey.legacy?validateMutation(s.player.genome,draft,s.stage,s.player.dna-6):quoteJourneyEvolution(s,draft);
  const cost=mutation.cost+(s.journey.legacy?6:0);
@@ -124,7 +125,7 @@ export function transitionStatus(s:GameState) {
  return {kind:'transition' as const,ready,nearGate:gateDistance<12,gate,distance:gateDistance,detail,requirements,routes:[]};
 }
 export function tryTransition(s:GameState):boolean {
- if(!isOrganismStage(s.stage))return false;
+ if(activeField(s)||navigation(s)?.mode==='global'||!isOrganismStage(s.stage))return false;
  const status=transitionStatus(s);
  if(s.stage===2){if(activeCreatureStage(s)&&creatureStageReady(s)){const done=completeCreatureStage(s);if(done)makeCheckpoint(s);return done;}if(s.journey.legacy)return tryWin(s,'migration');announce(s,status.detail);return false;}
  if(!status.ready){announce(s,s.journey.legacy?status.distance>10?TEXT.approachGate:TEXT.transitionNotReady:status.detail);return false;}
@@ -136,7 +137,7 @@ export function tryTransition(s:GameState):boolean {
  s.messages=[];initializeJourneyStage(s);initializeCreatureStage(s);syncHomePlanet(s);announce(s,locationArrival(s)??CHAPTERS[s.stage].title);if(s.stage===2){s.campaign.drought=.28;const arrival=locationArrival(s);announce(s,arrival?`${arrival} ${TEXT.drought}`:TEXT.drought);}makeCheckpoint(s);return true;
 }
 export function tryWin(s:GameState,path:'restoration'|'predator'|'migration'):boolean {
- if(s.stage!==2||s.campaign.won||s.player.health<=0||s.deathReason)return false;
+ if(activeField(s)||navigation(s)?.mode==='global'||s.stage!==2||s.campaign.won||s.player.health<=0||s.deathReason)return false;
  let met=false;
  if(!s.journey.legacy)met=journeyFinale(s)===path;
  else if(path==='restoration')met=s.world.landmarks.filter(l=>l.kind==='spring').every(l=>l.charge>=10);
@@ -155,6 +156,7 @@ export function awaitingOrganismVictory(s:GameState):boolean {
 
 /** Explicit opt-in, including migrated old saves. No ecology is regenerated. */
 export function continueToTribeEra(s:GameState):boolean {
+ if(activeField(s)||navigation(s)?.mode==='global')return false;
  if(s.stage!==LAST_ORGANISM_STAGE||!s.campaign.won||!s.campaign.finale||s.tribe||s.player.health<=0||s.deathReason)return false;
  if(s.player.genome.version===2&&s.player.creatureActions)Object.assign(s.player.creatureActions,{jumpRecharge:0,communicationRecharge:0,communicationTime:0});
  if(s.creatureStage){if(s.creatureStage.discovery)s.creatureStage.discovery.migration=null;s.creatureStage.encounter=null;s.creatureStage.attack=null;s.creatureStage.cue=null;s.creatureStage.guards=[];s.creatureStage.pack=[];s.creatureStage.recharge=0;for(const nest of s.creatureStage.nests)nest.residents=[];}
@@ -166,11 +168,13 @@ export function continueToTribeEra(s:GameState):boolean {
 
 /** P0 saves retain their preview until this explicit decision is made. */
 export function foundTribeFromPreview(s:GameState):boolean {
+ if(activeField(s)||navigation(s)?.mode==='global')return false;
  if(!canReturnToCoast(s)||!s.campaign.finale||s.deathReason||s.player.health<=0)return false;
  s.tribe=createTribe(s);announce(s,TRIBE_COPY.founded);makeCheckpoint(s);return true;
 }
 
 export function continueToMachinesEra(s:GameState):boolean {
+ if(activeField(s)||navigation(s)?.mode==='global')return false;
  if(s.stage!==3||s.machines||s.deathReason||!tribeReady(s)||!activeTribe(s)?.completed)return false;
  cancelChiefCouncil(s,'stage');
  cancelDomestication(s,'stage');
@@ -179,6 +183,7 @@ export function continueToMachinesEra(s:GameState):boolean {
  announce(s,MACHINE_COPY.founded);makeCheckpoint(s);return true;
 }
 export function continueToPlanetEra(s:GameState):boolean {
+ if(activeField(s)||navigation(s)?.mode==='global')return false;
  const m=activeMachines(s);if(s.stage!==4||s.planet||s.deathReason||!m?.completed||!m.fleet.some(u=>u.health>0))return false;
  s.planet=createPlanet(s);s.stage=5;
  s.lineage.push({generation:s.player.generation,stage:5,time:s.tick/60,name:s.player.genome.name,parts:s.player.genome.parts.map(p=>p.kind),event:CHAPTERS[5].title});
@@ -192,6 +197,7 @@ export function canReturnToCoast(s:GameState):boolean {
  return s.stage===3&&tribe?.version===1&&!s.machines&&!s.planet&&tribe.food===0&&tribe.members.length===0&&tribe.huts.length===0&&tribe.unlocked.length===0&&tribe.neighbours.length===0;
 }
 export function returnToCoast(s:GameState):boolean {
+ if(activeField(s)||navigation(s)?.mode==='global')return false;
  if(!canReturnToCoast(s))return false;
  s.stage=LAST_ORGANISM_STAGE;delete s.tribe;if(s.lineageHistory)s.lineageHistory.stages=s.lineageHistory.stages.filter(row=>row.stage<=2);
  // The preview is not a completed chapter in the organism campaign's history.
@@ -338,6 +344,8 @@ function pulse(s: GameState) {
 }
 
 export function step(s:GameState,input:Input,dt=1/60) {
+ if(navigation(s)?.mode==='global')return;
+ if(activeField(s)){stepField(s,input,dt);return;}
  if(s.deathReason||awaitingOrganismVictory(s))return;
  if(!isOrganismStage(s.stage)){
   const tribe=activeTribe(s);

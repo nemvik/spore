@@ -44,7 +44,7 @@ describe('SP-010.A historical migration', () => {
     const recovered=recoverGeneration(imported);
     if(original.checkpoint) {
       expect(recovered.homePlanet?.id).toBe(identity!.id);
-      expect(recovered.world).toBe(recovered.worlds[currentLocation(recovered)!.worldSlot]);
+      expect(recovered.world).toBe(recovered.worlds[(currentLocation(recovered)! as import('../src/game/home-planet').PlanetLocation).worldSlot]);
       expect(recovered.homePlanet).toEqual(JSON.parse(imported.checkpoint!).homePlanet);
       const oldRecovery=recoverGeneration(original);rekey(oldRecovery,'imported-other-slot');
       expect(withoutIdentity(recovered)).toEqual(oldRecovery);
@@ -95,7 +95,7 @@ describe('SP-010.A progression and retained world state', () => {
       const prior=s.world, snapshot=structuredClone(prior);
       expect(tryTransition(s)).toBe(true);expect(s.worlds[stage]).toBe(prior);expect(prior).toEqual(snapshot);
       expect(s.homePlanet!.id).toBe(planetId);ids.push(s.homePlanet!.currentLocationId);
-      expect(new Set(ids).size).toBe(ids.length);expect(currentLocation(s)!.worldSlot).toBe(stage+1);
+      expect(new Set(ids).size).toBe(ids.length);expect((currentLocation(s)! as import('../src/game/home-planet').PlanetLocation).worldSlot).toBe(stage+1);
       expect(s.messages.at(-1)!.text).toContain('Lumavora');
       expect(parseGame(serializeGame(s)).homePlanet).toEqual(s.homePlanet);
       expect(recoverGeneration(s).homePlanet).toEqual(s.homePlanet);

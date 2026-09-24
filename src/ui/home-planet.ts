@@ -6,10 +6,10 @@ import { CHAPTERS } from '../game/content';
 
 export function campaignHeading(s: GameState): string {
   const location = currentLocation(s);
-  return `<div class="campaign-heading"><div class="chapter-pill"><b>0${s.stage + 1} / 06</b><span>${CHAPTERS[s.stage].short.toUpperCase()}</span></div>${location ? `<button class="planet-location" data-action="journal" aria-label="Domovská planeta ${HOME_PLANET_NAME}, lokalita ${LOCATION_NAMES[location.kind]}. Otevřít deník klávesou J."><span>Planeta ${HOME_PLANET_NAME}</span><strong>${LOCATION_NAMES[location.kind]}</strong><span aria-hidden="true">↗</span></button>` : ''}</div>`;
+  return `<div class="campaign-heading"><div class="chapter-pill"><b>0${s.stage + 1} / 06</b><span>${CHAPTERS[s.stage].short.toUpperCase()}</span></div>${location ? `<button class="planet-location" data-action="${location.kind === 'field' ? 'atlas' : 'journal'}" aria-label="Domovská planeta ${HOME_PLANET_NAME}, lokalita ${(location.kind === 'field' ? `Lokalita ${location.cellId}` : LOCATION_NAMES[location.kind])}. ${location.kind === 'field' ? 'Otevřít planetu klávesou N.' : 'Otevřít deník klávesou J.'}"><span>Planeta ${HOME_PLANET_NAME}</span><strong>${(location.kind === 'field' ? `Lokalita ${location.cellId}` : LOCATION_NAMES[location.kind])}</strong><span aria-hidden="true">↗</span></button>` : ''}</div>`;
 }
 
-const biomeStyle: Record<GeographicBiome, { name: string; color: string }> = {
+export const biomeStyle: Record<GeographicBiome, { name: string; color: string }> = {
   ocean: { name: 'Oceán', color: '#225572' }, shelf: { name: 'Mělčina', color: '#469ba9' },
   rainforest: { name: 'Deštný les', color: '#377d57' }, grassland: { name: 'Traviny', color: '#9baf70' },
   desert: { name: 'Poušť', color: '#d6b078' }, tundra: { name: 'Tundra', color: '#d4ddcd' }, mountain: { name: 'Hory', color: '#908894' },
@@ -36,8 +36,8 @@ export function homePlanetMarkup(s: GameState): string {
     return `<g><circle cx="${ix(a.longitude)}" cy="${iy(a.latitude)}" r="2" fill="${active ? '#ffdc8b' : '#ecf5e8'}" stroke="#122e39" stroke-width=".5"/><text x="${ix(a.longitude)}" y="${iy(a.latitude)+.85}" text-anchor="middle" fill="#102a35" font-size="2.5" font-weight="bold">${l.worldSlot+1}</text></g>`;
   }).join('')}</svg>`;
   return `<section class="home-planet" aria-label="Domovská planeta"><h3>Domovská planeta · ${HOME_PLANET_NAME}</h3>
-    <p class="atlas-origin">${planet.version === 2 && planet.geography.provenance === 'birth' ? 'Geografie založená s touto linií.' : 'Geografie nově přiřazená starší kampani; není záznamem jejích dřívějších cest.'} ${continentCount} pevninské celky · obvod rovníku 36 km.</p>
-    <p class="atlas-current">Aktuální lokalita: <strong>${LOCATION_NAMES[current.location.kind]}</strong> · ${current.cell.surface === 'land' ? 'pevnina' : 'voda'}.</p>
+    <p class="atlas-origin">${planet.version !== 1 && planet.geography.provenance === 'birth' ? 'Geografie založená s touto linií.' : 'Geografie nově přiřazená starší kampani; není záznamem jejích dřívějších cest.'} ${continentCount} pevninské celky · obvod rovníku 36 km.</p>
+    <p class="atlas-current">Aktuální lokalita: <strong>${(current.location.kind === 'field' ? `Lokalita ${current.location.cellId}` : LOCATION_NAMES[current.location.kind])}</strong> · ${current.cell.surface === 'land' ? 'pevnina' : 'voda'}.</p>
     <figure class="home-atlas"><svg viewBox="0 0 720 360" role="img" aria-label="Planeta: kontinenty, oceány a biomy. Kroužek označuje aktuální domovský region.">${tiles}<path d="M0 180H720 M360 0V360" stroke="#edf7e1" stroke-opacity=".3" stroke-dasharray="4 6"/><circle cx="${x(current.anchor.longitude)}" cy="${y(current.anchor.latitude)}" r="8" fill="none" stroke="#fff4ca" stroke-width="3"/><circle cx="${x(current.anchor.longitude)}" cy="${y(current.anchor.latitude)}" r="2" fill="#fff4ca"/></svg><figcaption>Sever ↑ · západ vlevo · východ vpravo · ○ aktuální region. Levý a pravý okraj navazují. Rovník je přerušovaná čára.</figcaption></figure>
     <div class="atlas-legend">${BIOMES.map(b => `<span><i style="background:${biomeStyle[b].color}"></i>${biomeStyle[b].name}</span>`).join('')}</div>
     <div class="habitat-overview">${inset}<div><p><strong>Uložené lokality:</strong></p><ol class="habitat-list">${locations.map(l => {
@@ -45,5 +45,5 @@ export function homePlanetMarkup(s: GameState): string {
       return `<li value="${l.worldSlot+1}"${active ? ' aria-current="location"' : ''}><strong>${LOCATION_NAMES[l.kind]}${active ? ' · právě zde' : ''}</strong><span>${binding.cell.surface === 'land' ? 'Pevnina' : 'Voda'} · ${biomeStyle[binding.cell.biome].name} · šířka místa ${(156*a.metersPerUnit).toLocaleString('cs-CZ', { maximumFractionDigits: 3 })} m</span><span>${coordinates(a)}</span></li>`;
     }).join('')}</ol></div></div>
     <details class="atlas-details"><summary>Souřadnice a měřítko místa</summary><p>${playerPoint ? `Poloha organismu: ${coordinates(playerPoint.point, 6)}. ` : ''}Místní X/Z zůstávají −78 až 78; X na východ, Z na jih. Jedna místní jednotka zde představuje ${current.anchor.metersPerUnit} m. Atlas má buňky 5° (500 m na rovníku); detailní terén a objekty patří původnímu místu.</p><p>Výchozí region: ${biomeStyle[current.cell.biome].name}, ${current.cell.temperatureC} °C, vlhkost ${current.cell.moisture} %. To jsou zeměpisné podmínky atlasu. Místní terraformace, její klima a T0–T3 se vyvíjejí samostatně.</p></details>
-    <p>Uložená lokalita není doklad návštěvy. Nová mapa nepřidává objevy, vlastnictví ani minulá rozhodnutí. Kmen, stroje i místní terraformace pokračují na stejném Dešťovém pobřeží. Přehled zatím neumožňuje vzdálené cestování.</p></section>`;
+    <p>Uložená lokalita není doklad návštěvy. Nová mapa nepřidává objevy, vlastnictví ani minulá rozhodnutí. Kmen, stroje i místní terraformace pokračují na stejném Dešťovém pobřeží. Globální navigaci otevřeš klávesou N.</p></section>`;
 }
