@@ -233,6 +233,16 @@ describe('SP-007.A action evidence and inheritance', () => {
 
 import { startMusic, stepMusic, answerMusic } from '../src/game/tribe-music';
 import { envoy } from './fixtures/culture';
+import { electChief, startChiefCouncil, stepChief } from '../src/game/tribe-chief';
+it.each(['social','mixed'] as const)('applies %s history once to the chief speech and records one real alliance',route=>{
+ const s=finished(route);continueToTribeEra(s);const t=s.tribe!;if(t.version!==2)throw Error('tribe');
+ const body=structuredClone(s.player.genome),n=t.neighbours[0],u=t.members.find(u=>!u.species)!;s.world.obstacles=[];t.food=100;t.culture={version:1,designs:[]};u.outfit=structuredClone(envoy);u.pos={...t.huts[0].pos};
+ expect(electChief(s,[u.id]).ok).toBe(true);expect(startChiefCouncil(s,[u.id],n.id).ok).toBe(true);u.pos={...n.pos};for(const h of n.society!.members)h.pos={...n.pos};
+ stepChief(s,.1);expect(()=>parseGame(serializeGame(s))).not.toThrow();stepChief(s,6);
+ expect(n.relation-30).toBeCloseTo(route==='social'?35.9375:33.59375);expect(s.player.genome).toEqual(body);
+ stepChief(s,60);n.relation=90;expect(startChiefCouncil(s,[u.id],n.id).ok).toBe(true);stepChief(s,.1);stepChief(s,6);observeLineageHistory(s);const food=t.food;
+ expect(s.lineageHistory!.stages[3].facts.filter(f=>f.key==='neighbour:garden')).toHaveLength(1);expect(n.resolved).toBe('allied');stepChief(s,60);observeLineageHistory(s);expect(t.food).toBe(food);expect(s.lineageHistory!.stages[3].facts.filter(f=>f.key==='neighbour:garden')).toHaveLength(1);
+});
 it.each(['social','mixed'] as const)('applies %s inheritance once to actual successful music, retaining body and diet', route => {
   const s=finished(route);continueToTribeEra(s);const t=s.tribe!;if(t.version!==2)throw Error('tribe');
   const body=structuredClone(s.player.genome), n=t.neighbours[0];s.world.obstacles=[];t.food=200;t.culture={version:1,designs:[]};n.relation=-80;n.pos={x:0,y:0,z:0};

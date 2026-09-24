@@ -1,3 +1,4 @@
+import type { TribeChief } from './tribe-chief';
 import type { TribeDomestication } from './tribe-domestication';
 import type { TribeMusic } from './tribe-music';
 import type { Bond, Creature, Vec3 } from './types';
@@ -71,6 +72,7 @@ export interface NeighbourSociety {
 }
 export interface ActiveTribeState {
   version: 2;
+  chief?: TribeChief;
   domestication?: TribeDomestication;
   culture?: TribeCulture;
   music?: TribeMusic;

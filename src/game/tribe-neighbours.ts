@@ -24,7 +24,7 @@ export function meetNeighbour(tribe: ActiveTribeState, unit: TribeUnit, neighbou
       return TRIBE_COPY.conquest(TRIBE_COPY.neighbours[neighbour.identity].name);
     }
   } else {
-    if (tribe.music?.active?.neighbour === neighbour.id) return null;
+    if (tribe.music?.active?.neighbour === neighbour.id || tribe.chief?.active?.neighbour === neighbour.id) return null;
     unit.intent = 'socialize';
     if (neighbour.tribute < neighbourGift(neighbour)) {
       if (tribe.food < neighbourGift(neighbour)) return null;

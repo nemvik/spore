@@ -1,3 +1,4 @@
+import { syncChiefMarker, chiefSpeaking } from './chief';
 import { musicPerformance } from '../game/tribe-music';
 import { worldSpecies } from '../game/npc-genome';
 import { creaturePresentationBounds } from './creature-body';
@@ -233,6 +234,9 @@ export class SettlementPresentation {
     const animationTime = reducedMotion ? 0 : time + unit.id * .37;
     if (spec) { animateSpeciesModel(view.body, animationTime, view.speed, spec); setPartnerActivity(view.body, unit.hunger < 70 && unit.loyalty > 0); }
     else animateOrganism(view.body, animationTime, view.speed, unit.heading - view.heading, 2, unit.intent === 'forage' && unit.cooldown > 0 ? .65 : 0, 0, undefined, state.player.genome.version === 2 ? { position: { x: unit.pos.x, y: unit.pos.y + view.body.position.y, z: unit.pos.z }, heading: unit.heading, groundAt: (x, z) => groundHeight(x, z, state.world.stage) } : undefined);
+    const speaking = !neighbour && chiefSpeaking(state,unit.id);
+    view.body.rotation.z = speaking && !reducedMotion ? Math.sin(time*5)*.045 : 0;
+    if(!neighbour)syncChiefMarker(view.group,state,unit,view.radius+1.2,time,reducedMotion);
     view.previous = { ...unit.pos }; view.heading = unit.heading; view.time = time;
     this.volumes.push({ target: { kind: neighbour ? 'neighbour-unit' : 'member', id: unit.id }, center: { x: unit.pos.x, y: unit.pos.y + view.body.position.y, z: unit.pos.z }, radius: view.radius });
   }

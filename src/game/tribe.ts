@@ -1,3 +1,4 @@
+import { chiefBusy, cancelChiefCouncil, stepChiefMember, stepChief } from './tribe-chief';
 import { acquisitionCaretaker, cancelDomestication, domesticAnimal, stepAcquisitionMember, stepDomestication, damageDomesticAnimal } from './tribe-domestication';
 import { cancelMusic, musicParticipant, stepMusic } from './tribe-music';
 import { initializeNeighbours, tribeContact } from './tribe-society';
@@ -87,6 +88,7 @@ export function issueTribeOrder(s: GameState, ids: readonly number[], kind: Unit
     if (!n) return fail(TRIBE_COPY.badTarget);
     if (kind === 'socialize' && n.tribute < neighbourGift(n) && t.food < neighbourGift(n)) return fail(TRIBE_COPY.noGift);
   } else if (target.kind !== 'point') return fail(TRIBE_COPY.badTarget);
+  if (units.some(u => chiefBusy(t,u.id))) cancelChiefCouncil(s);
   if (units.some(u => musicParticipant(t,u.id))) cancelMusic(s);
   if (units.some(u => acquisitionCaretaker(s,u.id))) cancelDomestication(s);
   for (const [i, unit] of units.entries()) {
@@ -103,6 +105,7 @@ export function issueTribeOrder(s: GameState, ids: readonly number[], kind: Unit
 }
 export function stopTribeUnits(s: GameState, ids: readonly number[]): TribeAction {
   const t = playable(s); if (!t) return fail(TRIBE_COPY.unavailable);
+  if (selected(t,ids).some(u => chiefBusy(t,u.id))) cancelChiefCouncil(s);
   if (selected(t,ids).some(u => musicParticipant(t,u.id))) cancelMusic(s);
   if (selected(t,ids).some(u => acquisitionCaretaker(s,u.id))) cancelDomestication(s);
   for (const u of selected(t, ids)) { u.orders = []; u.intent = 'rest'; }
@@ -123,6 +126,7 @@ export function buildTribeHut(s: GameState, kind: 'shelter' | 'workshop', tool: 
   if (t.huts.length >= 24) return fail(TRIBE_COPY.tooManyBuildings);
   if (![pos?.x,pos?.y,pos?.z].every(Number.isFinite) || Math.abs(pos.x) > 72 || Math.abs(pos.z) > 72 || horizontalDistance(pos, tribeHome(t)) > 24 ||
     s.world.obstacles.some(o => horizontalDistance(pos, o.pos) < o.radius + 2.2) || t.huts.some(h => horizontalDistance(pos, h.pos) < 4.5)) return fail(TRIBE_COPY.badPosition);
+  if (units.some(u => chiefBusy(t,u.id))) return fail('Nejprve ukonči náčelníkův sněm.');
   if (units.some(u => musicParticipant(t,u.id))) return fail('Nejprve ukonči hudební návštěvu vybraných členů.');
   if (units.some(u=>acquisitionCaretaker(s,u.id))) return fail('Nejprve ukonči získávání zvířete.');
   const cost = TRIBE_COSTS[kind]; if (t.food < cost) return fail(TRIBE_COPY.noFood);
@@ -135,6 +139,7 @@ export function equipTribeUnits(s: GameState, ids: readonly number[], tool: Tool
   const t = playable(s); if (!t) return fail(TRIBE_COPY.unavailable);
   const units = selected(t, ids); if (!units.length || units.length !== orderedIds(ids).length) return fail(TRIBE_COPY.selectFirst);
   if (tool !== null && (!TRIBE_TOOLS.includes(tool) || !t.unlocked.includes(tool))) return fail(TRIBE_COPY.noWorkshop);
+  if (units.some(u => chiefBusy(t,u.id))) return fail('Nejprve ukonči náčelníkův sněm.');
   if (units.some(u => musicParticipant(t,u.id))) return fail('Během hudební návštěvy nelze měnit nástroje.');
   if (tool==='spear' && units.some(u=>acquisitionCaretaker(s,u.id))) return fail('Při získávání nelze vzít oštěp.');
   const changed = units.filter(u => u.tool !== tool), cost = tool === null ? 0 : changed.length * TRIBE_COSTS.equip;
@@ -186,6 +191,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
     }
     if (u.tool === 'waterskin' && u.hunger < 70) for (const other of units) if (other.health > 0 && horizontalDistance(u.pos, other.pos) < 7) other.health = Math.min(100, other.health + dt * .9);
     const order = u.orders[0], target = order?.target, capacity = memberCapacity(u);
+    if (stepChiefMember(s,u,dt,positions)) continue;
     if (stepAcquisitionMember(s,u,dt,positions)) continue;
     if (u.cargo >= capacity || u.cargo > 0 && (!order || target?.kind === 'food' && !s.world.resources.some(r => r.id === target.id && r.amount >= 1))) {
       u.intent = 'forage'; travel(home, 3); continue;
@@ -255,6 +261,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
     } else finish();
   }
   messages.push(...stepNeighbours(s, t, dt));
+  stepChief(s, dt);
   stepMusic(s, dt);
   stepDomestication(s, dt);
   t.members = t.members.filter(u => u.health > 0);

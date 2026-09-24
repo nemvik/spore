@@ -52,6 +52,7 @@ export function animalSuitability(s:GameState,c:Creature):string|null {
 function caretakerProblem(s:GameState,ids:readonly number[]):string|null {
   const t=activeTribe(s), u=ids.length===1?t?.members.find(u=>u.id===ids[0]):null;
   if(!u||u.species||u.health<35||u.hunger>=65||u.cargo>0)return 'Vyber jednoho vlastního člena: zdraví ≥35, hlad <65, prázdný náklad. Symbiont není pečující.';
+  if(t?.chief?.active?.member===u.id)return 'Náčelník právě vede sněm. Nejprve jej ukonči.';
   if(u.tool==='spear')return 'Odlož oštěp; zvonkonoš potřebuje klidného pečujícího.';
   if(t?.music?.active?.members.includes(u.id)||acquisitionCaretaker(s,u.id))return 'Člen už vede získávání nebo hudební návštěvu.';
   return null;

@@ -44,6 +44,7 @@ export function quoteMusic(s: GameState, ids: readonly number[], neighbour: numb
   const fail = (message: string) => ({ ok: false, cost, message });
   if (s.stage !== 3 || s.deathReason || !t || !n || n.resolved || n.health <= 0) return fail('Hudba vyžaduje živý kmen a nevyřešeného souseda.');
   if (n.alarm > 0 || t.members.some(u => { const o=u.orders[0], target=o?.target; return !ids.includes(u.id) && u.health>0 && o?.kind==='attack' && (target.kind==='neighbour'&&target.id===n.id || target.kind==='neighbour-unit'&&n.society?.members.some(v=>v.id===target.id)); })) return fail('U souseda probíhá boj. Odvolej útočníky a vyčkej na uklidnění.');
+  if(t.chief?.active && (t.chief.active.neighbour===neighbour || ids.includes(t.chief.active.member))) return fail('Náčelník ani jeho hostitel nemohou současně vést sněm a hudbu.');
   if(ids.some(id=>acquisitionCaretaker(s,id))) return fail('Pečující nejprve dokončí nebo přeruší získávání zvířete.');
   if (t.music?.active) return fail('Nejprve dokonči nebo ukonči probíhající návštěvu.');
   if ((t.music?.cooldowns.find(c => c.neighbour === neighbour)?.remaining ?? 0) > 0) return fail(`Soused odpočívá: ${Math.ceil(t.music!.cooldowns.find(c => c.neighbour === neighbour)!.remaining)} s.`);

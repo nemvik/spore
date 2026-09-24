@@ -1,3 +1,4 @@
+import { validateChief, validateChiefContext } from './tribe-chief-validation';
 import { validateDomestication, validateDomesticationContext } from './tribe-domestication-validation';
 import { validateMusic, validateMusicContext } from './tribe-music-validation';
 import { HISTORY_FOODS, HISTORY_METHODS, stageFacts, stageOutcome, type StageHistory } from './lineage-history';
@@ -560,10 +561,11 @@ function validateNeighbourSociety(value: unknown, path: string, ids: number[], n
 
 function validateActiveTribe(value: unknown): void {
   const path = 'state.tribe';
+  const hasChief = !!value && typeof value === 'object' && Object.hasOwn(value, 'chief');
   const hasDomestication = !!value && typeof value === 'object' && Object.hasOwn(value, 'domestication');
   const hasMusic = !!value && typeof value === 'object' && Object.hasOwn(value, 'music');
   const hasCulture = !!value && typeof value === 'object' && Object.hasOwn(value, 'culture');
-  const t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed', ...(hasCulture ? ['culture'] : []), ...(hasMusic ? ['music'] : []), ...(hasDomestication ? ['domestication'] : [])]);
+  const t = object(value, path, ['version', 'food', 'members', 'huts', 'unlocked', 'neighbours', 'legacyAbility', 'abilityCooldown', 'abilityTime', 'nextId', 'elapsed', 'completed', ...(hasCulture ? ['culture'] : []), ...(hasMusic ? ['music'] : []), ...(hasDomestication ? ['domestication'] : []), ...(hasChief ? ['chief'] : [])]);
   if (hasCulture) validateCulture(t.culture);
   oneOf(t.version, [2], `${path}.version`);
   number(t.food, `${path}.food`);
@@ -639,6 +641,7 @@ function validateActiveTribe(value: unknown): void {
   if (new Set(identities).size !== identities.length) invalid(`${path}.neighbours`, SAVE_ERRORS.duplicateIds);
   if (hasDomestication) validateDomestication(t.domestication, t as unknown as ActiveTribeState);
   if (hasMusic) validateMusic(t.music, t as unknown as ActiveTribeState);
+  if (hasChief) validateChief(t.chief, t as unknown as ActiveTribeState);
   if (t.completed && neighbours.some(neighbour => neighbour.resolved === null)) invalid(`${path}.completed`, SAVE_ERRORS.unknownValue);
 }
 
@@ -1013,6 +1016,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   if (s.deathReason !== null) string(s.deathReason, 'deathReason', 1024);
   if (hasLineageHistory) validateLineageHistory(s.lineageHistory, { ...s, journey } as unknown as GameState);
   validateMusicContext(s as unknown as GameState);
+  validateChiefContext(s as unknown as GameState);
   validateDomesticationContext(s as unknown as GameState);
   if (s.checkpoint !== null) {
     if (nestedCheckpoint) invalid('checkpoint', SAVE_ERRORS.nestedCheckpoint);

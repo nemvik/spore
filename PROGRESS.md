@@ -2,6 +2,15 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-008.E · náčelník · 2026-09-24
+
+- Dokončená **E**, základ D `2b7b8e6`, výchozí pracovní strom čistý. Explicitní volba jednoho původního potomka bez spawnu nebo změny těla/výstroje. Znak ve světě i rosteru, přímý výběr/fokus a ovladatelný **Smírčí sněm**: 8 jídla předem, skutečná cesta/kontakt, 6 s řeči, +25 vztahu násobeného oděvem/dědictvím jednou, 45 s příměří. Bez pasivního bonusu.
+- Společný cooldown 60 s po každém konci přežívá výměnu i load. Běžný rozkaz, útok, ztráta kontaktu/člena/hostitele a vyčerpání bezpečně ukončují činnost. Péči musí náčelník předat, ostatní dál pracují; hudba a pasivní diplomacie u stejného souseda se nesčítají. Save/export/import/checkpointy a všech 11 historických fixtures zachované, přísná validace; přechod etapy sněm ukončí bez nového civilizačního dědictví.
+- Produkční UI **7/7**, 0 console/pageerror: volba člena 2 s košem, vztah **30 → 55**, save/import/reload/load během zaplacené řeči, blokace cooldownem, předání **2 → 3** s uloženým cooldownem **36,6333 s**, běžný ústup bez vztahové odměny a vratky. Všech **6 finálních snímků prohlédnuto**, z toho **5 v 1280×720**; aktivní panel a přerušení čitelné.
+- Připravený vstup přiznán: hotové pobřeží → kmen, 100 jídla, košíkářská dílna, členové doma, původní predátoři dál a sytí. Koš i náčelník získané přes UI, žádný připravený sněm nebo výsledek. Běžné vstupy/skutečný RAF, bez živých setterů a advanceTime. Automat doložil Web Audio 392/330/880/98 Hz; **skutečný poslech a lidský playtest neproběhly**.
+- **58 nových regresí; celá sada 134 souborů / 2 528 testů**, vše prošlo, 253,63 s, `--maxWorkers=1 --testTimeout=30000`. Jediný výchozí starší terénní timeout izolovaně prošel s původním limitem; assertions ani zdrojové timeouty nezměněny. Typecheck/build/diff-check prošly. Diagnostika browser ovladače i změny parametrů jsou v reportu; nezávislé review bez blokujících nálezů.
+- [Report a meze](docs/spore/SP-008E-REPORT.md), [plán](docs/superpowers/plans/2026-09-24-sp-008e-chief.md). Finální evidence a aktivní save v `evidence/sp-008e/production-final/`; úklid vlastních mezivýstupů v manifestu. **F, SP-007.B1, celé SP-008 a SP-017 zůstávají otevřené.** Implementační průchod bez commitu a pushe; navazující výslovný pokyn uživatele autorizuje commit a push E do `main`.
+
 ## SP-008.C · rozšířená hudební setkání · 2026-09-24
 
 - Hotová část **C**: výběr hudebníků a bubnu/píšťaly/chřestidla, cesta za skutečným sousedem, tři čitelné výzvy s hráčovou odpovědí, cena, časový limit, selhání a ukončení. Hudební nástroje sdílejí pracovní slot, kulturní oděv zůstává oddělený. Chochol a dědictví SP-007.A násobí skutečné správné odpovědi jednou; pasivní diplomacie se během návštěvy nesčítá a spojenectví nepřidává druhou odměnu.
