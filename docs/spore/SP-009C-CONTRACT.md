@@ -27,3 +27,13 @@ Stavba vybírá výchozí vzhled nebo uloženou revizi stejného hospodářskéh
 Parser zachová absenci i registry v1/v2 v původním formátu, v3 striktně validuje včetně snapshotů. UI `enableCities` před rekey výslovně migruje live i checkpoint: v1 → neotevřená ekonomika null; v2 s ekonomií v1 → v2 a výchozí appearance city-b-1 u existujících budov. Žádná nová budova, knihovní položka, hráčský návrh, ID, platba, čas, obyvatel nebo historie nevzniká. Opakování nic nemění včetně checkpointového stringu. Starší aplikace registry v3 nepřečtou.
 
 Checkpoint obnovuje celou větev a oba rozpočty. Může mít starší vzhled téže instance; zachovaná identita, typ, parcela a původní cena musejí souhlasit. Žádné slučování knihovny ani zpětné platby. Současný knihovní obsah nezávisí na obnově kampaně. Save limit 8 MiB zůstává, nová dílčí omezení omezují render/validaci a přenos.
+
+
+## Navazující SP-009.D — 25. 9. 2026
+
+[Smlouva D v1](SP-009D-CONTRACT.md) zavádí CityRegistry v4, States v1,
+samostatný strategický čas a doložená státní osídlení bez vymyšlených
+hráčských návštěv. Místní produkce B, zmrazení domova C, identity, adresy,
+generátory a snapshoty vzhledů se nemění. Historická migrace nejprve
+přidá pouze prázdná pravidla live i checkpointu; nové osídlení vzniká
+při skutečném pokračování hry se zaznamenaným původem a cenou.

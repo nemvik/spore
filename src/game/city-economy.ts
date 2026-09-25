@@ -24,8 +24,8 @@ export interface CityCycle {
   happiness:number; workers:number; hungry:number; funded:boolean;
 }
 export interface CityEconomy {
-  version:1|2;
-  opened:{source:'player'; tick:number; transferredAmber:80};
+  version:1|2|3;
+  opened:{source:'player'; tick:number; transferredAmber:80}|{source:'state';tick:number;transferredAmber:80;transactionId:string};
   revision:number; nextId:number; elapsed:number; cycle:number;
   treasury:number; food:number;
   buildings:CityBuilding[]; residents:CityResident[];
@@ -66,7 +66,7 @@ export function cityEconomyPreview(city:City) {
 export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:number):{ok:boolean;reason:string;cost:number} {
   const reject=(reason:string)=>({ok:false,reason,cost:0});
   if(!s.cities||s.cities.version<2||!s.cities.entries.includes(city)||!cityProgression(s)||s.deathReason||s.player.health<=0
-    ||navigation(s)?.mode!=='local'||activeField(s)?.id!==city.address.locationId||city.owner.id!==s.homePlanet?.id) return reject('Akci proveď při hraní ve vlastním místním městě.');
+    ||navigation(s)?.mode!=='local'||activeField(s)?.id!==city.address.locationId||city.owner.kind!=='lineage'||city.owner.id!==s.homePlanet?.id) return reject('Akci proveď při hraní ve vlastním místním městě.');
   const e=city.economy;
   if(revision!==(e?.revision??0))return reject('Toto potvrzení už bylo použité nebo se město změnilo. Vyber akci znovu.');
   if(order.kind==='open') {
@@ -123,7 +123,7 @@ export function applyCityOrder(s:GameState,cityId:string,order:CityOrder,revisio
   if(!q.ok){nav.notice=q.reason;return false;}
   if(order.kind==='open') {
     s.machines!.resource-=80;
-    city.economy={version:s.cities!.version===3?2:1,opened:{source:'player',tick:s.tick,transferredAmber:80},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],
+    city.economy={version:s.cities!.version>=3?2:1,opened:{source:'player',tick:s.tick,transferredAmber:80},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],
       ledger:{transfers:80,construction:0,immigration:0,supplies:0,income:0,upkeep:0,produced:0,consumed:0,discarded:0},last:null};
   } else {
     const e=city.economy!;

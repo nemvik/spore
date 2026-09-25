@@ -35,6 +35,11 @@ export function chooseCityAppearance(s:GameState,value:BuildingAppearance,id?:nu
 export function cityEconomyMarkup(s:GameState):string {
   const c=cityAt(s);if(!c)return '';selectCityUi(c);
   const e=c.economy,revision=e?.revision??0;
+  if(c.owner.kind==='state'){
+    const p=e?cityEconomyPreview(c):null;
+    return `<h3>Hospodářství cizího města</h3><p>Jsi návštěvník. Rozvoj i platby řídí jeho stát.</p>${e?`<div class="city-economy-metrics"><strong>Pokladna ${e.treasury} ◈</strong><span>${e.residents.length}/${cityCapacity(e)} občanů</span><span>Jídlo ${e.food}/120</span></div><p>Cyklus ${e.cycle} · za ${(10-e.elapsed).toFixed(1)} s návštěvy: +${p!.income} − ${p!.upkeep} jantaru. Spokojenost ${p!.happiness}/100.</p><p>${e.last?`Poslední skutečný cyklus: +${e.last.income} − ${e.last.upkeep}, jídlo +${e.last.produced} − ${e.last.consumed}.`:'Žádná minulá výroba není zaznamenaná.'}</p><ul>${e.buildings.map(b=>`<li>${CITY_BUILDINGS[b.kind].name} · parcela ${b.lot+1} · zaplaceno ${b.paidAmber} ◈</li>`).join('')}</ul><details data-preserve-open><summary>Účetnictví města</summary><p>Převody ${e.ledger.transfers} · stavby ${e.ledger.construction} · příchody ${e.ledger.immigration} · příjem ${e.ledger.income} · údržba ${e.ledger.upkeep} ◈.</p></details>`:'<p>Stát zatím neotevřel hospodářství. Žádní občané ani výroba zdarma.</p>'}`;
+  }
+
   const confirmation=pending?cityOrderQuote(s,c,pending.order,pending.revision):null;
   const confirm=`<section class="city-confirm" aria-label="Potvrzení městské akce" ${pending?'':'hidden'}><p>${cityEscape(confirmation?.reason??'')}</p>${button('confirm','Potvrdit akci',!confirmation?.ok)}${button('cancel','Zrušit')}</section>`;
   if(!e){const q=cityOrderQuote(s,c,{kind:'open'},0);return `<h3>Otevřít hospodářství</h3><p>Založení a radnice jsou zaplacené. Obyvatelé ani minulá výroba zatím nejsou zaznamenaní.</p><p>Převeď <strong>80 jantaru</strong> z domova do místní pokladny. Potom postav obydlí, pěstírnu a dílnu, pozvi 4 obyvatele a sleduj výsledek po 10 s.</p><p>Doma: ${s.machines!.resource.toFixed(1)} jantaru</p>${button('open','Otevřít · převést 80 jantaru',!q.ok)}${!q.ok?`<p>${cityEscape(q.reason)}</p>`:''}${confirm}`;}

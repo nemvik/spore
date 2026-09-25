@@ -129,7 +129,7 @@ describe('SP-009.A persistence and rollback',()=>{
     (s:GameState)=>{cityAt(s)!.address.position.x=78;},
     (s:GameState)=>{cityAt(s)!.address.position.y+=1;},
     (s:GameState)=>{cityAt(s)!.founded.paidAmber=0 as 60;},
-    (s:GameState)=>{cityAt(s)!.founded.springId=999;},
+    (s:GameState)=>{(cityAt(s)!.founded as {springId:number}).springId=999;},
     (s:GameState)=>{cityAt(s)!.founded.tick=s.tick+1;},
     (s:GameState)=>{cityAt(s)!.local.version=2 as 1;},
     (s:GameState)=>{cityAt(s)!.name='bad\nname';},

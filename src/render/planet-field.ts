@@ -1,3 +1,4 @@
+import { ownerColor } from '../game/states';
 import { createBuilding } from './building';
 import { cityAt } from '../game/cities';
 import { cityHall, fieldDecorations, CITY_SQUARE_RADIUS, cityLot } from '../game/city-spatial';
@@ -11,6 +12,8 @@ import { biomeStyle } from '../ui/home-planet';
 
 /** One disposable remote scene, shared WebGL renderer. Inactive fields retain data only. */
 export class PlanetFieldRenderer {
+  cityView = false;
+  cameraState(){return {cityView:this.cityView,position:{x:this.camera.position.x,y:this.camera.position.y,z:this.camera.position.z}};}
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, .1, 400);
   private identity: unknown = null;
@@ -28,6 +31,7 @@ export class PlanetFieldRenderer {
     const field = activeField(s)!; const cell = planetAtlas(s.homePlanet!)!.cells[field.cellId];
     const current=cityAt(s),layout=JSON.stringify([current?.economy?.buildings.map(b=>[b.id,b.kind,b.lot,b.appearance]),current?.economy?.residents.map(r=>r.id)]);
     if (this.identity !== field || this.cityIdentity !== current || this.cityLayout!==layout) {
+      if(this.identity!==field)this.cityView=false;
       this.dispose(); this.identity = field; this.cityIdentity = current;this.cityLayout=layout;
       this.scene.background = new THREE.Color(cell.biome === 'tundra' ? '#bbcdd0' : '#a9c9cf');
       this.scene.fog = new THREE.Fog(this.scene.background, 85, 240);
@@ -54,8 +58,8 @@ export class PlanetFieldRenderer {
         mesh(new THREE.CylinderGeometry(2.5,2.5,5,12),'#e6d9b3',hall.x,floor+2.5,hall.z);
         mesh(new THREE.ConeGeometry(2.5,3,12),'#418e83',hall.x,floor+6.5,hall.z);
         mesh(new THREE.CylinderGeometry(.12,.12,4,8),'#eddaa0',hall.x,floor+9,hall.z);
-        mesh(new THREE.OctahedronGeometry(.8),'#ffda80',hall.x,floor+11,hall.z);
-        const ring=mesh(new THREE.TorusGeometry(CITY_SQUARE_RADIUS,.1,6,48),'#ffda80',p.x,p.y+.15,p.z);ring.rotation.x=-Math.PI/2;
+        mesh(new THREE.OctahedronGeometry(.8),ownerColor(s,city),hall.x,floor+11,hall.z);
+        const ring=mesh(new THREE.TorusGeometry(CITY_SQUARE_RADIUS,.1,6,48),ownerColor(s,city),p.x,p.y+.15,p.z);ring.rotation.x=-Math.PI/2;
         for(const b of city.economy?.buildings??[]) {
           const q=cityLot(city,b.lot)!,y=fieldGround(s.seed,cell,q.x,q.z);
           const model=createBuilding(b.kind,b.appearance,(x,z)=>fieldGround(s.seed,cell,q.x+x,q.z+z)-y);model.position.set(q.x,y,q.z);this.scene.add(model);
@@ -96,8 +100,8 @@ export class PlanetFieldRenderer {
     }
     this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix();
     const city=cityAt(s),hall=city&&cityHall(city.address.position);
-    const nearCity=city&&Math.hypot(p.x-city.address.position.x,p.z-city.address.position.z)<24;
-    const focus=nearCity&&hall?{x:(p.x+hall.x)/2,y:p.y+2,z:(p.z+hall.z)/2}:p;
+    const nearCity=city&&(this.cityView||Math.hypot(p.x-city.address.position.x,p.z-city.address.position.z)<24);
+    const focus=this.cityView&&city?{x:city.address.position.x+7,y:city.address.position.y+2,z:city.address.position.z}:nearCity&&hall?{x:(p.x+hall.x)/2,y:p.y+2,z:(p.z+hall.z)/2}:p;
     const distance = nearCity&&city?.economy?Math.max(25,Math.min(100,65+(zoom-25)*1.6)):Math.max(nearCity?40:18,Math.min(45,zoom));
     this.camera.position.set(focus.x + Math.sin(yaw) * distance * Math.cos(pitch), focus.y + Math.max(12, distance * Math.sin(pitch)), focus.z + Math.cos(yaw) * distance * Math.cos(pitch));
     this.camera.lookAt(focus.x, focus.y, focus.z); renderer.render(this.scene, this.camera);

@@ -16,9 +16,9 @@ const integer=(v:unknown,max=CITY_LEDGER_LIMIT,min=0)=>check(typeof v==='number'
 export function validateCityEconomy(s:GameState,c:City):void {
   const raw=c.economy;if(raw===null)return;
   const row=shape(raw,['version','opened','revision','nextId','elapsed','cycle','treasury','food','buildings','residents','ledger','last']);
-  check(row.version===(s.cities?.version===3?2:1));
-  const opened=shape(row.opened,['source','tick','transferredAmber']);
-  check(opened.source==='player'&&opened.transferredAmber===80);integer(opened.tick,s.tick,c.founded.tick);
+  check(row.version===(c.owner.kind==='state'?3:s.cities!.version>=3?2:1));
+  const opened=shape(row.opened,['source','tick','transferredAmber',...(c.owner.kind==='state'?['transactionId']:[])]);
+  check(opened.source===(c.owner.kind==='state'?'state':'player')&&opened.transferredAmber===80);integer(opened.tick,s.tick,c.founded.tick);
   integer(row.revision,1e9,1);integer(row.nextId,1e9,1);integer(row.cycle,CITY_CYCLE_LIMIT);
   check(typeof row.elapsed==='number'&&Number.isFinite(row.elapsed)&&row.elapsed>=0&&row.elapsed<10);
   integer(row.treasury);integer(row.food,CITY_FOOD_CAPACITY);
@@ -26,9 +26,9 @@ export function validateCityEconomy(s:GameState,c:City):void {
   check(Array.isArray(row.residents)&&row.residents.length<=CITY_POPULATION_LIMIT);
   const e=raw as CityEconomy,ids:number[]=[];
   for(const b of e.buildings) {
-    shape(b,['id','kind','lot','enabled','paidAmber',...(e.version===2?['appearance']:[])]);integer(b.id,e.nextId-1,1);integer(b.lot,120);
+    shape(b,['id','kind','lot','enabled','paidAmber',...(e.version>=2?['appearance']:[])]);integer(b.id,e.nextId-1,1);integer(b.lot,120);
     check(isBuildingKind(b.kind)&&!!cityLot(c,b.lot));
-    if(e.version===2)validateBuildingAppearance(b.appearance,b.kind);
+    if(e.version>=2)validateBuildingAppearance(b.appearance,b.kind);
     check(typeof b.enabled==='boolean'&&(b.kind!=='house'||b.enabled));check(b.paidAmber===CITY_BUILDINGS[b.kind].cost);ids.push(b.id);
   }
   for(const r of e.residents) {

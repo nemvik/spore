@@ -12,13 +12,13 @@ import type { CityEconomy } from './city-economy';
 export interface City {
   id: string;
   name: string;
-  owner: { kind: 'lineage'; id: string };
+  owner: { kind: 'lineage' | 'state'; id: string };
   address: LocationAddress;
-  founded: { source: 'player'; stage: 4 | 5; tick: number; paidAmber: 60; springId: number };
+  founded: { source: 'player'; stage: 4 | 5; tick: number; paidAmber: 60; springId: number } | { source:'state'; stage:4|5; tick:number; paidAmber:60; transactionId:string; purpose:'activation'|'expansion' };
   local: { version: 1 }; // Immutable civic square + hall layout from A.
-  economy?: CityEconomy | null; // Required in registry v2/v3; absent in historical v1.
+  economy?: CityEconomy | null; // Required in registry v2–v4; absent in historical v1.
 }
-export interface CityRegistry { version: 1 | 2 | 3; entries: City[]; selectedId: string | null; }
+export interface CityRegistry { version: 1 | 2 | 3 | 4; entries: City[]; selectedId: string | null; }
 export const CITY_COST = 60;
 export const CITY_RADIUS = 18;
 export const cityId = (locationId: string) => `${locationId}:city`;
@@ -29,7 +29,7 @@ export const cityNameValid = (name: unknown): name is string => typeof name === 
 export function enableCities(s: GameState): void {
   enablePlanetTravel(s);
   const activate = (v: GameState) => {
-    if (v.cities?.version === 3) return false;
+    if (v.cities && v.cities.version >= 3) return false;
     v.cities = { version: 3, entries: (v.cities?.entries ?? []).map(c => ({...c, economy:c.economy?{...c.economy,version:2,buildings:c.economy.buildings.map(b=>({...b,appearance:defaultBuildingAppearance()}))}:null})), selectedId:v.cities?.selectedId ?? null };
     return true;
   };

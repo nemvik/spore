@@ -62,3 +62,13 @@ Parser kontroluje přesná pole/verze, rozsahy, ID, povrch/kotvy, jedinečnost r
 ## Navazující SP-009.B — 25. 9. 2026
 
 [Smlouva městské ekonomiky B v1](SP-009B-CONTRACT.md) přidává oddělený 10s městský cyklus pouze během aktivního místního hraní. Původní systémy, čas/RNG, jednotky, B1 a `GameState.planet` jsou při výpravě nadále zmrazené podle C. Výslovný hráčský převod 80/20 jantaru z původní zásoby do místní pokladny je nová placená akce; není pasivním příjmem ani odměnou za cestování. Globální přehled, domov a neaktivní města místní ekonomiku neposouvají, návrat nedohání čas. HomePlanet v3, atlas/detail generátory 1, adresy a význam Worlds zůstávají. [Ověření pauzy, persistence a návratů B](SP-009B-REPORT.md).
+
+
+## Navazující SP-009.D — 25. 9. 2026
+
+[Smlouva D v1](SP-009D-CONTRACT.md) zavádí CityRegistry v4, States v1,
+samostatný strategický čas a doložená státní osídlení bez vymyšlených
+hráčských návštěv. Místní produkce B, zmrazení domova C, identity, adresy,
+generátory a snapshoty vzhledů se nemění. Historická migrace nejprve
+přidá pouze prázdná pravidla live i checkpointu; nové osídlení vzniká
+při skutečném pokračování hry se zaznamenaným původem a cenou.

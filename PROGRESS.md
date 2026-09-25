@@ -2,6 +2,20 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-009.D · soupeřící státy · 2026-09-25
+
+- Zadání: skutečné samostatné státy nad C `3dfbfc7c4`, bez commitu/pushe/deploye. [Plán](docs/superpowers/plans/2026-09-25-sp-009d-states.md) a [smlouva v1](docs/spore/SP-009D-CONTRACT.md) sepsány před kódem; použit develop-web-game.
+- Implementován registr v4/státy v1, vlastníci a samostatné finance/doklady, dva profily, rozvoj a mírové sousední osídlení. Strategický čas 10 s místního hraní; B produkce jen aktivně, C domov stále zmrazený. Počáteční konečná rezerva 400/stát; nové převody 80/20 jsou výhradně jejím čerpáním.
+- C export převzat byte-identicky do tests/fixtures/geography/sp-009c-buildings.save.json, SHA d511e6f55d5480cf2305f26641f20e442dcac715d60abd79b920a6b31bab0d77. Původní C/B aktivní soubory nedotčené.
+- **D hotovo v rozsahu smlouvy:** [report v1](docs/spore/SP-009D-REPORT.md). Plná sada **149 souborů / 3 044 testů**, z toho 63 nových; původní cílené 222/222. Typecheck/build/diff-check prošly bez změn limitů či závislostí. JS `index-CDJ6dDwO.js` 1 347,85 kB / gzip 419,47 kB, známý chunk warning zůstává.
+- Produkční browser **4/4, 0 chyb** na finálním buildu: oba státy bez útoku zaplatily rozvoj a druhé město, každý 14 dokladů a rezerva 120; návštěva má skutečný místní cyklus, bez návštěvy výroba 0. Pauza/editor/knihovna/globál, vlastnictví, kamera/klávesnice/fokus, návraty, custom snapshoty C, export/import/rekey/save/load/checkpoint ověřeny běžnými vstupy/native RAF. Připravené vstupy jsou skutečný C export a offline mrtvá větev z odehraných exportů; žádné živé zápisy či zrychlení.
+- Historický browser **12/12**, původní skill klient s adaptérem skutečného času. Finální snímky 1280×720 a 1024×640 prohlédnuté. Rozhodování: stabilních 375 geometrií / 20 programů / 1 409 GPU bufferů; 20 návratů: návštěva p50 30,50 / p95 32,07 ms, domů 43,01 / 47,77 ms, mezi návratem 10/20 stabilních 319 geometrií / 18 programů / 1 252 bufferů, heap 20,78→19,61 MB po GC. Krátké měření, žádný dlouhý soak.
+- Vlastní a nezávislé review dokončeno bez otevřeného nálezu. Opraven nenavštívený průzkum/čas, krytí údržby při časné návštěvě výhradně převodem 20 z konečné rezervy, falešné bílé mapové body a strict-null validace; vše zahrnuto ve finálních testech a replayi.
+- Aktivní save `evidence/sp-009d/browser/active-campaign.save.json`, malá finální evidence a úklidový manifest v `evidence/sp-009d/`; originály B/C ani historické fixtures nepřepsány. Disk před/po 16 GiB; bez trace/video, commitu/pushe/deploye.
+- **Otevřeno:** vozidla, obrana/převzetí/konverze/moře/vesmír, SP-007.B2/D a celé SP-005.B/SP-009/SP-010/SP-017; lidský playtest/poslech, Safari/mobil a dlouhý soak. **Přesně dále plán první vojenské cesty SP-009:** obrana, vlastnictví, poškození, finance a historie, nejprve vymezit vztah původních strojů ke skutečným městům. Ruční migrace není třeba.
+
+- Navazující výslovný pokyn uživatele autorizoval commit a push SP-009.D do `main`. Před publikací všech 36 otisků zdrojů, dokumentace, fixture, buildu, výsledků a původních B/C saveů souhlasilo se závěrečným manifestem; vzdálený `main` byl stále `3dfbfc7c4`. Publikační dodatek mění pouze tento záznam a report, herní kód zůstává ověřený. Bez deploye.
+
 ## SP-009.C · editor budov a knihovna · 2026-09-25
 
 - **C hotovo v rozsahu smlouvy**, pracovní strom nad čistým `b550612f4`, bez commitu/pushe/deploye. [Plán a měřitelná kritéria](docs/superpowers/plans/2026-09-25-sp-009c-building-editor.md), [smlouva v1](docs/spore/SP-009C-CONTRACT.md), [závěrečný report v1](docs/spore/SP-009C-REPORT.md).
