@@ -18,10 +18,10 @@ export const STATE_PROFILES = [
   {name:'Liga měděných věží',color:'#dc9ee5',priority:'workshop'},
 ] as const;
 export type StateAction = {kind:'raid';cityId:string;sourceCityId:string} | {kind:'defend';cityId:string} | {kind:'found';address:LocationAddress} | {kind:'open';cityId:string} | {kind:'fund';cityId:string} | {kind:'build';cityId:string;building:CityBuildingKind;lot:number} | {kind:'invite';cityId:string};
-export interface StateTransaction {id:string;turn:number;action:StateAction;cost:number;account:'reserve'|'city';}
+export interface StateTransaction {id:string;turn:number;action:StateAction;cost:number;account:'reserve'|'city'|'trade';}
 export interface StateDecision {turn:number;action:StateAction|null;reason:string;outcome:'paid'|'blocked';transactionId:string|null;}
-export interface RivalState {id:string;profile:0|1;endowment:400;reserve:number;last:StateDecision|null;transactions:StateTransaction[];}
-export interface StateRegistry {version:1|2|3;origin:'birth'|'legacy-activation';activated:{tick:number;stage:4|5}|null;clock:{version:1;turn:number;elapsed:number};entries:RivalState[];}
+export interface RivalState {id:string;profile:0|1;endowment:400;reserve:number;tradeReserve?:number;last:StateDecision|null;transactions:StateTransaction[];}
+export interface StateRegistry {version:1|2|3|4;origin:'birth'|'legacy-activation';activated:{tick:number;stage:4|5}|null;clock:{version:1;turn:number;elapsed:number};entries:RivalState[];}
 export const stateId=(planetId:string,profile:number)=>`${planetId}:state-${profile}`;
 export const stateCities=(s:GameState,r:RivalState)=>(s.cities?.entries.filter(c=>c.owner.kind==='state'&&c.owner.id===r.id)??[]).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
 export const ownerName=(s:GameState,c:City)=>c.owner.kind==='lineage'?'Tvoje linie':STATE_PROFILES[s.states!.entries.find(r=>r.id===c.owner.id)!.profile].name;
@@ -61,22 +61,22 @@ function settlement(s:GameState,r:RivalState):{action:Extract<StateAction,{kind:
   }
   return null;
 }
-export interface StateOpportunity {action:StateAction|null;cost:number;account:'reserve'|'city';reason:string;available:boolean;}
+export interface StateOpportunity {action:StateAction|null;cost:number;account:'reserve'|'city'|'trade';reason:string;available:boolean;}
 /** A forecast is not a decision or a receipt. Policy reads current resources/layout. */
 export function stateOpportunity(s:GameState,r:RivalState):StateOpportunity {
-  const blocked=(reason:string,action:StateAction|null=null,cost=0,account:'reserve'|'city'='reserve'):StateOpportunity=>({action,cost,account,reason,available:false});
+  const blocked=(reason:string,action:StateAction|null=null,cost=0,account:'reserve'|'city'|'trade'='reserve'):StateOpportunity=>({action,cost,account,reason,available:false});
   if(!s.states?.activated||!s.states.entries.includes(r)||!cityProgression(s))return blocked('Státní vrstva ještě není aktivní.');
   if(r.transactions.length>=64||s.states.clock.turn>=STATE_TURN_LIMIT)return blocked('Dosažen limit státních dokladů nebo strategického času.');
   const owned=stateCities(s,r);
   if(systemDefeated(s,r))return blocked('Stát ztratil poslední město. Rezerva zůstává zmrazená; další osídlení neprovede.');
   const raid=raidOpportunity(s,r);if(raid)return raid;
   for(const c of owned){
-    if(s.states.version===3&&(c.capture||c.transfers!.length))continue; // Never replay founding purchases after recapture.
+    if(s.states.version>=3&&(c.capture||c.transfers!.length))continue; // Never replay founding purchases after recapture.
     if(s.states.version>=2&&!c.defense){const action={kind:'defend',cityId:c.id} as const;return r.reserve<DEFENSE_COST?blocked(`Na stráž chybí ${DEFENSE_COST} jantaru v konečné rezervě.`,action,DEFENSE_COST):{action,cost:DEFENSE_COST,account:'reserve',reason:`Zaplatit jednu městskou stráž za ${DEFENSE_COST} z konečné rezervy.`,available:true};}
     const e=c.economy;
     if(!e){const action={kind:'open',cityId:c.id} as const;return r.reserve<80?blocked('V rezervě chybí 80 jantaru pro otevření hospodářství.',action,80):{action,cost:80,account:'reserve',reason:'Převést 80 z vlastní rezervy do nové městské pokladny.',available:true};}
     if(e.revision>=1e9||e.nextId>=1e9-2||Object.values(e.ledger).some(v=>v>CITY_LEDGER_LIMIT-100))return blocked('Dosažen účetní limit města.');
-    const shortage=(reason:string,action:StateAction,cost:number):StateOpportunity=>r.reserve>=20?{action:{kind:'fund',cityId:c.id},cost:20,account:'reserve',reason:`${reason} Převést 20 z omezené státní rezervy do města.`,available:true}:blocked(`${reason} V rezervě chybí i 20 na převod; žádná dotace nevznikne.`,action,cost,'city');
+    const shortage=(reason:string,action:StateAction,cost:number):StateOpportunity=>r.reserve>=20||(r.tradeReserve??0)>=20?{action:{kind:'fund',cityId:c.id},cost:20,account:r.reserve>=20?'reserve':'trade',reason:`${reason} Převést 20 z ${r.reserve>=20?'původní rezervy':'civilního účtu skutečných prodejů'} do města.`,available:true}:blocked(`${reason} V rezervě chybí i 20 na převod; žádná dotace nevznikne.`,action,cost,'city');
     const priority=STATE_PROFILES[r.profile].priority;
     const missing=!e.buildings.some(b=>b.kind==='house')?'house':!e.buildings.some(b=>b.kind===priority)?priority:e.residents.length<4?null:!e.buildings.some(b=>b.kind===(priority==='garden'?'workshop':'garden'))?(priority==='garden'?'workshop':'garden'):undefined;
     if(missing===undefined){
@@ -120,7 +120,7 @@ export function executeStateDecision(s:GameState,id:string,turn:number):boolean 
     const city:City={id:cityId(field.id),name:`${r.profile===0?'Zelený dvůr':'Měděná věž'} ${stateCities(s,r).length+1}`,owner:{kind:'state',id:r.id},address:structuredClone(action.address),
       founded:{source:'state',stage:s.stage as 4|5,tick:s.tick,paidAmber:60,transactionId,purpose:stateCities(s,r).length?'expansion':'activation'},local:{version:1},economy:null};
     if(s.cities!.version>=5){city.foundingOwner={...city.owner};city.defense=null;city.capture=null;}
-    if(s.cities!.version===6){city.transfers=[];city.fortification=80;}
+    if(s.cities!.version>=6){city.transfers=[];city.fortification=80;}
     r.reserve-=60;nav.fields.push(field);s.cities!.entries.push(city);
   }else{
     const city=s.cities!.entries.find(c=>c.id===action.cityId)!;
@@ -129,7 +129,7 @@ export function executeStateDecision(s:GameState,id:string,turn:number):boolean 
     }else if(action.kind==='open'){
       r.reserve-=80;
       city.economy={version:3,opened:{source:'state',tick:s.tick,transferredAmber:80,transactionId},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],ledger:{transfers:80,construction:0,immigration:0,supplies:0,income:0,upkeep:0,produced:0,consumed:0,discarded:0},last:null};
-    }else if(action.kind==='fund'){r.reserve-=20;city.economy!.treasury+=20;city.economy!.ledger.transfers+=20;city.economy!.revision++;}
+    }else if(action.kind==='fund'){if(q.account==='trade')r.tradeReserve!-=20;else r.reserve-=20;city.economy!.treasury+=20;city.economy!.ledger.transfers+=20;city.economy!.revision++;}
     else{
       const e=city.economy!;e.treasury-=q.cost;e.revision++;
       if(action.kind==='build'){e.ledger.construction+=q.cost;e.buildings.push({id:e.nextId++,kind:action.building,lot:action.lot,enabled:true,paidAmber:q.cost,appearance:defaultBuildingAppearance()});}
@@ -142,7 +142,7 @@ export function executeStateDecision(s:GameState,id:string,turn:number):boolean 
 export function stepStates(s:GameState,dt:number):void {
   const system=s.states;
   if(!system||!cityProgression(s)||navigation(s)?.mode!=='local'||s.deathReason||s.player.health<=0||!Number.isFinite(dt)||dt<=0)return;
-  if(!system.activated){system.activated={tick:s.tick,stage:s.stage as 4|5};system.entries=STATE_PROFILES.map((_,profile)=>({id:stateId(s.homePlanet!.id,profile),profile:profile as 0|1,endowment:400,reserve:400,last:null,transactions:[]}));}
+  if(!system.activated){system.activated={tick:s.tick,stage:s.stage as 4|5};system.entries=STATE_PROFILES.map((_,profile)=>({id:stateId(s.homePlanet!.id,profile),profile:profile as 0|1,endowment:400,reserve:400,...(system.version===4?{tradeReserve:0}:{}),last:null,transactions:[]}));}
   if(system.clock.turn>=STATE_TURN_LIMIT)return;
   system.clock.elapsed+=Math.min(dt,1/30);
   if(system.clock.elapsed+1e-9<STATE_TURN_SECONDS)return;

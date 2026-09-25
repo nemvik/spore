@@ -2,6 +2,20 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-009.G · obchodní převzetí · 2026-09-25
+
+- Navazující výslovný pokyn uživatele autorizoval commit a push G na `main`. Před uložením všech 90 otisků finálního manifestu souhlasilo; vzdálený `main` byl stále `f3b67b2bf`. Publikační dodatek mění pouze dokumentaci, herní implementace a ověřené výsledky zůstávají stejné. Bez deploye; evidence je lokální podle `.gitignore`.
+- **G hotovo v omezeném rozsahu smlouvy**, nad čistým `f3b67b2bf`. [Plán před implementací](docs/superpowers/plans/2026-09-25-sp-009g-trade.md), [smlouva v1](docs/spore/SP-009G-CONTRACT.md), [report v1](docs/spore/SP-009G-REPORT.md). Bez commitu/pushe/deploye, nové závislosti či změny lockfilu.
+- Finanční audit skutečného F: domov 0,405, původní prameny s B1 1,8/s; oddělené pokladny a rezervy států 0/40. Byte-identická F fixture má SHA `1ceed299a31254e8bda104be18b0a86213e37ccfbf45aa2456aed194bad4c2cc`. Žádná historická dotace ani obchodní minulost.
+- CityRegistry 7 / States 4, Military 2 zachované. Explicitní nabídka a rozhodnutí podle rezerv/měst/vojenských závazků, atomická domácí platba na civilní účet a obchodní doklad ve společné historii F. Původní E/F, škody, majetek i placená stráž zachované; stráž se trvale demobilizuje bez nové jednotky. Civilní příjem smí financovat jen původní vklad 20 do nedostatkového vlastního města po vyčerpání rezervy, ne armádu. Poraženému státu peníze zůstanou zmrazené.
+- **152 souborů / 3 164 testů**, včetně **51 G regresí**; typecheck/build/diff-check prošly. Final JS `index-DV5eVfxE.js` 1 401,69 kB / gzip 435,96 kB; známý chunk warning trvá. 31 původních datových/kódových fixtures proti HEAD a 15 historických exportů proti F manifestům beze změny.
+- Finální produkční browser **5/5, 0 chyb**: původní prameny vydělaly 235,185 skutečným domácím hraním, poslední město koupeno za 203 po místním cyklu, následný vklad/hospodaření, 20 návratů, klávesnice/fokus/kamera, pauza/editor/knihovna/globál, export/import/rekey/save/load a přesná obnova celé předkupní větve. Alternativní hraný nákup za 140 a odmítnutí zbývajícího posledního města. Pouze death/checkpoint spouštěč připraven offline; žádné živé zápisy či zrychlení času.
+- Historický browser **12/12, 0 chyb**, původní skill klient s nativním časem, finální snímky včetně 1024×640 prohlédnuté. Odezva nákupu 65,48 ms; návrat domů p50/p95 40,30/52,38 ms. Návraty 10→20: heap 19,916→20,546 MB; stále 316 geometrií, 19 programů a 1 242 GPU bufferů. GPU timer s draw calls: 35 vzorků, p50/p95 1,161/3,631 ms. Krátké měření, nikoli dlouhý soak.
+- Vlastní a nezávislé review `/root/review_trade` dokončené bez otevřených nálezů. Opraven fokus a kontrola historicky zničené stráže, doplněny civilní platební regrese a zopakován finální browser. První chybná assertion driveru o nulovém čase mezi obnovou/pauzou a oprava GPU diagnostiky jsou přiznané v reportu.
+- Aktivní save `evidence/sp-009g/browser/active-campaign.save.json`. [Úklid](evidence/sp-009g/cleanup.json): 32 vlastních duplicit/mezivýsledků, 6,56 MB odstraněno; starší i nový aktivní save zachované, bez trace/video. Disk před ~11 GiB, po ~10 GiB. Ruční migrace není potřeba.
+- **Otevřeno:** celé SP-005.B/SP-009/SP-010/SP-017, konverze, rozsáhlý trh/diplomacie/armády, knihovna vozidel/lodí, moře/vesmír a SP-007.B2/D. Lidský playtest/poslech, Safari/mobil a dlouhý soak neprovedeny. **Přesně dále:** plán první konverzní cesty, jejích podmínek/historie a vyloučení s obchodem/bojem; žádné automatické uvolnění dalších výpadů nebo poražených rezerv.
+
+
 ## SP-009.F · obrana a protiútok · 2026-09-25
 
 - Navazující pokyn uživatele autorizoval commit a push F na `main`. Před uložením všech 71 otisků finálního manifestu souhlasilo s ověřenými soubory; herní implementace se nemění. Deploy není požadovaný. Evidence zůstává lokální podle stávajícího `.gitignore`; regresní E fixture je součástí Gitu.

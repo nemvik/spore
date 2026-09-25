@@ -1,7 +1,7 @@
 import { fieldRaid } from '../game/defense';
 import * as THREE from 'three';
 import type { GameState } from '../game/types';
-import { cityAt } from '../game/cities';
+import { cityAt, cityGuard } from '../game/cities';
 import { activeMachines, machineDesign } from '../game/machines';
 import { vehicleStats, type VehicleBlueprint } from '../game/blueprint';
 import { createMachine, animateMachine } from './machine';
@@ -12,7 +12,7 @@ export class MilitaryPresentation {
   update(s:GameState){
     const c=cityAt(s),d=s.military?.deployment,m=activeMachines(s),u=d?.cityId===c?.id&&d?.phase==='field'?m?.fleet.find(u=>u.id===d.unitId):null;
     const rows:{blueprint:VehicleBlueprint;pos:{x:number;y:number;z:number};health:number;heading:number;cooldown:number;moving:boolean;color:string}[]=[];
-    if(c?.defense)rows.push({...c.defense,heading:0,moving:false,color:'#ef827e'});
+    if(c&&cityGuard(c))rows.push({...c.defense!,heading:0,moving:false,color:'#ef827e'});
     const raid=c&&fieldRaid(s,c);if(raid)rows.push({...raid.unit,blueprint:raid.blueprint,moving:raid.unit.intent==='move',color:'#ef827e'});
     if(u&&m)rows.push({...u,blueprint:machineDesign(m,u),moving:u.intent==='move',color:'#ffda80'});
     const key=JSON.stringify([c?.id,rows.map(r=>[r.blueprint,r.color])]);

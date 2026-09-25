@@ -64,3 +64,16 @@ only explicit new schemas; no historical defenses, combat, purchases or captures
 The original D export and older active B/C saves remain untouched.
 
 SHA-256: `e7e6329b53e4d9688a084207b1cbd74add0b2cfec9d20569d860969560fe3bbf`.
+
+## SP-009.F defense compatibility input
+
+`sp-009f-defense.save.json` is the byte-identical actual F production export from
+`evidence/sp-009f/browser/active-campaign.save.json`, commit `f3b67b2bf`.
+It retains the original E capture, both F ownership transfers, one paid destroyed
+counterattack, and the historical checkpoint. Home amber is 0.4050000000810883;
+state reserves are 0 and 40. G adds no historical income, trade or relationship:
+it explicitly migrates live/checkpoint to CityRegistry 7 / States 4 with empty
+civil accounts. The new purchase funds must be earned from the original springs.
+The original F export and all older active saves remain untouched.
+
+SHA-256: `1ceed299a31254e8bda104be18b0a86213e37ccfbf45aa2456aed194bad4c2cc`.

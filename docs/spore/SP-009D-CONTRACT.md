@@ -99,3 +99,10 @@ vojenským výsledkem s uloženým dokladem. Obrana je nový budoucí nákup z p
 konečné rezervy. Staré transakce se kontrolují proti původním městům a snapshotu
 hospodářství při převzetí; pozdější hráčská správa je nepřepisuje. Zde popsaná v4/v1
 zůstává historickým vstupem bez domyšlené války. Poražený stát nezakládá další města.
+
+## Navazující SP-009.G
+
+[Smlouva G v1](SP-009G-CONTRACT.md) explicitně zavádí CityRegistry v7 / States v4,
+obchodní variantu společné historie a oddělený civilní účet skutečné kupní ceny.
+Původní rezervní rozpočet, doklady a omezení výpadu F zůstávají; příjem nezakládá
+novou armádu ani zpětný obchod. Migrace live/checkpoint před rekey nevytváří minulost.

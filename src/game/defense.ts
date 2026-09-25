@@ -1,6 +1,6 @@
 import type { GameState, Vec3, World } from './types';
 import type { MachineUnit } from './era-types';
-import type { City } from './cities';
+import { cityGuard, type City } from './cities';
 import type { CityEconomy } from './city-economy';
 import type { RivalState, StateOpportunity } from './states';
 import { stateCities, systemDefeated } from './states';
@@ -17,6 +17,7 @@ export const FORTIFICATION = 80;
 export const RAID_PREPARATION = 15;
 export const TRANSFER_LIMIT = 32;
 export interface CityTransfer {
+  method?:never;
   from:City['owner']; to:City['owner']; unitId:number; raidId:string|null;
   turn:number; elapsed:number; economy:CityEconomy|null;
 }
@@ -76,7 +77,7 @@ function entryAvailable(s:GameState,c:City,enemy:boolean,g:VehicleBlueprint):boo
 }
 export function raidOpportunity(s:GameState,r:RivalState):StateOpportunity|null {
   if(s.military?.version!==2||s.stage!==4)return null;
-  const targets=s.cities!.entries.filter(c=>c.owner.kind==='lineage'&&c.foundingOwner?.id===r.id);
+  const targets=s.cities!.entries.filter(c=>c.owner.kind==='lineage'&&c.foundingOwner?.id===r.id&&c.transfers?.at(-1)?.method!=='trade');
   if(!targets.length)return null; // Counterattack is a response to an actual territorial loss.
   const blocked=(reason:string):StateOpportunity=>({action:null,cost:DEFENSE_COST,account:'reserve',available:false,reason});
   if(raids(s).some(v=>v.stateId===r.id))return blocked('Stát již zaplatil svůj jediný výpad. Zničený ani navrácený tank nenahrazuje zdarma.');
@@ -99,7 +100,7 @@ export function createRaid(s:GameState,stateId:string,source:City,c:City,id:stri
 }
 export function enemyTarget(s:GameState,c:City):{pos:Vec3;health:number;cooldown:number}|null {
   const raid=fieldRaid(s,c);if(raid)return raid.unit;
-  if(c.owner.kind==='state'&&c.defense&&c.defense.health>0)return c.defense;
+  const guard=cityGuard(c);if(c.owner.kind==='state'&&guard&&guard.health>0)return guard;
   return null;
 }
 export function canOccupy(s:GameState,c:City,owner:City['owner']):boolean {
@@ -131,7 +132,7 @@ function battleWorld(s:GameState,c:City):World {
 }
 function moveTank(s:GameState,c:City,u:MachineUnit,g:VehicleBlueprint,world:World,p:Vec3,dt:number,stop:number):boolean {
   const other=fieldRaid(s,c)?.unit,d=s.military!.deployment,player=d?.cityId===c.id&&d.phase==='field'?activeMachines(s)!.fleet.find(v=>v.id===d.unitId):null;
-  const bodies=[other,player,c.defense&&c.defense.health>0?c.defense:null].filter(v=>v&&v!==u&&v.health>0);
+  const bodies=[other,player,cityGuard(c)&&c.defense!.health>0?c.defense:null].filter(v=>v&&v!==u&&v.health>0);
   const collision={...world,obstacles:[...world.obstacles,...bodies.map((v,i)=>({id:200000+i,kind:'rock' as const,pos:{...v!.pos,y:v!.pos.y-4},radius:v===player?tankRadius(machineDesign(activeMachines(s)!,player!)):tankRadius(defenseDesign()),height:24}))]};
   u.intent='move';const from={...u.pos};
   moveUnit(world,u,p,[],vehicleStats(g).speed,dt,stop,tankRadius(g),tankRadius(g),true);
@@ -177,7 +178,7 @@ export function stepDefense(s:GameState,dt:number):void {
   let u=here?m.fleet.find(u=>u.id===d.unitId):undefined;
   const r=fieldRaid(s,c);
   if(r) {r.elapsed=Math.min(1e9,r.elapsed+dt);r.unit.cooldown=Math.max(0,r.unit.cooldown-dt);}
-  if(c.defense)c.defense.cooldown=Math.max(0,c.defense.cooldown-dt);
+  if(cityGuard(c))c.defense!.cooldown=Math.max(0,c.defense!.cooldown-dt);
   if(d&&!here)d.hold=0;
   if(here&&d&&u){
     if(u.health<=0){w.deployment=null;u=undefined;}
@@ -227,6 +228,6 @@ export function stepDefense(s:GameState,dt:number):void {
       }
     }
   }
-  if(u&&d?.phase==='field'&&u.health>0&&c.owner.kind==='state'&&c.defense&&c.defense.health>0)machineShot(world,c.defense,u,vehicleStats(c.defense.blueprint).power,MILITARY_RANGE);
+  if(u&&d?.phase==='field'&&u.health>0&&c.owner.kind==='state'&&cityGuard(c)&&c.defense!.health>0)machineShot(world,c.defense!,u,vehicleStats(c.defense!.blueprint).power,MILITARY_RANGE);
   if(u&&u.health<=0){m.fleet=m.fleet.filter(v=>v!==u);w.deployment=null;w.notice='Tvůj nasazený tank byl zničen. Město není automaticky ztracené: útočník musí prolomit radnici a obsadit náměstí.';}
 }

@@ -14,7 +14,7 @@ const id=(v:unknown,max=1e9)=>{num(v,max,1);check(Number.isInteger(v));};
 const vector=(p:Vec3)=>{shape(p,['x','y','z']);num(p.x,78,-78);num(p.z,78,-78);num(p.y,1024,-1024);};
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 export function validateMilitary(s:GameState):void {
-  const w=s.military,f=w?.version===2;check(f?s.cities?.version===6&&s.states?.version===3:s.cities?.version===5&&s.states?.version===2);
+  const w=s.military,f=w?.version===2;check(f?(s.cities?.version===6&&s.states?.version===3||s.cities?.version===7&&s.states?.version===4):s.cities?.version===5&&s.states?.version===2);
   shape(w,['version','deployment','notice',...(f?['raids']:[])]);check((w!.version===1||f)&&typeof w!.notice==='string'&&w!.notice.length<=512);
   for(const c of s.cities!.entries){
     check(!!c.foundingOwner);

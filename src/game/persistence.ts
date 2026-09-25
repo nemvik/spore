@@ -150,11 +150,11 @@ function citySignature(c: City): string {
 }
 function validateCities(s: GameState): void {
   const at='state.cities', registry=object(s.cities,at,['version','entries','selectedId']);
-  oneOf(registry.version,[1,2,3,4,5,6],at+'.version');
+  oneOf(registry.version,[1,2,3,4,5,6,7],at+'.version');
   if(s.homePlanet?.version!==3)invalid(at,SAVE_ERRORS.unknownValue);
   const ids:string[]=[];
   for(const raw of array(registry.entries,at+'.entries',FIELD_LIMIT)) {
-    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(Number(registry.version)>=2?['economy']:[]),...(Number(registry.version)>=5?['foundingOwner','defense','capture']:[]),...(registry.version===6?['transfers','fortification']:[])]);
+    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(Number(registry.version)>=2?['economy']:[]),...(Number(registry.version)>=5?['foundingOwner','defense','capture']:[]),...(Number(registry.version)>=6?['transfers','fortification']:[])]);
     string(row.id,at+'.id',140);string(row.name,at+'.name',40);
     if(!cityNameValid(row.name))invalid(at+'.name',SAVE_ERRORS.invalidText);
     const owner=object(row.owner,at+'.owner',['kind','id']);

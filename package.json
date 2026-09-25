@@ -46,6 +46,7 @@
     "test:buildings": "node scripts/buildings-browser.mjs",
     "test:states": "node scripts/states-browser.mjs",
     "test:military": "node scripts/military-browser.mjs",
+    "test:trade": "node scripts/trade-browser.mjs",
     "test:defense": "node scripts/defense-browser.mjs",
     "test:defense-last-city": "node scripts/defense-last-city-browser.mjs"
   },

@@ -101,3 +101,10 @@ Povinné důkazy podle plánu: vítězná obrana, prohra/poslední město, reál
 převzetí, finanční a prostorové regrese, historie, zmrazení a persistence, A–E/B1,
 produkční vstupy bez zrychlení, 1024×640, měření a nezávislé review. Mimo rozsah
 obchod/konverze, rozsáhlé armády, knihovny vozidel/lodí, moře/vesmír a SP-007.B2/D.
+
+## Navazující SP-009.G
+
+[Smlouva G v1](SP-009G-CONTRACT.md) explicitně zavádí CityRegistry v7 / States v4,
+obchodní variantu společné historie a oddělený civilní účet skutečné kupní ceny.
+Původní rezervní rozpočet, doklady a omezení výpadu F zůstávají; příjem nezakládá
+novou armádu ani zpětný obchod. Migrace live/checkpoint před rekey nevytváří minulost.
