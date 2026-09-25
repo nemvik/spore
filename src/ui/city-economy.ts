@@ -1,3 +1,4 @@
+import { cityCommandRevision } from '../game/defense';
 import { appearanceName, type BuildingAppearance } from '../game/building-design';
 import type { GameState } from '../game/types';
 import { cityAt, type City } from '../game/cities';
@@ -25,16 +26,16 @@ export function cityEconomyAction(s:GameState,arg:string):boolean {
   else if(action==='build'&&lot!==null)order={kind:'build',building:kind,lot,...(appearance?{appearance:structuredClone(appearance)}:{})};
   else if(action==='disable'||action==='enable')order={kind:'enable',id:Number(value),enabled:action==='enable'};
   else if(action==='demolish')order={kind:'demolish',id:Number(value)};
-  if(order)pending={order,revision:c.economy?.revision??0};
+  if(order)pending={order,revision:cityCommandRevision(c)};
   return false;
 }
 
 export function cityDesignKind(s:GameState):CityBuildingKind {const c=cityAt(s);if(c)selectCityUi(c);return kind;}
-export function chooseCityAppearance(s:GameState,value:BuildingAppearance,id?:number):void {const c=cityAt(s);if(!c)return;selectCityUi(c);if(id!==undefined)pending={order:{kind:'appearance',id,appearance:structuredClone(value)},revision:c.economy?.revision??0};else{appearance=structuredClone(value);pending=null;}}
+export function chooseCityAppearance(s:GameState,value:BuildingAppearance,id?:number):void {const c=cityAt(s);if(!c)return;selectCityUi(c);if(id!==undefined)pending={order:{kind:'appearance',id,appearance:structuredClone(value)},revision:cityCommandRevision(c)};else{appearance=structuredClone(value);pending=null;}}
 
 export function cityEconomyMarkup(s:GameState):string {
   const c=cityAt(s);if(!c)return '';selectCityUi(c);
-  const e=c.economy,revision=e?.revision??0;
+  const e=c.economy,revision=cityCommandRevision(c);
   if(c.owner.kind==='state'){
     const p=e?cityEconomyPreview(c):null;
     return `<h3>Hospodářství cizího města</h3><p>Jsi návštěvník. Rozvoj i platby řídí jeho stát.</p>${e?`<div class="city-economy-metrics"><strong>Pokladna ${e.treasury} ◈</strong><span>${e.residents.length}/${cityCapacity(e)} občanů</span><span>Jídlo ${e.food}/120</span></div><p>Cyklus ${e.cycle} · za ${(10-e.elapsed).toFixed(1)} s návštěvy: +${p!.income} − ${p!.upkeep} jantaru. Spokojenost ${p!.happiness}/100.</p><p>${e.last?`Poslední skutečný cyklus: +${e.last.income} − ${e.last.upkeep}, jídlo +${e.last.produced} − ${e.last.consumed}.`:'Žádná minulá výroba není zaznamenaná.'}</p><ul>${e.buildings.map(b=>`<li>${CITY_BUILDINGS[b.kind].name} · parcela ${b.lot+1} · zaplaceno ${b.paidAmber} ◈</li>`).join('')}</ul><details data-preserve-open><summary>Účetnictví města</summary><p>Převody ${e.ledger.transfers} · stavby ${e.ledger.construction} · příchody ${e.ledger.immigration} · příjem ${e.ledger.income} · údržba ${e.ledger.upkeep} ◈.</p></details>`:'<p>Stát zatím neotevřel hospodářství. Žádní občané ani výroba zdarma.</p>'}`;

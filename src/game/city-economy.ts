@@ -1,3 +1,4 @@
+import { cityCommandRevision } from './defense';
 import { defaultBuildingAppearance, validateBuildingAppearance, appearanceName, type BuildingAppearance } from './building-design';
 import type { GameState } from './types';
 import { cityAt, cityProgression, type City } from './cities';
@@ -68,7 +69,7 @@ export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:nu
   if(!s.cities||s.cities.version<2||!s.cities.entries.includes(city)||!cityProgression(s)||s.deathReason||s.player.health<=0
     ||navigation(s)?.mode!=='local'||activeField(s)?.id!==city.address.locationId||city.owner.kind!=='lineage'||city.owner.id!==s.homePlanet?.id) return reject('Akci proveď při hraní ve vlastním místním městě.');
   const e=city.economy;
-  if(revision!==(e?.revision??0))return reject('Toto potvrzení už bylo použité nebo se město změnilo. Vyber akci znovu.');
+  if(revision!==cityCommandRevision(city))return reject('Toto potvrzení už bylo použité nebo se město změnilo. Vyber akci znovu.');
   if(order.kind==='open') {
     if(e)return reject('Hospodářství už je otevřené; další počáteční převod se neprovede.');
     if(!Number.isFinite(s.machines!.resource)||s.machines!.resource<80)return reject('Potřebuješ 80 jantaru doma. Vrať se k obsazeným pramenům, vydělej a znovu navštiv město.');

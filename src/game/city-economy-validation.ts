@@ -16,7 +16,7 @@ const integer=(v:unknown,max=CITY_LEDGER_LIMIT,min=0)=>check(typeof v==='number'
 export function validateCityEconomy(s:GameState,c:City):void {
   const raw=c.economy;if(raw===null)return;
   const row=shape(raw,['version','opened','revision','nextId','elapsed','cycle','treasury','food','buildings','residents','ledger','last']);
-  const stateOrigin=s.cities!.version===5?(c.capture?.economy?c.foundingOwner!.kind==='state':c.capture?false:c.foundingOwner!.kind==='state'):c.owner.kind==='state';
+  const stateOrigin=s.cities!.version>=5?(c.capture?!!c.capture.economy:c.transfers?.length?c.transfers[0].economy?.opened.source==='state':c.foundingOwner!.kind==='state'):c.owner.kind==='state';
   check(row.version===(stateOrigin?3:s.cities!.version>=3?2:1));
   const opened=shape(row.opened,['source','tick','transferredAmber',...(stateOrigin?['transactionId']:[])]);
   check(opened.source===(stateOrigin?'state':'player')&&opened.transferredAmber===80);integer(opened.tick,s.tick,c.founded.tick);

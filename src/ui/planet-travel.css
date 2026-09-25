@@ -22,3 +22,9 @@
 .field-panel h2{font-size:24px;line-height:1.2}
 
 .state-card{border-left:4px solid;padding:0 0 8px 12px;margin:16px 0}.state-card h4{margin:0}.state-card small{overflow-wrap:anywhere}.state-card ul,.state-card ol{padding-left:20px}.city-owner{font-weight:700}
+
+/* SP-009.F: bounded alert; ordinary keyboard focus and native panel scrolling. */
+.incoming-home { position:fixed;left:50%;transform:translateX(-50%);top:82px;width:min(310px,30vw);max-height:170px;overflow:auto;z-index:6;padding:12px; }
+.incoming-raid { border-left:3px solid #ef827e;padding-left:10px; }
+.incoming-raid p { margin:6px 0; }
+#military-panel small { display:block;margin:2px 0 7px; }

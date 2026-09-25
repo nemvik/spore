@@ -1,3 +1,4 @@
+import { fieldRaid } from '../game/defense';
 import { MilitaryPresentation } from './military';
 import { activeMachines } from '../game/machines';
 import { ownerColor } from '../game/states';
@@ -107,8 +108,11 @@ export class PlanetFieldRenderer {
     const city=cityAt(s),hall=city&&cityHall(city.address.position);
     const nearCity=city&&(this.cityView||Math.hypot(p.x-city.address.position.x,p.z-city.address.position.z)<24);
     const deployment=s.military?.deployment,unit=deployment&&activeMachines(s)?.fleet.find(u=>u.id===deployment.unitId);
-    const battle=this.warView&&deployment?.cityId===city?.id&&deployment?.phase==='field'&&unit;
-    const focus=battle?unit!.pos:this.cityView&&city?{x:city.address.position.x+7,y:city.address.position.y+2,z:city.address.position.z}:nearCity&&hall?{x:(p.x+hall.x)/2,y:p.y+2,z:(p.z+hall.z)/2}:p;
+    const selected=deployment?.cityId===city?.id&&deployment?.phase==='field'?unit:null;
+    const opponent=city&&fieldRaid(s,city)?.unit;
+    const battle=this.warView&&city&&(selected??opponent);
+    const battleFocus=battle&&(selected&&opponent&&Math.hypot(selected.pos.x-opponent.pos.x,selected.pos.z-opponent.pos.z)<=24?{x:(selected.pos.x+opponent.pos.x)/2,y:(selected.pos.y+opponent.pos.y)/2,z:(selected.pos.z+opponent.pos.z)/2}:battle.pos);
+    const focus=battleFocus?battleFocus:this.cityView&&city?{x:city.address.position.x+7,y:city.address.position.y+2,z:city.address.position.z}:nearCity&&hall?{x:(p.x+hall.x)/2,y:p.y+2,z:(p.z+hall.z)/2}:p;
     const distance = battle?Math.max(25,zoom*1.5):nearCity&&city?.economy?Math.max(25,Math.min(100,65+(zoom-25)*1.6)):Math.max(nearCity?40:18,Math.min(45,zoom));
     this.camera.position.set(focus.x + Math.sin(yaw) * distance * Math.cos(pitch), focus.y + Math.max(12, distance * Math.sin(pitch)), focus.z + Math.cos(yaw) * distance * Math.cos(pitch));
     this.camera.lookAt(focus.x, focus.y, focus.z); renderer.render(this.scene, this.camera);

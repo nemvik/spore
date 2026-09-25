@@ -73,6 +73,7 @@ export function enterField(s: GameState, cellId: number): boolean {
   let field = nav.fields.find(f => f.cellId === cellId);
   if (!field) { field = createField(s.seed, planet.id, planetAtlas(planet)!.cells[cellId]); nav.fields.push(field); }
   if(s.military?.deployment&&planet.currentLocationId!==field.id)s.military.deployment.hold=0;
+  if(planet.currentLocationId!==field.id)for(const r of s.military?.raids??[]){r.hold=0;if(r.phase==='occupying')r.phase='field';}
   planet.currentLocationId = field.id; s.world = field.world; nav.mode = 'local'; nav.selectedCell = cellId;
   if (!nav.visits.some(v => v.locationId === field.id)) nav.visits.push({ locationId: field.id, tick: s.tick });
   nav.notice = `Příchod · lokalita ${cellId}. WASD k terénním stanovištím, E změří povrch. N otevře planetu.`;
@@ -82,6 +83,7 @@ export function returnHome(s: GameState): void {
   const nav = navigation(s); if (!nav || !s.homePlanet) return;
   const travelled = !!activeField(s);
   if(s.military?.deployment)s.military.deployment.hold=0;
+  for(const r of s.military?.raids??[]){r.hold=0;if(r.phase==='occupying')r.phase='field';}
   s.homePlanet.currentLocationId = homeLocationId(s); bindActiveWorld(s); nav.mode = 'local';
   if (travelled && !nav.visits.some(v => v.locationId === s.homePlanet!.currentLocationId)) nav.visits.push({ locationId: s.homePlanet.currentLocationId, tick: s.tick });
   nav.notice = travelled ? 'Návrat domů · původní svět, poloha a rozpracované příkazy zachované.' : 'Zpět k místnímu dění.';

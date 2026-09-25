@@ -10,7 +10,7 @@ const shape=(v:unknown,keys:string[])=>{check(!!v&&typeof v==='object'&&!Array.i
 const integer=(v:unknown,max:number,min=0)=>check(typeof v==='number'&&Number.isSafeInteger(v)&&v>=min&&v<=max);
 const text=(v:unknown,max=200)=>check(typeof v==='string'&&v.length>0&&v.length<=max&&!/[\u0000-\u001f\u007f]/.test(v));
 export function actionSignature(a:StateAction|null):unknown {
-  return !a?null:a.kind==='found'?[a.kind,a.address.planetId,a.address.locationId,a.address.position.x,a.address.position.y,a.address.position.z]:a.kind==='build'?[a.kind,a.cityId,a.building,a.lot]:[a.kind,a.cityId];
+  return !a?null:a.kind==='found'?[a.kind,a.address.planetId,a.address.locationId,a.address.position.x,a.address.position.y,a.address.position.z]:a.kind==='raid'?[a.kind,a.cityId,a.sourceCityId]:a.kind==='build'?[a.kind,a.cityId,a.building,a.lot]:[a.kind,a.cityId];
 }
 export const txSignature=(t:StateTransaction)=>JSON.stringify([t.id,t.turn,actionSignature(t.action),t.cost,t.account]);
 function validateAction(a:StateAction,s:GameState,owner:string):void {
@@ -19,8 +19,11 @@ function validateAction(a:StateAction,s:GameState,owner:string):void {
     shape(a,['kind','address']);shape(a.address,['planetId','locationId','position']);shape(a.address.position,['x','y','z']);
     const city=s.cities!.entries.find(c=>c.id===cityId(a.address.locationId));
     check((city?.foundingOwner??city?.owner)?.kind==='state'&&(city?.foundingOwner??city?.owner)?.id===owner&&JSON.stringify(actionSignature(a))===JSON.stringify(actionSignature({kind:'found',address:city!.address})));
+  }else if(a?.kind==='raid'){
+    shape(a,['kind','cityId','sourceCityId']);check(s.states?.version===3&&a.cityId!==a.sourceCityId);
+    check([a.cityId,a.sourceCityId].every(id=>s.cities!.entries.some(c=>c.id===id&&c.foundingOwner?.kind==='state'&&c.foundingOwner.id===owner)));
   }else{
-    check(kind==='open'||kind==='fund'||kind==='build'||kind==='invite'||kind==='defend'&&s.states?.version===2);
+    check(kind==='open'||kind==='fund'||kind==='build'||kind==='invite'||kind==='defend'&&(s.states?.version??0)>=2);
     shape(a,a.kind==='build'?['kind','cityId','building','lot']:['kind','cityId']);text(a.cityId);
     check(s.cities!.entries.some(c=>c.id===a.cityId&&(c.foundingOwner??c.owner).kind==='state'&&(c.foundingOwner??c.owner).id===owner));
     if(a.kind==='build'){check(isBuildingKind(a.building));integer(a.lot,120);}
@@ -28,9 +31,9 @@ function validateAction(a:StateAction,s:GameState,owner:string):void {
 }
 export function validateStates(s:GameState):void {
   const states=s.states;
-  check((s.cities?.version===4||s.cities?.version===5)&&!!states);
+  check([4,5,6].includes(s.cities?.version??0)&&!!states);
   shape(states,['version','origin','activated','clock','entries']);
-  check(states!.version===(s.cities?.version===5?2:1)&&(states!.origin==='birth'||states!.origin==='legacy-activation'));
+  check(states!.version===(s.cities?.version===6?3:s.cities?.version===5?2:1)&&(states!.origin==='birth'||states!.origin==='legacy-activation'));
   shape(states!.clock,['version','turn','elapsed']);check(states!.clock.version===1);integer(states!.clock.turn,STATE_TURN_LIMIT);
   const elapsed=states!.clock.elapsed;check(Number.isFinite(elapsed)&&elapsed>=0&&elapsed<10);
   check(Array.isArray(states!.entries)&&states!.entries.length===(states!.activated?2:0));
@@ -41,7 +44,7 @@ export function validateStates(s:GameState):void {
   for(const [index,r] of states!.entries.entries()){
     shape(r,['id','profile','endowment','reserve','last','transactions']);check(r.profile===index&&r.id===stateId(s.homePlanet!.id,index)&&r.endowment===STATE_RESERVE);integer(r.reserve,STATE_RESERVE);
     check(Array.isArray(r.transactions)&&r.transactions.length<=64);
-    const cities=s.states?.version===2?s.cities!.entries.filter(c=>c.foundingOwner?.id===r.id).map(c=>c.capture?{...c,economy:c.capture.economy}:c):stateCities(s,r);check(cities.length<=2);
+    const cities=(s.states?.version??0)>=2?s.cities!.entries.filter(c=>c.foundingOwner?.id===r.id).map(c=>c.capture?{...c,economy:c.capture.economy}:c.transfers?.length?{...c,economy:c.transfers[0].economy}:c):stateCities(s,r);check(cities.length<=2);
     let reserve=STATE_RESERVE,previous=0;
     const established:string[]=[],opened=new Set<string>();
     const records=new Map<string,{builds:Extract<StateAction,{kind:'build'}>[];invites:number;funds:number;nextId:number}>();
@@ -49,7 +52,10 @@ export function validateStates(s:GameState):void {
       shape(t,['id','turn','action','cost','account']);integer(t.turn,states!.clock.turn,previous+1);previous=t.turn;
       check(t.id===`${r.id}:tx-${t.turn}`);integer(t.cost,80,1);validateAction(t.action,s,r.id);
       const a=t.action,c=cities.find(c=>c.id===(a.kind==='found'?cityId(a.address.locationId):a.cityId))!;
-      if(a.kind==='found'){
+      if(a.kind==='raid'){
+        check(states!.version===3&&t.cost===DEFENSE_COST&&t.account==='reserve'&&reserve>=DEFENSE_COST&&established.includes(a.sourceCityId)&&established.includes(c.id));
+        check(s.military?.raids?.filter(v=>v.stateId===r.id).length===1&&s.military.raids.some(v=>v.id===t.id&&v.cityId===a.cityId&&v.sourceCityId===a.sourceCityId));reserve-=DEFENSE_COST;
+      }else if(a.kind==='found'){
         check(t.cost===60&&t.account==='reserve'&&reserve>=140&&!established.includes(c.id)&&c.founded.source==='state');
         if(c.founded.source!=='state')return;
         check(c.founded.transactionId===t.id&&c.founded.tick>=states!.activated.tick&&c.founded.purpose===(established.length?'expansion':'activation'));
@@ -62,7 +68,7 @@ export function validateStates(s:GameState):void {
         check(t.cost===80&&t.account==='reserve'&&reserve>=80&&established.includes(c.id)&&!opened.has(c.id));
         check(c.economy?.version===3&&c.economy.opened.source==='state'&&c.economy.opened.transactionId===t.id);
         opened.add(c.id);records.set(c.id,{builds:[],invites:0,funds:0,nextId:1});reserve-=80;
-      }else if(a.kind==='defend'){check(states!.version===2&&t.account==='reserve'&&t.cost===DEFENSE_COST&&reserve>=DEFENSE_COST&&c.defense?.transactionId===t.id&&established.includes(c.id));reserve-=DEFENSE_COST;}else if(a.kind==='fund'){const record=records.get(c.id);check(!!record&&t.cost===20&&t.account==='reserve'&&reserve>=20);reserve-=20;record!.funds++;}
+      }else if(a.kind==='defend'){check(states!.version>=2&&t.account==='reserve'&&t.cost===DEFENSE_COST&&reserve>=DEFENSE_COST&&c.defense?.transactionId===t.id&&established.includes(c.id));reserve-=DEFENSE_COST;}else if(a.kind==='fund'){const record=records.get(c.id);check(!!record&&t.cost===20&&t.account==='reserve'&&reserve>=20);reserve-=20;record!.funds++;}
       else{
         const record=records.get(c.id);check(!!record&&t.account==='city');
         if(a.kind==='build'){

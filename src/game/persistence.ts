@@ -141,7 +141,7 @@ function validateNavigation(s: GameState): void {
     if (!ids.includes(visit.locationId as string) && !planet.locations.some(l => l.id === visit.locationId)) invalid(at, SAVE_ERRORS.unknownValue);
     number(visit.tick, at + '.tick', 0, s.tick, true); visits.push(visit.locationId as string);
   }
-  if (new Set(visits).size !== visits.length || ids.some(id => !visits.includes(id) && !((s.cities?.version===4||s.cities?.version===5) && Array.isArray(s.cities.entries) && s.cities.entries.some(c=>c?.address?.locationId===id&&c?.founded?.source==='state')))) invalid(at, SAVE_ERRORS.duplicateIds);
+  if (new Set(visits).size !== visits.length || ids.some(id => !visits.includes(id) && !(((s.cities?.version??0)>=4) && Array.isArray(s.cities!.entries) && s.cities!.entries.some(c=>c?.address?.locationId===id&&c?.founded?.source==='state')))) invalid(at, SAVE_ERRORS.duplicateIds);
 }
 
 function citySignature(c: City): string {
@@ -150,18 +150,18 @@ function citySignature(c: City): string {
 }
 function validateCities(s: GameState): void {
   const at='state.cities', registry=object(s.cities,at,['version','entries','selectedId']);
-  oneOf(registry.version,[1,2,3,4,5],at+'.version');
+  oneOf(registry.version,[1,2,3,4,5,6],at+'.version');
   if(s.homePlanet?.version!==3)invalid(at,SAVE_ERRORS.unknownValue);
   const ids:string[]=[];
   for(const raw of array(registry.entries,at+'.entries',FIELD_LIMIT)) {
-    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(Number(registry.version)>=2?['economy']:[]),...(registry.version===5?['foundingOwner','defense','capture']:[])]);
+    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(Number(registry.version)>=2?['economy']:[]),...(Number(registry.version)>=5?['foundingOwner','defense','capture']:[]),...(registry.version===6?['transfers','fortification']:[])]);
     string(row.id,at+'.id',140);string(row.name,at+'.name',40);
     if(!cityNameValid(row.name))invalid(at+'.name',SAVE_ERRORS.invalidText);
     const owner=object(row.owner,at+'.owner',['kind','id']);
     if(!(owner.kind==='lineage'&&owner.id===s.homePlanet!.id)&&!(Number(registry.version)>=4&&owner.kind==='state'&&typeof owner.id==='string'))invalid(at+'.owner',SAVE_ERRORS.unknownValue);
     const address=object(row.address,at+'.address',['planetId','locationId','position']);
     string(address.planetId,at+'.planetId',101);string(address.locationId,at+'.locationId',130);vector(address.position,at+'.position');
-    const founder=registry.version===5?object(row.foundingOwner,at+'.foundingOwner',['kind','id']):owner;
+    const founder=Number(registry.version)>=5?object(row.foundingOwner,at+'.foundingOwner',['kind','id']):owner;
     if(!(founder.kind==='lineage'&&founder.id===s.homePlanet!.id)&&!(Number(registry.version)>=4&&founder.kind==='state'&&typeof founder.id==='string'))invalid(at+'.founder',SAVE_ERRORS.unknownValue);
     const stateOwned=founder.kind==='state';
     const founded=object(row.founded,at+'.founded',['source','stage','tick','paidAmber',...(stateOwned?['transactionId','purpose']:['springId'])]);
@@ -1140,8 +1140,8 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   validateChiefContext({ ...s, world: worlds[worldStage] } as unknown as GameState);
   validateDomesticationContext({ ...s, world: worlds[worldStage] } as unknown as GameState);
   if (hasCities) validateCities(s as unknown as GameState);
-  if(hasMilitary||(s as unknown as GameState).cities?.version===5)validateMilitary(s as unknown as GameState);
-  if(hasStates || (s as unknown as GameState).cities?.version===4||(s as unknown as GameState).cities?.version===5) validateStates(s as unknown as GameState);
+  if(hasMilitary||((s as unknown as GameState).cities?.version??0)>=5)validateMilitary(s as unknown as GameState);
+  if(hasStates || (s as unknown as GameState).cities?.version===4||((s as unknown as GameState).cities?.version??0)>=5) validateStates(s as unknown as GameState);
   if (s.checkpoint !== null) {
     if (nestedCheckpoint) invalid('checkpoint', SAVE_ERRORS.nestedCheckpoint);
     const checkpoint = string(s.checkpoint, 'checkpoint', MAX_BYTES);

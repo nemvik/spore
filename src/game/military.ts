@@ -1,3 +1,4 @@
+import { stepDefense, canOccupy, enemyTarget, entryClear } from './defense';
 import type { GameState, Vec3, World, Input } from './types';
 import type { City } from './cities';
 import type { CityEconomy } from './city-economy';
@@ -13,8 +14,8 @@ import { enableStates } from './states';
 
 export interface CityDefense { transactionId:string; blueprint:VehicleBlueprint; pos:Vec3; health:number; cooldown:number; }
 export interface CityCapture { from:City['owner']; unitId:number; elapsed:number; economy:CityEconomy|null; }
-export interface Deployment { unitId:number; cityId:string; home:Vec3; route:number[]; phase:'outbound'|'field'|'returning'; remaining:number; order:'stop'|'attack'|'occupy'|'retreat'; hold:number; elapsed:number; }
-export interface Military {version:1; deployment:Deployment|null; notice:string;}
+export interface Deployment { unitId:number; cityId:string; home:Vec3; route:number[]; phase:'outbound'|'field'|'returning'; remaining:number; order:'stop'|'attack'|'occupy'|'retreat'|'defend'; hold:number; elapsed:number; }
+export interface Military {version:1|2; deployment:Deployment|null; notice:string; raids?:import('./defense').Raid[];}
 export const defenseDesign=()=>{const g=initialVehicle('tank','predator');g.name='Městská stráž';g.hue=340;for(const p of g.parts)p.scale=.7;return g;};
 export const DEFENSE_COST=vehicleCost(defenseDesign());
 export const MILITARY_RANGE=12;
@@ -28,8 +29,8 @@ export function enableMilitary(s:GameState,origin:'birth'|'legacy-activation'='l
   };
   migrate(s);if(s.checkpoint){const cp=JSON.parse(s.checkpoint) as GameState;if(migrate(cp))s.checkpoint=JSON.stringify(cp);}
 }
-export function landRoute(s:GameState,city:City):number[]|null {
-  const atlas=planetAtlas(s.homePlanet!)!,goal=navigation(s)!.fields.find(f=>f.id===city.address.locationId)!.cellId,start=atlas.anchors[2].cellId;
+export function landRoute(s:GameState,city:City,sourceCell?:number):number[]|null {
+  const atlas=planetAtlas(s.homePlanet!)!,goal=navigation(s)!.fields.find(f=>f.id===city.address.locationId)!.cellId,start=sourceCell??atlas.anchors[2].cellId;
   const queue=[start],parents=new Map<number,number>([[start,-1]]);
   for(let i=0;i<queue.length;i++){
     const cell=queue[i];if(cell===goal){const route:number[]=[];for(let at=goal;at!==-1;at=parents.get(at)!)route.unshift(at);return route;}
@@ -40,12 +41,13 @@ export function deploymentQuote(s:GameState,c:City,id:number):string|null {
   const m=activeMachines(s),u=m?.fleet.find(u=>u.id===id);
   if(!s.military||s.stage!==4||s.deathReason||s.player.health<=0||navigation(s)?.mode!=='local'||activeField(s)?.id!==c.address.locationId)return 'Nasazení vyžaduje živou strojovou etapu a návštěvu cílového města.';
   if(s.military.deployment)return 'Jeden stroj už je nasazený. Nejprve jej vrať domů.';
-  if(c.owner.kind!=='state'||c.capture)return 'Cílem musí být dosud nepřevzaté město soupeře.';
-  if(!c.defense)return 'Stát ještě nezaplatil obranu. Toto město zatím není vojenským cílem.';
+  if(s.military.version===1&&(c.owner.kind!=='state'||c.capture))return 'Cílem musí být dosud nepřevzaté město soupeře.';
+  if(s.military.version===1&&!c.defense)return 'Stát ještě nezaplatil obranu. Toto město zatím není vojenským cílem.';
   if(!u||u.health<=0||machineDesign(m!,u).carrier!=='tank'||vehicleStats(machineDesign(m!,u)).module!=='cannon')return 'Vyber původní živý pozemní stroj s dělem. Vyrob jej v domovském editoru za jeho skutečnou cenu.';
   if(u.cargo||horizontalDistance(u.pos,machineHome(s))>12)return 'Stroj musí být bez nákladu do 12 jednotek od domácí dílny.';
   if(tankRadius(machineDesign(m!,u))>4)return 'Tato konstrukce je příliš široká pro první městskou výpravu (obal nejvýše 4). Vyrob menší tank.';
   if(!landRoute(s,c))return 'Do města nevede souvislá pevninská trasa. Lodě nejsou dostupné.';
+  if(s.military.version===2&&!entryClear(s,c,false,machineDesign(m!,u)))return 'Příjezd tanku blokuje terén nebo dřívější zástavba. Tato výprava nemůže bezpečně přijet.';
   return null;
 }
 export function deployMachine(s:GameState,c:City,id:number):boolean {
@@ -58,7 +60,14 @@ export function deployMachine(s:GameState,c:City,id:number):boolean {
 export function militaryOrder(s:GameState,order:Deployment['order']):boolean {
   const d=s.military?.deployment,c=s.cities?.entries.find(c=>c.id===d?.cityId);
   if(!d||!c||d.phase!=='field'||activeField(s)?.id!==c.address.locationId||navigation(s)?.mode!=='local'||s.deathReason||s.player.health<=0)return false;
-  if(!['stop','attack','occupy','retreat'].includes(order))return false;
+  if(!['stop','attack','occupy','retreat',...(s.military!.version===2?['defend']:[])].includes(order))return false;
+  if(s.military!.version===2){
+    if(order==='occupy'&&!canOccupy(s,c,{kind:'lineage',id:s.homePlanet!.id})){s.military!.notice='Znič nepřátelské jednotky i odolnost radnice; pak obsaď cizí náměstí.';return false;}
+    if(order==='attack'&&!enemyTarget(s,c)&&!(c.owner.kind==='state'&&c.fortification!>0))return false;
+    if(order==='defend'&&c.owner.kind!=='lineage')return false;
+    d.order=order;d.hold=0;const u=activeMachines(s)!.fleet.find(u=>u.id===d.unitId);if(u)u.navigation.rethink=0;
+    s.military!.notice=`Rozkaz: ${order==='defend'?'bránit město':order==='retreat'?'fyzický ústup a přeprava domů':order==='attack'?'útok na nepřítele / radnici':order==='occupy'?'obsadit náměstí':'zastavit'}. Odchod přeruší obsazování.`;return true;
+  }
   if(order==='occupy'&&(!c.defense||c.defense.health>0||c.capture)){s.military!.notice='Nejprve znič skutečnou stráž; obsazené město nelze získat podruhé.';return false;}
   if(order==='attack'&&(c.capture||!c.defense||c.defense.health<=0))return false;
   d.order=order;d.hold=0;const u=activeMachines(s)!.fleet.find(u=>u.id===d.unitId);if(u)u.navigation.rethink=0;
@@ -86,6 +95,7 @@ export function tankRadius(g:VehicleBlueprint):number {
 }
 
 export function stepMilitary(s:GameState,dt:number,input?:Input):void {
+  if(s.military?.version===2){stepDefense(s,dt);return;}
   const war=s.military,d=war?.deployment;
   if(!war||!d||!Number.isFinite(dt)||dt<=0||s.deathReason||s.player.health<=0||navigation(s)?.mode!=='local')return;
   const c=s.cities!.entries.find(c=>c.id===d.cityId)!;

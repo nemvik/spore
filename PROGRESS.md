@@ -2,6 +2,18 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-009.F · obrana a protiútok · 2026-09-25
+
+- Navazující pokyn uživatele autorizoval commit a push F na `main`. Před uložením všech 71 otisků finálního manifestu souhlasilo s ověřenými soubory; herní implementace se nemění. Deploy není požadovaný. Evidence zůstává lokální podle stávajícího `.gitignore`; regresní E fixture je součástí Gitu.
+- Zadání nad ověřeným čistým `e4c340c91`; bez commitu, pushe a deploye. Před kódem zapsán [plán v1](docs/superpowers/plans/2026-09-25-sp-009f-defense.md) a [smlouva F v1](docs/spore/SP-009F-CONTRACT.md). Skutečný E save má rezervu 40/stát, přesně cenu jediného nového výpadu; žádné dodatečné příjmy. Nová E regresní fixture je byte-identická.
+- Implementace: CityRegistry v6 / States v3 / Military v2, původní placený hráčův tank, jeden placený soupeřův tank, pevninská cesta, místní střelba, poškození náměstí a přerušitelné obsazení. F historie se připojuje za nedotčený E capture. Poslední hráčovo město neodebírá domov/prameny; poražený stát nic nedostává.
+- Nezávislé review našlo a ověřilo opravy čtyř mezí: přechod etapy během okupace, migrace rozpracovaného E obsazování, vlastnictví zdroje/cíle při platbě a checkpoint budoucí fáze/přepravy. Browser odhalil retargeting akcí v dynamickém panelu; stejný uzel už nemění `data-action`.
+- **F hotovo v rozsahu smlouvy:** [report v1](docs/spore/SP-009F-REPORT.md). Celá sada **151 souborů / 3 110 testů**; po doplnění regrese statického vstupu **67/67 F/E**. Typecheck/build/diff-check prošly. Finální build `index-CFlsP9Q5.js`; bez změny závislostí.
+- Produkční UI **4/4**, poslední město **2/2**, historické etapy/B1 **12/12**, vše bez browser chyb. Skutečná E větev odehrála výhru i alternativní ztrátu tanku/města a zaplacené opětovné dobytí. Pouze poslední městský vstup a mrtvá checkpointová větev připravené offline, přesně přiznané v reportu. Žádné živé zápisy či zrychlení. Skill klient s nativním adaptérem proveden; finální snímky včetně 1024×640 prohlédnuté.
+- Odezva rozkazu 53,23 ms; bojové RAF p95 33,40 ms; přímý GPU čas p95 1,080 ms v boji / 1,291 ms při návratech (krátký nenulový vzorek). Po 10→20 návratech shodných 404 geometrií / 22 programů / 1 587 bufferů; heap po GC 22,64→24,46 MB, bez tvrzení o nulovém dlouhodobém úniku. Navigační cache opravena po měření; nezávislé review uzavřelo všechny nálezy včetně druhého kolizního sweepu a finální kamery.
+- [Aktivní F save](evidence/sp-009f/browser/active-campaign.save.json). Všech 33 původních tracked fixtures a 38 vstupních otisků shodných, aktivní B/C/D/E nedotčené. Vlastní úklid 32 mezivýstupů / 5,52 MB; finální evidence přibližně 4,2 MB, disk po úklidu 9,1 GiB. Trace/video nevznikaly. Ruční migrace není potřeba.
+- **Přesně dále:** samostatná smlouva první obchodní cesty převzetí: konečná cena, souhlas/odmítnutí, oprávnění, atomická platba/vlastník a checkpoint nad historií F. Další vojenské výpady či více jednotek vyžadují samostatný finanční/prostorový návrh. Obchod/konverze, knihovny vozidel/lodí, moře/vesmír, B2/D a celé SP-005.B/SP-009/SP-010/SP-017 zůstávají otevřené. Lidský playtest, Safari/mobil a dlouhý soak neprovedeny. Bez commitu/pushe/deploye.
+
 ## SP-009.E · první vojenská cesta · 2026-09-25
 
 - **E hotovo v omezeném rozsahu smlouvy** nad čistým `eb3c050250e848bf7ca7becae16584b690086065`, bez commitu/pushe/deploye. [Plán před kódem](docs/superpowers/plans/2026-09-25-sp-009e-military.md), [smlouva v1](docs/spore/SP-009E-CONTRACT.md), [report v1](docs/spore/SP-009E-REPORT.md).

@@ -1,3 +1,4 @@
+import { fieldRaid, cityEntry } from './defense';
 import { tankRadius } from './military';
 import { activeMachines, machineDesign } from './machines';
 import type { GameState, Vec3 } from './types';
@@ -56,7 +57,10 @@ export function buildingSite(s:GameState,c:City,lot:number,kind:CityBuildingKind
   if(f.world.landmarks.some(l=>distance(l.pos)<r+body+3)||f.world.patches.some(l=>distance(l.center)<l.radius+r+body+1)||f.world.obstacles.some(o=>distance(o.pos)<o.radius+r+clearance))return 'Parcela zasahuje stanoviště, příchod nebo překážku.';
   if(fieldDecorations(f,geo.cell).some(d=>distance(d)<r+d.radius+1))return 'Na parcele stojí skála nebo vegetace.';
   if((c.economy?.buildings??[]).some(b=>b.id!==ignoreId&&(b.lot===lot||distance(cityLot(c,b.lot)!)<r+CITY_BUILDINGS[b.kind].radius+clearance)))return 'Parcela je obsazená nebo nemá průchod mezi budovami.';
+  // Historical buildings remain valid; F reserves berths only for future construction.
+  if(checkActor&&s.cities?.version===6&&[cityEntry(s,c),cityEntry(s,c,true)].some(v=>distance(v)<r+4+.1))return 'Zachovej volné příjezdy tanků u vstupu.';
   const deployment=s.military?.deployment,m=activeMachines(s),tank=deployment?.cityId===c.id&&deployment.phase!=='outbound'?m?.fleet.find(u=>u.id===deployment.unitId):null;
+  const raid=fieldRaid(s,c);if(checkActor&&raid&&distance(raid.unit.pos)<r+tankRadius(raid.blueprint)+.1)return 'Na parcele stojí soupeřův tank. Nejprve jej odveď nebo znič.';
   if(checkActor&&tank&&distance(tank.pos)<r+tankRadius(machineDesign(m!,tank))+.1)return 'Na parcele stojí nasazený tank. Nejprve jej odveď.';
   if(checkActor&&distance(f.position)<r+body+.5)return 'Na parcele stojí tvůj tvor. Popojdi a potvrď znovu.';
   let low=Infinity,high=-Infinity;
