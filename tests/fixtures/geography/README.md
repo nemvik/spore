@@ -41,3 +41,15 @@ prepared. B migrates this city to an explicitly unopened economy, retaining its
 identity, owner, LocationAddress, founding receipt and historical checkpoint.
 
 SHA-256: `ab594a3f92456985aced44c2cc28ba3e659b55df21f6411eae189d33a0efe38d`.
+
+
+## SP-009.B six-resident compatibility input
+
+`sp-009b-economy.save.json` is the byte-identical played B leisure export from
+`evidence/sp-009b/leisure/active-campaign.save.json`, at `b550612f4`. It contains
+six paid residents, two homes, one grower, one workshop and two leisure gardens,
+registry v2/economy v1, actual ledger/cycle/remainder and the historical checkpoint.
+C migrates only the appearance schema: exact default B models, no authored
+creations/library rows, purchases, history or time. Source remains untouched.
+
+SHA-256: `bb6520f3949acb30e7c33974169cab753b09d80ed5989d7797d0ac355688e71c`.

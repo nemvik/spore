@@ -37,3 +37,15 @@ Další části SP-009 musí navrhnout verzovaný rozvoj měst, ekonomiku/popula
 ## Navazující SP-009.B — 25. 9. 2026
 
 Tato smlouva zachycuje historický registr v1 a založení A. [Smlouva B v1](SP-009B-CONTRACT.md) zavádí **CityRegistry v2** a samostatné `economy:null | CityEconomy`; historická identita, vlastník, adresa, doklad založení a `local.version=1` zůstávají. Explicitní migrace live/checkpoint před rekey nevytváří minulou ekonomiku. B má vlastní placenou aktivaci a lokální overlay, nepřepisuje původní generátory ani generovaný základ World. [Ověření a hraný výsledek B](SP-009B-REPORT.md).
+
+
+## Navazující SP-009.C — 25. 9. 2026
+
+[Smlouva C v1](SP-009C-CONTRACT.md) přidává CityRegistry v3 a ekonomiku v2
+s explicitním vzhledem každé instance: neměnný výchozí model B nebo úplný
+snapshot revize přenositelného návrhu. Migrace live i checkpointu před rekey
+zachová identitu, adresu, založení, obyvatele, původní ceny, ledger a místní čas.
+Historické budovy dostanou pouze označení doloženého výchozího modelu; žádnou
+hráčskou tvorbu, knihovní položku, platbu nebo minulost. Zde popsané původní
+verze nadále zůstávají platnými historickými vstupy parseru. Vzhled nemění
+hospodářské účinky a knihovna nemůže přepsat již postavenou instanci.

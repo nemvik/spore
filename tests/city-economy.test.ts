@@ -30,7 +30,7 @@ describe('SP-009.B playable local economy',()=>{
   it('preserves the actual A export and explicitly opens a zero-time, empty economy with a real transfer',()=>{
     expect(createHash('sha256').update(input).digest('hex')).toBe('ab594a3f92456985aced44c2cc28ba3e659b55df21f6411eae189d33a0efe38d');
     const s=parseGame(input),a=structuredClone(s.cities!.entries[0]);expect(s.cities!.version).toBe(1);expect(a.economy).toBeUndefined();enableCities(s);
-    expect(s.cities!.version).toBe(2);expect(cityAt(s)).toEqual({...a,economy:null});cycles(s,2);expect(cityAt(s)!.economy).toBeNull();
+    expect(s.cities!.version).toBe(3);expect(cityAt(s)).toEqual({...a,economy:null});cycles(s,2);expect(cityAt(s)!.economy).toBeNull();
     const amber=s.machines!.resource;expect(order(s,{kind:'open'})).toBe(true);expect(s.machines!.resource).toBe(amber-80);expect(economy(s).treasury).toBe(80);expect(economy(s).cycle).toBe(0);expect(economy(s).residents).toEqual([]);
     expect(applyCityOrder(s,a.id,{kind:'open'},0)).toBe(false);expect(s.machines!.resource).toBe(amber-80);expect(round(s).cities).toEqual(s.cities);
   });
@@ -159,7 +159,7 @@ describe('SP-009.B strict persistence and complete branch rollback',()=>{
   });
   it.each([
     (s:GameState)=>{delete cityAt(s)!.economy;},
-    (s:GameState)=>{economy(s).version=2 as 1;},
+    (s:GameState)=>{economy(s).version=3 as 1;},
     (s:GameState)=>{(economy(s) as unknown as Record<string,unknown>).bonus=1;},
     (s:GameState)=>{economy(s).treasury++;},
     (s:GameState)=>{economy(s).food++;},

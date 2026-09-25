@@ -1,5 +1,7 @@
 # SP-005.A — knihovna tvorů a genom NPC
 
+**Návaznost 25. 9. 2026:** budovovou část SP-005.B nyní dokončuje [SP-009.C](SP-009C-REPORT.md) se samostatným [formátem a smlouvou](SP-009C-CONTRACT.md). Níže zůstává původní report A. Vozidla, lodě, dobrodružství a celé SP-005.B/SP-005 se tím neuzavírají.
+
 Dokončeno 23. září 2026 v pracovním stromu nad `5aed4ba93`, navazující existující necommitnuté SP-004 zachováno. Rozsah této dodávky je **část A: tvorové**. Budovy, vozidla, lodě a dobrodružství zůstávají otevřené v mateřské kartě [SP-005](ROADMAP.md#sp-005).
 
 ## Co lze hrát

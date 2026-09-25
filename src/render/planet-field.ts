@@ -1,6 +1,7 @@
+import { createBuilding } from './building';
 import { cityAt } from '../game/cities';
 import { cityHall, fieldDecorations, CITY_SQUARE_RADIUS, cityLot } from '../game/city-spatial';
-import { CITY_BUILDINGS, cityEconomyPreview } from '../game/city-economy';
+import { cityEconomyPreview } from '../game/city-economy';
 import * as THREE from 'three';
 import type { GameState } from '../game/types';
 import { activeField, fieldActorPosition, fieldGround } from '../game/planet-travel';
@@ -25,7 +26,7 @@ export class PlanetFieldRenderer {
   dispose(): void { this.citizens?.dispose();this.citizenHeads?.dispose();disposeObject(this.scene); this.scene.clear(); this.identity = null; this.cityIdentity = null; this.actor = null; this.markers = [];this.cityLayout='';this.lights=[];this.citizens=null;this.citizenHeads=null; }
   render(renderer: THREE.WebGLRenderer, s: GameState, yaw: number, pitch: number, zoom: number): void {
     const field = activeField(s)!; const cell = planetAtlas(s.homePlanet!)!.cells[field.cellId];
-    const current=cityAt(s),layout=JSON.stringify([current?.economy?.buildings.map(b=>[b.id,b.kind,b.lot]),current?.economy?.residents.map(r=>r.id)]);
+    const current=cityAt(s),layout=JSON.stringify([current?.economy?.buildings.map(b=>[b.id,b.kind,b.lot,b.appearance]),current?.economy?.residents.map(r=>r.id)]);
     if (this.identity !== field || this.cityIdentity !== current || this.cityLayout!==layout) {
       this.dispose(); this.identity = field; this.cityIdentity = current;this.cityLayout=layout;
       this.scene.background = new THREE.Color(cell.biome === 'tundra' ? '#bbcdd0' : '#a9c9cf');
@@ -56,26 +57,8 @@ export class PlanetFieldRenderer {
         mesh(new THREE.OctahedronGeometry(.8),'#ffda80',hall.x,floor+11,hall.z);
         const ring=mesh(new THREE.TorusGeometry(CITY_SQUARE_RADIUS,.1,6,48),'#ffda80',p.x,p.y+.15,p.z);ring.rotation.x=-Math.PI/2;
         for(const b of city.economy?.buildings??[]) {
-          const q=cityLot(city,b.lot)!,def=CITY_BUILDINGS[b.kind],y=fieldGround(s.seed,cell,q.x,q.z);
-          mesh(new THREE.CylinderGeometry(def.radius,def.radius,.45,12),'#728981',q.x,y+.1,q.z);
-          if(b.kind==='house') {
-            mesh(new THREE.CylinderGeometry(1.8,2,2.6,10),def.color,q.x,y+1.5,q.z);
-            mesh(new THREE.SphereGeometry(1.95,12,8,0,Math.PI*2,0,Math.PI/2),'#619ca6',q.x,y+2.8,q.z);
-            for(const dx of [-.7,.7])mesh(new THREE.SphereGeometry(.22,6,6),'#ffeab7',q.x+dx,y+1.8,q.z+1.75);
-          } else if(b.kind==='garden') {
-            mesh(new THREE.CylinderGeometry(2.1,2.3,.4,10),'#705b3e',q.x,y+.5,q.z);
-            for(let i=0;i<5;i++){const a=i*Math.PI*2/5;mesh(new THREE.ConeGeometry(.6,1.6,7),def.color,q.x+Math.sin(a)*1.3,y+1.4,q.z+Math.cos(a)*1.3);}
-            mesh(new THREE.SphereGeometry(.6,8,6),'#d9d381',q.x,y+1.3,q.z);
-          } else if(b.kind==='workshop') {
-            mesh(new THREE.CylinderGeometry(2,2.3,2.3,8),def.color,q.x,y+1.4,q.z);
-            mesh(new THREE.CylinderGeometry(1.7,2.2,.7,8),'#3b6871',q.x,y+2.8,q.z);
-            mesh(new THREE.CylinderGeometry(.5,.7,2.2,8),'#807b72',q.x+.8,y+3.6,q.z);
-            mesh(new THREE.TorusGeometry(.8,.2,6,12),'#ffe1a1',q.x,y+1.5,q.z+2);
-          } else {
-            mesh(new THREE.CylinderGeometry(2,2.3,.5,12),def.color,q.x,y+.5,q.z);
-            mesh(new THREE.CylinderGeometry(.2,.3,2,8),'#586b60',q.x,y+1.5,q.z);
-            mesh(new THREE.SphereGeometry(1.9,12,8,0,Math.PI*2,0,Math.PI/2),'#b9a3df',q.x,y+2.3,q.z);
-          }
+          const q=cityLot(city,b.lot)!,y=fieldGround(s.seed,cell,q.x,q.z);
+          const model=createBuilding(b.kind,b.appearance,(x,z)=>fieldGround(s.seed,cell,q.x+x,q.z+z)-y);model.position.set(q.x,y,q.z);this.scene.add(model);
           const lamp=mesh(new THREE.SphereGeometry(.3,8,6),'#9af0c2',q.x,y+4.9,q.z);this.lights.push({id:b.id,mesh:lamp});
         }
         if(city.economy?.residents.length){

@@ -36,3 +36,15 @@ Budovy používají očíslované místní parcely podle adresy (mřížka 8 jed
 Přísný parser kontroluje verze, přesné klíče, konečná čísla, ID, ceny, kapacity, účetní rovnosti, geometrické reference a bezpečný příchod. Checkpoint může mít méně rozvoje i neotevřenou ekonomiku stejného města; společná identita/založení/adresa/layout musejí souhlasit. Obnova nahrazuje celou větev včetně obou pokladen, populace, zásob a času. Import vytváří jiný ukládací slot se stejnou identitou linie; žádné slučování ani připisování rozdílů. Starší aplikace nové registry v2 nepřečte. Save limit zůstává 8 MiB. Účetní součty mají mez 10¹², revize/ID 10⁹ a městský čas 10⁷ cyklů (přes tři roky aktivního hraní). Při dosažení limitu se nové hospodaření zastaví; nejde o změnu původních limitů.
 
 Celé SP-009/SP-010/SP-017 zůstávají otevřené. Vzhledový editor/knihovna, obrana/státy/převzetí/konverze/moře/vesmír ani SP-007.B2/D nejsou tímto modelem implementované.
+
+
+## Navazující SP-009.C — 25. 9. 2026
+
+[Smlouva C v1](SP-009C-CONTRACT.md) přidává CityRegistry v3 a ekonomiku v2
+s explicitním vzhledem každé instance: neměnný výchozí model B nebo úplný
+snapshot revize přenositelného návrhu. Migrace live i checkpointu před rekey
+zachová identitu, adresu, založení, obyvatele, původní ceny, ledger a místní čas.
+Historické budovy dostanou pouze označení doloženého výchozího modelu; žádnou
+hráčskou tvorbu, knihovní položku, platbu nebo minulost. Zde popsané původní
+verze nadále zůstávají platnými historickými vstupy parseru. Vzhled nemění
+hospodářské účinky a knihovna nemůže přepsat již postavenou instanci.

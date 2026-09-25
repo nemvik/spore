@@ -120,7 +120,7 @@ describe('SP-009.A persistence and rollback',()=>{
     const s=ready();foundCity(s,'Trvalé');const c=structuredClone(s.cities);returnHome(s);expect(continueToPlanetEra(s)).toBe(true);expect(s.cities).toEqual(c);expect(s.planet?.version).toBe(2);expect(()=>round(s)).not.toThrow();
   });
   it.each([
-    (s:GameState)=>{s.cities!.version=3 as 1;},
+    (s:GameState)=>{s.cities!.version=4 as 1;},
     (s:GameState)=>{s.cities!.selectedId='missing';},
     (s:GameState)=>{s.cities!.entries.push(s.cities!.entries[0]);},
     (s:GameState)=>{cityAt(s)!.owner.id=s.id;},

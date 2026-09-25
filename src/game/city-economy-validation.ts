@@ -1,3 +1,4 @@
+import { validateBuildingAppearance } from './building-design';
 import type { GameState } from './types';
 import type { City } from './cities';
 import { CITY_BUILDINGS, CITY_BUILDING_LIMIT, CITY_POPULATION_LIMIT, CITY_FOOD_CAPACITY, CITY_LEDGER_LIMIT, CITY_CYCLE_LIMIT, cityCapacity, isBuildingKind, type CityEconomy } from './city-economy';
@@ -15,7 +16,7 @@ const integer=(v:unknown,max=CITY_LEDGER_LIMIT,min=0)=>check(typeof v==='number'
 export function validateCityEconomy(s:GameState,c:City):void {
   const raw=c.economy;if(raw===null)return;
   const row=shape(raw,['version','opened','revision','nextId','elapsed','cycle','treasury','food','buildings','residents','ledger','last']);
-  check(row.version===1);
+  check(row.version===(s.cities?.version===3?2:1));
   const opened=shape(row.opened,['source','tick','transferredAmber']);
   check(opened.source==='player'&&opened.transferredAmber===80);integer(opened.tick,s.tick,c.founded.tick);
   integer(row.revision,1e9,1);integer(row.nextId,1e9,1);integer(row.cycle,CITY_CYCLE_LIMIT);
@@ -25,8 +26,9 @@ export function validateCityEconomy(s:GameState,c:City):void {
   check(Array.isArray(row.residents)&&row.residents.length<=CITY_POPULATION_LIMIT);
   const e=raw as CityEconomy,ids:number[]=[];
   for(const b of e.buildings) {
-    shape(b,['id','kind','lot','enabled','paidAmber']);integer(b.id,e.nextId-1,1);integer(b.lot,120);
+    shape(b,['id','kind','lot','enabled','paidAmber',...(e.version===2?['appearance']:[])]);integer(b.id,e.nextId-1,1);integer(b.lot,120);
     check(isBuildingKind(b.kind)&&!!cityLot(c,b.lot));
+    if(e.version===2)validateBuildingAppearance(b.appearance,b.kind);
     check(typeof b.enabled==='boolean'&&(b.kind!=='house'||b.enabled));check(b.paidAmber===CITY_BUILDINGS[b.kind].cost);ids.push(b.id);
   }
   for(const r of e.residents) {
@@ -65,5 +67,5 @@ export function cityEconomyCheckpointMatches(live:City,cp:City):boolean {
   if(Object.keys(b.ledger).some(k=>a.ledger[k as keyof typeof a.ledger]<b.ledger[k as keyof typeof b.ledger]))return false;
   if(b.residents.some(r=>!a.residents.some(v=>v.id===r.id&&v.cycle===r.cycle)))return false;
   // A surviving building cannot change its kind, price or location; demolition is allowed.
-  return b.buildings.every(r=>{const v=a.buildings.find(v=>v.id===r.id);return !v||v.kind===r.kind&&v.lot===r.lot&&v.paidAmber===r.paidAmber;});
+  return b.buildings.every(r=>{const v=a.buildings.find(v=>v.id===r.id);return !v||v.kind===r.kind&&v.lot===r.lot&&v.paidAmber===r.paidAmber&&(a.revision!==b.revision||JSON.stringify(v.appearance)===JSON.stringify(r.appearance));});
 }

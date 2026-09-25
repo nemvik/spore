@@ -42,7 +42,8 @@
     "test:tribe-inheritance": "node scripts/tribe-inheritance-browser.mjs",
     "test:travel": "node scripts/planet-travel-browser.mjs",
     "test:cities": "node scripts/cities-browser.mjs",
-    "test:city-economy": "node scripts/city-economy-browser.mjs"
+    "test:city-economy": "node scripts/city-economy-browser.mjs",
+    "test:buildings": "node scripts/buildings-browser.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

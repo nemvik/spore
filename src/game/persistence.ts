@@ -148,11 +148,11 @@ function citySignature(c: City): string {
 }
 function validateCities(s: GameState): void {
   const at='state.cities', registry=object(s.cities,at,['version','entries','selectedId']);
-  oneOf(registry.version,[1,2],at+'.version');
+  oneOf(registry.version,[1,2,3],at+'.version');
   if(s.homePlanet?.version!==3)invalid(at,SAVE_ERRORS.unknownValue);
   const ids:string[]=[];
   for(const raw of array(registry.entries,at+'.entries',FIELD_LIMIT)) {
-    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(registry.version===2?['economy']:[])]);
+    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(Number(registry.version)>=2?['economy']:[])]);
     string(row.id,at+'.id',140);string(row.name,at+'.name',40);
     if(!cityNameValid(row.name))invalid(at+'.name',SAVE_ERRORS.invalidText);
     const owner=object(row.owner,at+'.owner',['kind','id']);
@@ -165,7 +165,7 @@ function validateCities(s: GameState): void {
     const local=object(row.local,at+'.local',['version']);oneOf(local.version,[1],at+'.local.version');
     const city=raw as City, field=(s.homePlanet as Extract<HomePlanet,{version:3}>).navigation.fields.find(f=>f.id===city.address.locationId);
     const visit=(s.homePlanet as Extract<HomePlanet,{version:3}>).navigation.visits.find(v=>v.locationId===city.address.locationId);
-    if(registry.version===2)validateCityEconomy(s,city);
+    if(Number(registry.version)>=2)validateCityEconomy(s,city);
     if(!cityProgression(s)||city.founded.stage>s.stage||!field||!visit||visit.tick>city.founded.tick
       ||field.world.patches.some(p=>!p.discovered)||city.id!==cityId(field.id)
       ||s.machines?.version!==2||!s.machines.springs.some(p=>p.id===city.founded.springId&&p.owner==='player')

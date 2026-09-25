@@ -1,3 +1,4 @@
+import { defaultBuildingAppearance, validateBuildingAppearance, appearanceName, type BuildingAppearance } from './building-design';
 import type { GameState } from './types';
 import { cityAt, cityProgression, type City } from './cities';
 import { activeField, navigation } from './planet-travel';
@@ -16,14 +17,14 @@ export const CITY_BUILDINGS = {
   park: { name:'Zahrada odpočinku', cost:18, upkeep:1, workers:1, radius:2.5, color:'#b5a2d6', short:'Z', effect:'+15 nálady do 20 jednotek · 1 pracovník' },
 } as const;
 export type CityBuildingKind = keyof typeof CITY_BUILDINGS;
-export interface CityBuilding { id:number; kind:CityBuildingKind; lot:number; enabled:boolean; paidAmber:number; }
+export interface CityBuilding { id:number; kind:CityBuildingKind; lot:number; enabled:boolean; paidAmber:number; appearance?:BuildingAppearance; }
 export interface CityResident { id:number; source:'invited'; cycle:number; paidAmber:4; }
 export interface CityCycle {
   cycle:number; income:number; upkeep:number; produced:number; consumed:number; discarded:number;
   happiness:number; workers:number; hungry:number; funded:boolean;
 }
 export interface CityEconomy {
-  version:1;
+  version:1|2;
   opened:{source:'player'; tick:number; transferredAmber:80};
   revision:number; nextId:number; elapsed:number; cycle:number;
   treasury:number; food:number;
@@ -31,7 +32,7 @@ export interface CityEconomy {
   ledger:{transfers:number; construction:number; immigration:number; supplies:number; income:number; upkeep:number; produced:number; consumed:number; discarded:number};
   last:CityCycle|null;
 }
-export type CityOrder = {kind:'open'} | {kind:'fund'} | {kind:'invite'} | {kind:'supplies'} | {kind:'build'; building:CityBuildingKind; lot:number} | {kind:'enable'; id:number; enabled:boolean} | {kind:'demolish'; id:number};
+export type CityOrder = {kind:'open'} | {kind:'fund'} | {kind:'invite'} | {kind:'supplies'} | {kind:'build'; building:CityBuildingKind; lot:number; appearance?:BuildingAppearance} | {kind:'enable'; id:number; enabled:boolean} | {kind:'demolish'; id:number} | {kind:'appearance';id:number;appearance:BuildingAppearance};
 export const cityCapacity=(e:CityEconomy)=>e.buildings.filter(b=>b.kind==='house').length*4;
 export const isBuildingKind=(v:unknown):v is CityBuildingKind=>typeof v==='string'&&Object.hasOwn(CITY_BUILDINGS,v);
 
@@ -64,7 +65,7 @@ export function cityEconomyPreview(city:City) {
 
 export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:number):{ok:boolean;reason:string;cost:number} {
   const reject=(reason:string)=>({ok:false,reason,cost:0});
-  if(s.cities?.version!==2||!s.cities.entries.includes(city)||!cityProgression(s)||s.deathReason||s.player.health<=0
+  if(!s.cities||s.cities.version<2||!s.cities.entries.includes(city)||!cityProgression(s)||s.deathReason||s.player.health<=0
     ||navigation(s)?.mode!=='local'||activeField(s)?.id!==city.address.locationId||city.owner.id!==s.homePlanet?.id) return reject('Akci proveď při hraní ve vlastním místním městě.');
   const e=city.economy;
   if(revision!==(e?.revision??0))return reject('Toto potvrzení už bylo použité nebo se město změnilo. Vyber akci znovu.');
@@ -89,13 +90,19 @@ export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:nu
   } else if(order.kind==='build') {
     if(!isBuildingKind(order.building))return reject('Neznámý druh provozu.');
     if(e.buildings.length>=CITY_BUILDING_LIMIT)return reject('Město má nejvýše 16 budov; lze zbourat nepotřebný provoz.');
+    if(order.appearance){try{validateBuildingAppearance(order.appearance,order.building);}catch(error){return reject((error as Error).message);}if(e.version!==2)return reject('Nejprve aktivuj novou verzi měst načtením kampaně.');}
     const site=buildingSite(s,city,order.lot,order.building);
     if(site)return reject(site);
-    cost=CITY_BUILDINGS[order.building].cost;reason=`Postavit ${CITY_BUILDINGS[order.building].name} na parcele ${order.lot+1} za ${cost} jantaru. Údržba ${CITY_BUILDINGS[order.building].upkeep} / cyklus.`;
+    cost=CITY_BUILDINGS[order.building].cost;reason=`Postavit ${CITY_BUILDINGS[order.building].name} na parcele ${order.lot+1} za ${cost} jantaru. Údržba ${CITY_BUILDINGS[order.building].upkeep} / cyklus. Vzhled: ${appearanceName(order.appearance)}. Vzhled nemění cenu ani účinky.`;
   } else {
     const b=e.buildings.find(b=>b.id===order.id);
     if(!b)return reject('Tato stavba už neexistuje.');
-    if(order.kind==='enable') {
+    if(order.kind==='appearance') {
+      if(e.version!==2)return reject('Vzhled vyžaduje novou verzi měst.');
+      try{validateBuildingAppearance(order.appearance,b.kind);}catch(error){return reject((error as Error).message);}
+      if(JSON.stringify(b.appearance)===JSON.stringify(order.appearance))return reject('Budova už tento vzhled má.');
+      reason=`Změnit pouze vzhled ${CITY_BUILDINGS[b.kind].name} na parcele ${b.lot+1}: ${appearanceName(order.appearance)}. Cena 0 jantaru; typ, kapacita, produkce, údržba a čas zůstávají.`;
+    } else if(order.kind==='enable') {
       if(typeof order.enabled!=='boolean'||b.enabled===order.enabled)return reject('Provoz už má požadovaný stav.');
       if(b.kind==='house')return reject('Obydlí se nevypíná.');
       reason=`${order.enabled?'Zapnout':'Vypnout'} ${CITY_BUILDINGS[b.kind].name}. ${order.enabled?`Údržba ${CITY_BUILDINGS[b.kind].upkeep} jantaru / cyklus.`:'Bez údržby a produkce.'}`;
@@ -116,15 +123,16 @@ export function applyCityOrder(s:GameState,cityId:string,order:CityOrder,revisio
   if(!q.ok){nav.notice=q.reason;return false;}
   if(order.kind==='open') {
     s.machines!.resource-=80;
-    city.economy={version:1,opened:{source:'player',tick:s.tick,transferredAmber:80},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],
+    city.economy={version:s.cities!.version===3?2:1,opened:{source:'player',tick:s.tick,transferredAmber:80},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],
       ledger:{transfers:80,construction:0,immigration:0,supplies:0,income:0,upkeep:0,produced:0,consumed:0,discarded:0},last:null};
   } else {
     const e=city.economy!;
     if(order.kind==='fund'){s.machines!.resource-=20;e.treasury+=20;e.ledger.transfers+=20;}
-    else if(order.kind==='build'){e.treasury-=q.cost;e.ledger.construction+=q.cost;e.buildings.push({id:e.nextId++,kind:order.building,lot:order.lot,enabled:true,paidAmber:q.cost});}
+    else if(order.kind==='build'){e.treasury-=q.cost;e.ledger.construction+=q.cost;e.buildings.push({id:e.nextId++,kind:order.building,lot:order.lot,enabled:true,paidAmber:q.cost,...(e.version===2?{appearance:structuredClone(order.appearance??defaultBuildingAppearance())}:{})});}
     else if(order.kind==='invite'){e.treasury-=q.cost;e.ledger.immigration+=q.cost;e.food+=4;for(let i=0;i<2;i++)e.residents.push({id:e.nextId++,source:'invited',cycle:e.cycle,paidAmber:4});}
     else if(order.kind==='supplies'){e.treasury-=q.cost;e.ledger.supplies+=q.cost;e.food+=20;}
     else if(order.kind==='enable')e.buildings.find(b=>b.id===order.id)!.enabled=order.enabled;
+    else if(order.kind==='appearance')e.buildings.find(b=>b.id===order.id)!.appearance=structuredClone(order.appearance);
     else e.buildings=e.buildings.filter(b=>b.id!==order.id);
     e.revision++;
   }

@@ -2,6 +2,18 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-009.C · editor budov a knihovna · 2026-09-25
+
+- **C hotovo v rozsahu smlouvy**, pracovní strom nad čistým `b550612f4`, bez commitu/pushe/deploye. [Plán a měřitelná kritéria](docs/superpowers/plans/2026-09-25-sp-009c-building-editor.md), [smlouva v1](docs/spore/SP-009C-CONTRACT.md), [závěrečný report v1](docs/spore/SP-009C-REPORT.md).
+- Implementovaný registr v3/ekonomika v2, striktní geometrie a přenos v1, atomická knihovna s revizemi, vlastní snapshoty v městských instancích, zachovaný přesný default B. Sdílený renderer/editor, výběr/XYZ/rozměry/otočení/barvy, undo/redo/zrušení, placená stavba a explicitní kosmetická změna za 0.
+- Šestihlavá B fixture zachovaná byte-identicky, SHA `bb6520f3949acb30e7c33974169cab753b09d80ed5989d7797d0ac355688e71c`. Migrace live/checkpoint před rekey, bez tvorby minulosti nebo knihovních položek.
+- **148 souborů / 2 981 testů**, 147,31 s, samostatný worker; finálních **222/222 dotčených**, z toho 54 nových. Typecheck/build/diff-check prošly. JS `index-B7b4F3DB.js` 1 328,86 kB / gzip 413,54 kB. Žádné změny limitů, závislostí nebo lockfilu; známý chunk warning zůstává. Neúspěšný souběžný testovací pokus a opravu driveru přiznává report.
+- Produkční UI **5/5, 0 chyb**: vysoká věž a nízký dvojitý pavilon stejného typu, undo/redo/zrušení, revize/import/export, dvě stavby po 20, explicitní změna za 0, smazání všech předloh, skutečný cyklus, cestování/rekey/save/load/checkpoint. Šest obyvatel; +8−9 jantaru, +6−6 jídla, spokojenost 100. Peníze pro nové stavby získány původními prameny v reálném čase. Připravený B vstup a offline mrtvá checkpointová větev výslovně uvedené; žádné živé zápisy ani zrychlování času.
+- Historický browser **12/12**, původní skill klient se skutečným časem, finální snímky 1280×720 a 1024×640 prohlédnuté. 20 otevření editoru: p50 52,83 / p95 54,51 ms; 20 návratů, mezi opakováním 10/20 stabilních 319 geometrií, 18 programů a 1 252 GPU bufferů, heap 21,92→21,89 MB po GC. Krátký benchmark, nikoli dlouhý soak.
+- Vlastní a nezávislé review: opraven typový průnik `shape:["box"]` a přesah pevného znaku zahrady 0,01. Regrese a finální browser zopakovány. Aktivní save `evidence/sp-009c/browser/active-campaign.save.json`, malá evidence a úklidový manifest v `evidence/sp-009c/`; původní B export zachován.
+- **Otevřeno mimo C:** vozidlová část SP-005.B, lodě, celé SP-009/SP-010/SP-017, státy/obrana/převzetí/moře/vesmír, SP-007.B2/D, lidský playtest/poslech, Safari/mobil a dlouhý soak. Přesně dále **plán SP-009.D — soupeřící státy: verzovaná autorita vlastnictví/zdrojů, vztah k CityRegistry/LocationAddress a pravidla času/rozhodování před implementací expanze**. Ruční migrace není třeba.
+- Navazující výslovný pokyn uživatele autorizoval commit a push SP-009.C do `main`. Před publikací všech 37 hashů zdrojů, dokumentace, fixture, lockfilu, buildu a výsledků souhlasilo se závěrečným manifestem; vzdálený `main` byl stále `b550612f4`. Publikační dodatek mění pouze tento záznam a report, bez změny ověřeného herního kódu. Bez deploye.
+
 ## SP-009.B · místní městská ekonomika · 2026-09-25
 
 - **B hotovo v rozsahu smlouvy**, pracovní strom nad čistým `c1b2c75b6`. [Plán](docs/superpowers/plans/2026-09-25-sp-009b-city-economy.md), [smlouva B v1](docs/spore/SP-009B-CONTRACT.md), [závěrečný report v1](docs/spore/SP-009B-REPORT.md). Bez commitu/pushe/deploye, závislostí nebo změny lockfilu.
