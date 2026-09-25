@@ -1,4 +1,5 @@
 import { enableCities } from './cities';
+import { stepCityEconomy } from './city-economy';
 import { navigation, activeField, stepField, bindActiveWorld, enablePlanetTravel } from './planet-travel';
 import { enableHomePlanet, syncHomePlanet, locationArrival } from './home-planet';
 import { cancelChiefCouncil } from './tribe-chief';
@@ -346,7 +347,7 @@ function pulse(s: GameState) {
 
 export function step(s:GameState,input:Input,dt=1/60) {
  if(navigation(s)?.mode==='global')return;
- if(activeField(s)){stepField(s,input,dt);return;}
+ if(activeField(s)){stepField(s,input,dt);stepCityEconomy(s,dt);return;}
  if(s.deathReason||awaitingOrganismVictory(s))return;
  if(!isOrganismStage(s.stage)){
   const tribe=activeTribe(s);

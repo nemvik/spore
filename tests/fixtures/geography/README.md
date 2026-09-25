@@ -30,3 +30,14 @@ systems and a checkpoint, but no cities. SP-009.A retains it to verify the empty
 registry migration without invented founding, ownership, travel or grants.
 
 SHA-256: `d967d50991850aa312a1032ec58d8d1a406608dc85383851843b9267c660a84f`.
+
+## SP-009.A city compatibility input
+
+`sp-009a-city.save.json` is the byte-identical actual A production-browser export
+from `evidence/sp-009a/browser/active-campaign.save.json` at commit `c1b2c75b6`.
+It contains the paid city Záře nad údolím (registry v1), real surveys and visits,
+earned machine amber and owned springs. No residents, buildings or economy are
+prepared. B migrates this city to an explicitly unopened economy, retaining its
+identity, owner, LocationAddress, founding receipt and historical checkpoint.
+
+SHA-256: `ab594a3f92456985aced44c2cc28ba3e659b55df21f6411eae189d33a0efe38d`.

@@ -6,4 +6,17 @@
 .city-panel{position:absolute;right:24px;top:115px;width:300px;max-height:calc(100vh - 210px);overflow:auto;padding:18px;pointer-events:auto}.city-panel h2{font-size:24px;margin:8px 0}.city-panel p{font-size:13px;line-height:1.55;margin:10px 0}.city-panel input{width:100%;margin-top:6px}.city-panel label{font-size:13px}.city-panel button{width:100%;margin-top:8px}.city-condition{color:#ffdfa0;min-height:60px}.city-identity{overflow-wrap:anywhere;font-size:12px!important}.city-list{padding:12px 0}.city-list ul{list-style:none;padding:0;display:flex;gap:8px;flex-wrap:wrap;max-height:180px;overflow:auto}.city-list [aria-pressed=true]{border-color:#ffda80;background:#34574e}.city-selected{padding:16px;background:#1c3b40;border:1px solid #648b80;border-radius:10px}.city-selected p{font-size:13px}.city-panel summary{cursor:pointer;font-size:13px}.city-panel .tiny{font-size:12px}
 @media(max-width:1050px){.city-panel{right:16px;width:260px;padding:14px}.field-notice{bottom:12px;max-width:600px;padding:10px 16px;font-size:13px}}
 @media(max-width:740px){.city-panel{top:auto;bottom:80px;max-height:35vh;width:245px}.field-panel{max-height:35vh}}
+.city-panel:has(#city-economy){width:350px;max-height:calc(100vh - 200px)}
+.city-economy-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;padding:10px;background:#254b4a;border-radius:8px}
+.city-panel h3{font-size:18px;margin:14px 0 8px}.city-panel details{margin:10px 0}.city-panel details>summary{padding:5px 0}
+.city-panel .city-last{border-left:3px solid #9bd6aa;padding-left:10px}.city-warning{color:#ffdfa0}
+.city-economy-actions,.city-kind{display:grid;grid-template-columns:1fr 1fr;gap:5px}.city-panel .city-kind button,.city-panel .city-economy-actions button{font-size:12px;padding:8px 5px}
+.city-kind [aria-pressed=true],.city-lots [aria-pressed=true]{outline:2px solid #ffe39d;outline-offset:-2px}
+.city-lots{display:grid;grid-template-columns:repeat(11,1fr);grid-template-rows:repeat(11,24px);gap:2px;background:#153b40;padding:5px;border-radius:8px}
+.city-panel .city-lot{font-size:10px;min-width:0;min-height:0;padding:0;margin:0;background:#34615d;color:#edebd3;border:1px solid #638b7e;border-radius:3px}
+.city-lots>span{display:grid;place-items:center;font-size:11px;color:#ffe39d;pointer-events:none}.city-lots>span[title=Radnice]{background:#34615d;z-index:1}
+.city-confirm{padding:10px;border:2px solid #ffe39d;border-radius:8px;background:#234447}.city-confirm[hidden]{display:none}
+.city-buildings{padding:0;list-style:none}.city-buildings li{font-size:13px;margin:8px 0;padding:8px;border-bottom:1px solid #567474}.city-panel .city-buildings button{font-size:12px;padding:6px}
+@media(max-width:1050px){.city-panel:has(#city-economy){right:12px;width:320px;padding:12px}.city-lots{grid-template-rows:repeat(11,23px)}.field-panel:has(+.city-panel #city-economy){width:210px}}
+@media(max-width:740px){.city-panel:has(#city-economy){width:300px;max-height:45vh;bottom:80px}}
 .field-panel h2{font-size:24px;line-height:1.2}

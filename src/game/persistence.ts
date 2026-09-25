@@ -1,5 +1,6 @@
 import { cityId, cityNameValid, cityProgression, citySite, CITY_COST, type City } from './cities';
 import { cityPositionClear } from './city-spatial';
+import { validateCityEconomy, cityEconomyCheckpointMatches } from './city-economy-validation';
 import { bindActiveWorld, createField, fieldGround, fieldId, FIELD_LIMIT, campaignWorld, activeField } from './planet-travel';
 import { planetAtlas } from './planet-geography';
 import { LOCATION_KINDS, locationId, type HomePlanet } from './home-planet';
@@ -147,11 +148,11 @@ function citySignature(c: City): string {
 }
 function validateCities(s: GameState): void {
   const at='state.cities', registry=object(s.cities,at,['version','entries','selectedId']);
-  oneOf(registry.version,[1],at+'.version');
+  oneOf(registry.version,[1,2],at+'.version');
   if(s.homePlanet?.version!==3)invalid(at,SAVE_ERRORS.unknownValue);
   const ids:string[]=[];
   for(const raw of array(registry.entries,at+'.entries',FIELD_LIMIT)) {
-    const row=object(raw,at+'.city',['id','name','owner','address','founded','local']);
+    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(registry.version===2?['economy']:[])]);
     string(row.id,at+'.id',140);string(row.name,at+'.name',40);
     if(!cityNameValid(row.name))invalid(at+'.name',SAVE_ERRORS.invalidText);
     const owner=object(row.owner,at+'.owner',['kind','id']);
@@ -164,6 +165,7 @@ function validateCities(s: GameState): void {
     const local=object(row.local,at+'.local',['version']);oneOf(local.version,[1],at+'.local.version');
     const city=raw as City, field=(s.homePlanet as Extract<HomePlanet,{version:3}>).navigation.fields.find(f=>f.id===city.address.locationId);
     const visit=(s.homePlanet as Extract<HomePlanet,{version:3}>).navigation.visits.find(v=>v.locationId===city.address.locationId);
+    if(registry.version===2)validateCityEconomy(s,city);
     if(!cityProgression(s)||city.founded.stage>s.stage||!field||!visit||visit.tick>city.founded.tick
       ||field.world.patches.some(p=>!p.discovered)||city.id!==cityId(field.id)
       ||s.machines?.version!==2||!s.machines.springs.some(p=>p.id===city.founded.springId&&p.owner==='player')
@@ -1152,7 +1154,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     const liveCities = (s as unknown as GameState).cities;
     if (restored.cities?.version !== liveCities?.version) invalid('checkpoint.cities', SAVE_ERRORS.checkpointMismatch);
-    if (restored.cities?.entries.some(c => !liveCities!.entries.some(l => l.id === c.id && citySignature(l) === citySignature(c)))) invalid('checkpoint.cities.entries', SAVE_ERRORS.checkpointMismatch);
+    if (restored.cities?.entries.some(c => !liveCities!.entries.some(l => l.id === c.id && citySignature(l) === citySignature(c) && cityEconomyCheckpointMatches(l,c)))) invalid('checkpoint.cities.entries', SAVE_ERRORS.checkpointMismatch);
     const home = s.homePlanet as HomePlanet | undefined;
     if (restored.homePlanet?.version !== home?.version || restored.homePlanet?.id !== home?.id) invalid('checkpoint.homePlanet', SAVE_ERRORS.checkpointMismatch);
     if (home && home.version !== 1 && restored.homePlanet && restored.homePlanet.version !== 1 && restored.homePlanet.geography.provenance !== home.geography.provenance) invalid('checkpoint.homePlanet.geography', SAVE_ERRORS.checkpointMismatch);

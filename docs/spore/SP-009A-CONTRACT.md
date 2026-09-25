@@ -33,3 +33,7 @@ Parser zachová historickou absenci; přítomné v1 striktně validuje. `enableC
 Limit zůstává 64 detailů / nejvýše 64 měst a 8 MiB save. Na GPU je jen právě aktivní výpravový detail vedle původní scény; overlay se uvolní společně s ním. Změna významu layoutu, registru nebo generátoru vyžaduje novou verzi a explicitní migraci.
 
 Další části SP-009 musí navrhnout verzovaný rozvoj měst, ekonomiku/populaci a následně státy/strategie. Tato smlouva neimplementuje editor budov, dobývání, obchod, konverzi, moře, vesmír nebo SP-007.B2/D.
+
+## Navazující SP-009.B — 25. 9. 2026
+
+Tato smlouva zachycuje historický registr v1 a založení A. [Smlouva B v1](SP-009B-CONTRACT.md) zavádí **CityRegistry v2** a samostatné `economy:null | CityEconomy`; historická identita, vlastník, adresa, doklad založení a `local.version=1` zůstávají. Explicitní migrace live/checkpoint před rekey nevytváří minulou ekonomiku. B má vlastní placenou aktivaci a lokální overlay, nepřepisuje původní generátory ani generovaný základ World. [Ověření a hraný výsledek B](SP-009B-REPORT.md).

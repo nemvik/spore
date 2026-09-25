@@ -6,6 +6,7 @@ import { activeMachines } from './machines';
 import { tribeReady, activeTribe } from './tribe';
 import { bodyCollisionRadius } from './body-shape';
 import { cityHall, cityPositionClear, fieldDecorations, CITY_SQUARE_RADIUS } from './city-spatial';
+import type { CityEconomy } from './city-economy';
 
 export interface City {
   id: string;
@@ -13,9 +14,10 @@ export interface City {
   owner: { kind: 'lineage'; id: string };
   address: LocationAddress;
   founded: { source: 'player'; stage: 4 | 5; tick: number; paidAmber: 60; springId: number };
-  local: { version: 1 }; // Civic square + solid hall. No population/economy simulation yet.
+  local: { version: 1 }; // Immutable civic square + hall layout from A.
+  economy?: CityEconomy | null; // Required in registry v2; absent in historical v1.
 }
-export interface CityRegistry { version: 1; entries: City[]; selectedId: string | null; }
+export interface CityRegistry { version: 1 | 2; entries: City[]; selectedId: string | null; }
 export const CITY_COST = 60;
 export const CITY_RADIUS = 18;
 export const cityId = (locationId: string) => `${locationId}:city`;
@@ -25,10 +27,15 @@ export const cityNameValid = (name: unknown): name is string => typeof name === 
 /** Explicit activation preserves old campaigns, including checkpoints, without founding anything. */
 export function enableCities(s: GameState): void {
   enablePlanetTravel(s);
-  s.cities ??= { version: 1, entries: [], selectedId: null };
+  const activate = (v: GameState) => {
+    if (v.cities?.version === 2) return false;
+    v.cities = { version: 2, entries: (v.cities?.entries ?? []).map(c => ({...c, economy:null})), selectedId:v.cities?.selectedId ?? null };
+    return true;
+  };
+  activate(s);
   if (s.checkpoint) {
     const cp = JSON.parse(s.checkpoint) as GameState;
-    if (!cp.cities) { cp.cities = { version: 1, entries: [], selectedId: null }; s.checkpoint = JSON.stringify(cp); }
+    if (activate(cp)) s.checkpoint = JSON.stringify(cp);
   }
 }
 export function cityProgression(s: GameState): boolean {
@@ -89,7 +96,7 @@ export function foundCity(s: GameState, name: string): boolean {
   if (!cityNameValid(name)) { nav.notice='Název města musí mít 1–40 znaků na jednom řádku.'; return false; }
   const m=activeMachines(s)!, address=status.address!;
   const city: City = {id:cityId(address.locationId),name,owner:{kind:'lineage',id:s.homePlanet!.id},address,
-    founded:{source:'player',stage:s.stage as 4|5,tick:s.tick,paidAmber:CITY_COST,springId:m.springs.find(p=>p.owner==='player')!.id},local:{version:1}};
+    founded:{source:'player',stage:s.stage as 4|5,tick:s.tick,paidAmber:CITY_COST,springId:m.springs.find(p=>p.owner==='player')!.id},local:{version:1},...(s.cities!.version===2?{economy:null}:{})};
   // One synchronous commit after every precondition; no grant, refund or World edit.
   m.resource-=CITY_COST; s.cities!.entries.push(city); s.cities!.selectedId=city.id;
   nav.notice=`Založeno město ${name} · zaplaceno ${CITY_COST} jantaru. Identita a adresa jsou uložené v kampani.`;

@@ -1,5 +1,6 @@
 import { enableCities, foundCity, selectCity, enterCity } from './game/cities';
 import { updateCityFounding } from './ui/cities';
+import { cityEconomyAction, updateCityEconomy } from './ui/city-economy';
 import { locationGeography, planetAtlas } from './game/planet-geography';
 import { navigation, activeField, campaignWorld, openAtlas, enterField, returnHome, surveyField } from './game/planet-travel';
 import { atlasMarkup, travelHud, fieldStatus } from './ui/planet-travel';
@@ -175,7 +176,7 @@ function eraHud(){
  tribeMarkup='';
  updateHud();
 }
-function updateHud(){if(mode!=='game')return;if(navigation(state)?.mode==='global')return;if(activeField(state)){const status=document.getElementById('field-status');if(status)status.innerHTML=fieldStatus(state);const founding=document.getElementById('city-founding-status');if(founding)updateCityFounding(state,founding);const notice=ui.querySelector('.field-notice');if(notice)notice.textContent=navigation(state)!.notice;return;}
+function updateHud(){if(mode!=='game')return;if(navigation(state)?.mode==='global')return;if(activeField(state)){const status=document.getElementById('field-status');if(status)status.innerHTML=fieldStatus(state);const founding=document.getElementById('city-founding-status');if(founding)updateCityFounding(state,founding);const economy=document.getElementById('city-economy');if(economy&&!uiPointerHeld)updateCityEconomy(state,economy);const notice=ui.querySelector('.field-notice');if(notice)notice.textContent=navigation(state)!.notice;return;}
  if(navigation(state)&&!ui.querySelector('.travel-shortcut')){const b=document.createElement('button');b.className='icon-btn travel-shortcut';b.dataset.action='atlas';b.textContent='N';b.title='Planeta a výpravy · N';b.setAttribute('aria-label','Planeta a výpravy · N');ui.querySelector('.toolbar')?.prepend(b);}
  const travelNotice=navigation(state)?.notice;if(travelNotice?.startsWith('Návrat domů')&&!ui.querySelector('.travel-return-notice')){const n=document.createElement('div');n.className='travel-return-notice';n.role='status';n.textContent=travelNotice;ui.append(n);}
 if(control()!=='body'){
@@ -480,6 +481,7 @@ function action(a:string){if(mode==='editor'){finishEditorInput();finishCreature
   nav.camera.x=clamp(nav.camera.x,360/nav.camera.zoom,720-360/nav.camera.zoom);nav.camera.y=clamp(nav.camera.y,180/nav.camera.zoom,360-180/nav.camera.zoom);
   hud();return;
  }
+ if(command==='city-econ'&&mode==='game'&&activeField(state)&&nav?.mode==='local'){const paid=cityEconomyAction(state,arg);if(paid){audio.play('evolve');persistState();}updateHud();if(!['confirm','cancel'].includes(arg)&&document.querySelector('.city-confirm:not([hidden])'))document.querySelector<HTMLButtonElement>('.city-confirm button:not([disabled])')?.focus({preventScroll:true});return;}
  if(command==='city-found'&&mode==='game'&&activeField(state)){
   const name=(document.getElementById('city-name') as HTMLInputElement|null)?.value??'';
   if(foundCity(state,name)){audio.play('evolve');persistState();switchMode('game');}else updateHud();return;
@@ -622,7 +624,7 @@ ui.addEventListener('focusout',e=>{if(editorValueEdit?.input===e.target)finishEd
 function finishEditorRange(){if(editorRangePointer&&editorValueEdit?.input===editorRangePointer)finishEditorInput();editorRangePointer=null;}
 addEventListener('pointerup',finishEditorRange);addEventListener('lostpointercapture',e=>{if(editorRangePointer&&e.target===editorRangePointer){finishEditorInput(true);editorRangePointer=null;editor();}});addEventListener('pointercancel',()=>{if(editorRangePointer){finishEditorInput(true);editorRangePointer=null;editor();}});
 function inputState():Input{const interaction=interactionInput.consume(),speciesAction=pendingSpeciesAction;pendingSpeciesAction=undefined;if(control()==='command')return {...EMPTY_INPUT};const x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),z=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0);return{x:x*Math.cos(graphics.yaw)+z*Math.sin(graphics.yaw),z:z*Math.cos(graphics.yaw)-x*Math.sin(graphics.yaw),vertical:creatureLand()?0:(keys.has('KeyQ')?1:0)-(keys.has('KeyC')?1:0),sprint:keys.has('ShiftLeft')||keys.has('ShiftRight'),...interaction,...(speciesAction?{speciesAction}:{}),feed:interaction.feed||pointerPump,feedSelection:currentFeedSelection()};}
-addEventListener('keydown',e=>{if(mode==='culture'&&e.code==='Escape'){e.preventDefault();switchMode('game');return;}if(mode==='editor'&&e.code==='Escape'&&(editorValueEdit||creatureGesture||draggingPart)){e.preventDefault();finishEditorInput(true);finishCreatureGesture(true);editor();return;}if(mode==='editor'&&skeletonMode&&creatureKey(e))return;if((e.target as HTMLElement).matches('input,select,textarea'))return;if(e.code==='Tab'&&mode==='game'&&(currentTribe()||currentMachines()||currentPlanet())&&(e.target as HTMLElement).closest('#tribe-hud'))return;if(mode==='game'&&['Space','Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.repeat){keys.add(e.code);return;}
+addEventListener('keydown',e=>{if(mode==='culture'&&e.code==='Escape'){e.preventDefault();switchMode('game');return;}if(mode==='editor'&&e.code==='Escape'&&(editorValueEdit||creatureGesture||draggingPart)){e.preventDefault();finishEditorInput(true);finishCreatureGesture(true);editor();return;}if(mode==='editor'&&skeletonMode&&creatureKey(e))return;if((e.target as HTMLElement).matches('input,select,textarea'))return;if(mode==='game'&&(activeField(state)||navigation(state)?.mode==='global')&&(e.code==='Tab'||['Enter','Space'].includes(e.code)&&!!(e.target as HTMLElement).closest('button,summary')))return;if(e.code==='Tab'&&mode==='game'&&(currentTribe()||currentMachines()||currentPlanet())&&(e.target as HTMLElement).closest('#tribe-hud'))return;if(mode==='game'&&['Space','Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.repeat){keys.add(e.code);return;}
  if(mode==='game'&&navigation(state)){
   if(e.code==='KeyN'){e.preventDefault();action(navigation(state)!.mode==='global'?'atlas-close':'atlas');return;}
   if(navigation(state)!.mode==='global'){
