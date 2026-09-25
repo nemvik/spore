@@ -49,6 +49,7 @@
     "test:trade": "node scripts/trade-browser.mjs",
     "test:defense": "node scripts/defense-browser.mjs",
     "test:defense-last-city": "node scripts/defense-last-city-browser.mjs",
+    "test:maritime": "node scripts/maritime-browser.mjs",
     "test:conversion": "node scripts/conversion-browser.mjs"
   },
   "dependencies": {

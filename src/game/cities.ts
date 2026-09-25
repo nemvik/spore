@@ -1,3 +1,4 @@
+import { atSea } from './maritime';
 import { defaultBuildingAppearance } from './building-design';
 import type { GameState, Vec3 } from './types';
 import { locationAddress, type LocationAddress } from './home-planet';
@@ -83,7 +84,8 @@ export function foundingAvailability(s: GameState): { available: boolean; reason
   const f = activeField(s), nav = navigation(s), m = activeMachines(s);
   const address = f ? locationAddress(s, f.position) : null;
   let reason: string | null = null;
-  if (!s.cities || !nav) reason = 'Registr měst není aktivní.';
+  if(atSea(s)) reason = 'Nejprve přistaň; na moři nelze zakládat město.';
+  else if (!s.cities || !nav) reason = 'Registr měst není aktivní.';
   else if (!cityProgression(s)) reason = 'Nejprve dokonči kmen a běžným postupem vstup do strojové etapy.';
   else if (s.deathReason || s.player.health<=0) reason = 'Nejprve obnov živou generaci.';
   else if (!m!.springs.some(p=>p.owner==='player')) reason = 'Nejprve strojem obsaď jantarový pramen u domovské základny.';

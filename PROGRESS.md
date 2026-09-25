@@ -2,6 +2,21 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-009.I · námořní expanze · 2026-09-25
+
+- Navazující výslovný pokyn uživatele autorizoval commit a push I na `main`. Před uložením všech 72 otisků finálního manifestu souhlasilo a vzdálený `main` odpovídal výchozímu `907dd49fd`. Tento dodatek mění pouze dokumentaci; ověřená implementace zůstává stejná. Bez deploye, lokální evidence se nepublikuje.
+
+- **I hotovo v omezeném rozsahu smlouvy** nad ověřeným čistým `907dd49fd`, bez commitu/pushe/deploye, závislostí a změny lockfilu. [Plán před implementací](docs/superpowers/plans/2026-09-25-sp-009i-maritime.md), [smlouva v1](docs/spore/SP-009I-CONTRACT.md), [report v1](docs/spore/SP-009I-REPORT.md).
+- Skutečný H originál zachovaný; nová byte-identická H fixture SHA256 `c2f0d211d71661671114f23bf8dc694124558bddac2763ddfbcd2d42ab3c88d4`. Audit 50,705 doma / B1 prameny 1,8/s, domácí pobřeží 1614 a nové 1171 na jiné pevnině, 17 vodních hran. Poražené státy bez měst stále 0/203 a 40/0.
+- Maritime v1 / SeaBlueprint v2: jediný člun za 56 domácího jantaru nad původními konstrukcemi, jediný doklad spotřeby, současný avatar, výběr/potvrzení/nástup, aktivní vodní trasa, přerušení/přistání/průzkum/původní město za 60/návrat. Původní tank/air, atlas, B1 a E/F/G/H zachované. Nové zámoří neodemkne bezplatný přechod; historické přístupy zůstávají bez fiktivní námořní minulosti.
+- Opakovatelná migrace live/checkpoint před rekey; přísná validace tras, účtů, revizí, prefixu a bodu obratu. Celá obnova větve, žádné refundace nebo slučování. Nasazení blokuje vyplutí; pozdější výpad dovolí přímý civilní návrat. Místní světy/ekonomiky na moři stojí, strategický čas běží, pauza/editor/globál nemají offline dohánění.
+- **155 souborů / 3 309 testů**, včetně 69 námořních  + 4 konstrukčních regresí; finálních 139 dotčených před plným během. Typecheck/build/diff-check prošly. Nezávislé review a vlastní kontrola opravily přesné konce, otevřené detaily, návrat při pozdějším výpadu, checkpointový bod obratu, poslední návrat a změněnou nabídku; dotčené chování znovu ověřeno.
+- Produkční skutečná H→I **4/4, 0 chyb**, bez live zápisů nebo zrychlení. Získané prostředky, zaplacený člun, přistání 1171, tři měření chůzí, „Zátoka za mořem“ za 60, skutečný návrat, 20 zpátečních okruhů, save/load/import/rekey. Pouze smrt připravená offline z hraných exportů; obnova vrací celý skutečný checkpoint během plavby. Nové město má zatím economy:null, další hospodářství se otevírá původními placenými pravidly.
+- Historický browser **12/12, 0 chyb**, původní skill klient s nativním adaptérem prošel. Finální snímky 1024×640 a 1280×720 prohlédnuté. Build `index-Cr1vbKhY.js` 1 456,65 kB / gzip 453,30 kB, známý chunk warning trvá. Původních 33 datových/kódových fixtures a 34 starších exportů beze změny.
+- Odezva vyplutí p50/p95 46,85/65,37 ms, přistání 128,74/286,81 ms (max 303,25 ms). GPU 60 vzorků s 78–80 draw calls, p50/p95 0,586/0,913 ms; 0/10/20 okruhů stabilní 242 geometrií, 1 textura, 14 programů a 960 živých bufferů. Heap po GC 19,31→20,37→20,87 MB; nejde o dlouhý soak nebo obecný důkaz bez úniků.
+- [Aktivní I save](evidence/sp-009i/browser/active-campaign.save.json): jeden člun doma 1614, 43 cest, 6 měst. Účet **50,705+91,59−56−60=26,295**, státy 0/203 a 40/0. [Úklid](evidence/sp-009i/cleanup.json) zachovává aktivní save, skutečný checkpoint a malou finální evidenci; původní H i starší aktivní kampaně nedotčené. Ruční migrace není třeba.
+- **Přesně dále:** samostatný návrh SP-007.B2 nad skutečnými výsledky E/F/G/H/I, nejprve audit aktivního I save a smlouva děditelných následků bez přepsání B1 nebo domyšlené minulosti. Žádné automatické uzavření B2/D ani celých SP-005.B/SP-009/SP-010/SP-017. Širší flotila/boj/trh/diplomacie/knihovny/vesmír, lidský playtest, Safari/mobil a dlouhý soak mimo tento průchod.
+
 ## SP-009.H · náboženská konverze · 2026-09-25
 
 - Navazující pokyn uživatele autorizoval commit a push H na `main`. Před uložením všech 74 otisků finálního manifestu souhlasilo. Tento publikační dodatek mění pouze dokumentaci; implementace a ověřené výsledky zůstávají stejné. Bez deploye, evidence zůstává lokální podle `.gitignore`.

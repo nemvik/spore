@@ -1,3 +1,4 @@
+import { atSea } from './maritime';
 import { stepDefense, canOccupy, enemyTarget, entryClear } from './defense';
 import type { GameState, Vec3, World, Input } from './types';
 import type { City } from './cities';
@@ -39,7 +40,7 @@ export function landRoute(s:GameState,city:City,sourceCell?:number):number[]|nul
 }
 export function deploymentQuote(s:GameState,c:City,id:number):string|null {
   const m=activeMachines(s),u=m?.fleet.find(u=>u.id===id);
-  if(!s.military||s.stage!==4||s.deathReason||s.player.health<=0||navigation(s)?.mode!=='local'||activeField(s)?.id!==c.address.locationId)return 'Nasazení vyžaduje živou strojovou etapu a návštěvu cílového města.';
+  if(atSea(s)||!s.military||s.stage!==4||s.deathReason||s.player.health<=0||navigation(s)?.mode!=='local'||activeField(s)?.id!==c.address.locationId)return 'Nasazení vyžaduje živou strojovou etapu a návštěvu cílového města.';
   if(s.military.deployment)return 'Jeden stroj už je nasazený. Nejprve jej vrať domů.';
   if(s.military.version===1&&(c.owner.kind!=='state'||c.capture))return 'Cílem musí být dosud nepřevzaté město soupeře.';
   if(s.military.version===1&&!c.defense)return 'Stát ještě nezaplatil obranu. Toto město zatím není vojenským cílem.';

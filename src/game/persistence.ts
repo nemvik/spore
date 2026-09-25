@@ -1,3 +1,4 @@
+import { validateMaritime, maritimeCheckpointMatches } from './maritime-validation';
 import { validateConversion, conversionCheckpointMatches } from './conversion-validation';
 import { validateMilitary, militaryCheckpointMatches } from './military-validation';
 import { validateStates, statesCheckpointMatches } from './states-validation';
@@ -981,13 +982,14 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   if ((version !== 1 && version !== 2 && version !== 3) || (expectedVersion !== undefined && version !== expectedVersion)) invalid('state.version', SAVE_ERRORS.unsupportedStateVersion);
   const sliceKeys = (['tribe', 'machines', 'planet'] as const).filter(key => version === 3 && Object.prototype.hasOwnProperty.call(value, key));
   const hasLineageHistory = version === 3 && Object.hasOwn(value, 'lineageHistory');
+  const hasMaritime = version === 3 && Object.hasOwn(value,'maritime');
   const hasMilitary = version === 3 && Object.hasOwn(value,'military');
   const hasStates = version === 3 && Object.hasOwn(value, 'states');
   const hasCities = version === 3 && Object.hasOwn(value, 'cities');
   const hasHomePlanet = version === 3 && Object.hasOwn(value, 'homePlanet');
   const hasCellGrowth = version === 3 && Object.hasOwn(value, 'cellGrowth');
   const hasCreatureStage = version === 3 && Object.prototype.hasOwnProperty.call(value, 'creatureStage');
-  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasMilitary?['military']:[]), ...(hasStates ? ['states'] : []), ...(hasCities ? ['cities'] : []), ...(hasHomePlanet ? ['homePlanet'] : []), ...(hasLineageHistory ? ['lineageHistory'] : []), ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
+  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasMaritime?['maritime']:[]), ...(hasMilitary?['military']:[]), ...(hasStates ? ['states'] : []), ...(hasCities ? ['cities'] : []), ...(hasHomePlanet ? ['homePlanet'] : []), ...(hasLineageHistory ? ['lineageHistory'] : []), ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
   gameId(s.id, 'state.id'); const seed = number(s.seed, 'state.seed', 0, UINT32, true);
   oneOf(s.stage, version === 3 ? [0, 1, 2, 3, 4, 5] : [0, 1, 2], 'state.stage'); const stage = s.stage as Stage;
   const worldStage = worldStageFor(stage);
@@ -1144,6 +1146,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   if(hasMilitary||((s as unknown as GameState).cities?.version??0)>=5)validateMilitary(s as unknown as GameState);
   if(hasStates || (s as unknown as GameState).cities?.version===4||((s as unknown as GameState).cities?.version??0)>=5) validateStates(s as unknown as GameState);
   validateConversion(s as unknown as GameState);
+  validateMaritime(s as unknown as GameState);
   if (s.checkpoint !== null) {
     if (nestedCheckpoint) invalid('checkpoint', SAVE_ERRORS.nestedCheckpoint);
     const checkpoint = string(s.checkpoint, 'checkpoint', MAX_BYTES);
@@ -1162,6 +1165,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     }
     if (restored.machines?.version !== (s.machines as GameState['machines'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if(!maritimeCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.maritime',SAVE_ERRORS.checkpointMismatch);
     if(!conversionCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.conversion',SAVE_ERRORS.checkpointMismatch);
     if(!militaryCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.military',SAVE_ERRORS.checkpointMismatch);
     if(!statesCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.states',SAVE_ERRORS.checkpointMismatch);

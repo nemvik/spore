@@ -1,3 +1,4 @@
+import { atSea } from './maritime';
 import type { GameState } from './types';
 import { cityAt, cityProgression, type City } from './cities';
 import { cityCommandRevision, enableDefense, raids, TRANSFER_LIMIT } from './defense';
@@ -36,7 +37,7 @@ export function enableTrade(s:GameState,origin:'birth'|'legacy-activation'='lega
 export function tradeQuote(s:GameState,c:City|null=cityAt(s)):TradeQuote {
   const deny=(reason:string,offer:TradeOffer|null=null):TradeQuote=>({offer,available:false,reason});
   if(!s.cities||s.cities.version<7||s.states?.version!==4||!c||!s.cities.entries.includes(c))return deny('Obchodní pravidla nebo město nejsou dostupné.');
-  if(s.stage!==4||!cityProgression(s)||s.deathReason||s.player.health<=0)return deny('Obchod vyžaduje živou linii ve strojové etapě.');
+  if(atSea(s)||s.stage!==4||!cityProgression(s)||s.deathReason||s.player.health<=0)return deny('Obchod vyžaduje živou linii ve strojové etapě.');
   if(navigation(s)?.mode!=='local'||activeField(s)?.id!==c.address.locationId)return deny('Nabídku vyřiď při místní návštěvě tohoto města.');
   if(c.owner.kind!=='state')return deny('Město už patří tvé linii; nová kupní platba není dostupná.');
   const r=s.states.entries.find(r=>r.id===c.owner.id),m=activeMachines(s);

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { attachmentAngles } from '../game/anatomy';
 import { vehicleStats } from '../game/blueprint';
-import type { VehicleBlueprint, VehiclePart } from '../game/blueprint';
+import type { VehicleConstruction, VehiclePart, SeaPart } from '../game/blueprint';
 import { attachmentOnBody } from './organism';
 
-type Motion = { node: THREE.Object3D; kind: 'rotor' | 'drill' | 'wheel' | 'tread' | 'pulse'; phase: number; reach: number };
+type Motion = { node: THREE.Object3D; kind: 'rotor' | 'propeller' | 'drill' | 'wheel' | 'tread' | 'pulse'; phase: number; reach: number };
 type Palette = ReturnType<typeof palette>;
 type Dimensions = { x: number; y: number; z: number; tank: boolean };
 
@@ -67,8 +67,9 @@ function tracks(root: THREE.Group, d: Dimensions, p: Palette, motions: Motion[])
   }
 }
 
-function attachment(root: THREE.Group, part: VehiclePart, d: Dimensions, p: Palette, motions: Motion[]): void {
-  switch (part.kind) {
+function attachment(root: THREE.Group, part: VehiclePart|SeaPart, d: Dimensions, p: Palette, motions: Motion[]): void {
+  const kind=part.kind;
+  switch (kind) {
     case 'hull': break;
     case 'cabin': {
       const cabin = mesh(root, new THREE.CylinderGeometry(.48, .65, .68, 4), p.shell, 0, .32); cabin.rotation.y = Math.PI / 4; cabin.scale.z = 1.25;
@@ -77,6 +78,16 @@ function attachment(root: THREE.Group, part: VehiclePart, d: Dimensions, p: Pale
       break;
     }
     case 'tracks': tracks(root, d, p, motions); break;
+    case 'propeller': {
+      const shaft = mesh(root, new THREE.CylinderGeometry(.07, .07, .55, 8), p.metal, 0, 0, -.12); shaft.rotation.x = Math.PI / 2;
+      const propeller = new THREE.Group(); propeller.name = 'propeller'; propeller.position.z = -.42; root.add(propeller);
+      const hub = mesh(propeller, new THREE.CylinderGeometry(.13, .13, .18, 10), p.trim); hub.rotation.x = Math.PI / 2;
+      for(let i=0;i<3;i++){
+        const blade = new THREE.Group(); blade.rotation.z = i * Math.PI * 2 / 3; propeller.add(blade);
+        const paddle = box(blade, p.metal, 0, .24, 0, .2, .4, .055); paddle.rotation.y = .35;
+      }
+      motions.push({node:propeller,kind:'propeller',phase:0,reach:0}); break;
+    }
     case 'rotor': {
       mesh(root, new THREE.CylinderGeometry(.12, .2, .63, 10), p.metal, 0, .3);
       const rotor = new THREE.Group(); rotor.position.y = .65; rotor.name = 'rotor'; root.add(rotor);
@@ -117,16 +128,16 @@ function attachment(root: THREE.Group, part: VehiclePart, d: Dimensions, p: Pale
       for (const x of [-.39, .39]) for (const z of [-.38, .38]) mesh(root, new THREE.SphereGeometry(.065, 6, 4), p.trim, x, .23, z);
       break;
     }
-    default: { const exhaustive: never = part.kind; void exhaustive; }
+    default: { const exhaustive: never = kind; void exhaustive; }
   }
 }
 
 /** One construction path for both editor and fleet; each instance owns its resources. */
-export function createMachine(g: VehicleBlueprint): THREE.Group {
+export function createMachine(g: VehicleConstruction): THREE.Group {
   const model = new THREE.Group(), visual = new THREE.Group(), p = palette(g.hue), motions: Motion[] = [];
   model.name = g.name; model.add(visual);
   const hull = g.parts.find(part => part.kind === 'hull'), hullScale = hull?.scale ?? 1;
-  const base: Dimensions = { x: g.width * .95, y: g.width * (g.carrier === 'tank' ? .45 : .56), z: g.length * 1.65, tank: g.carrier === 'tank' };
+  const base: Dimensions = { x: g.width * .95, y: g.width * (g.carrier === 'tank' ? .45 : g.carrier === 'boat' ? .38 : .56), z: g.length * 1.65, tank: g.carrier === 'tank' };
   const dimensions: Dimensions = { ...base, x: base.x * hullScale, y: base.y * hullScale, z: base.z * hullScale };
   visual.position.z = (hull?.axial ?? 0) * base.z * .5; visual.rotation.z = -(hull?.angle ?? 0);
   const owned: THREE.Material[] = Object.values(p);
@@ -139,13 +150,23 @@ export function createMachine(g: VehicleBlueprint): THREE.Group {
         const body = mesh(root, hullGeometry(base, p.shell.color, g.pattern), mat); body.name = 'machine-surface';
         model.userData.attachmentSurface ??= body;
         if (g.carrier === 'air') for (const side of [-1, 1]) { const wing = box(root, p.trim, side * base.x, -.12, -.4 * base.z, 1.2, .1, .72); wing.rotation.z = side * -.15; }
+        if (g.carrier === 'boat') {
+          const deck = box(root, p.trim, 0, .25, -.12, base.x * 1.5, .1, base.z * 1.45); deck.name = 'boat-deck';
+          for (const side of [-1, 1]) {
+            box(root, p.shell, side * base.x * .77, .38, -.18, .1, .25, base.z * 1.25);
+            for (const z of [-.95, .7]) box(root, p.metal, side * base.x * .78, .55, z, .06, .25, .06);
+            box(root, p.metal, side * base.x * .78, .68, -.12, .06, .06, 1.72);
+          }
+          box(root, p.shell, 0, .4, -base.z * .75, base.x * 1.5, .24, .1);
+        }
       } else {
         root.position.copy(surface(THREE.MathUtils.clamp(part.axial, -.93, .93), angle, dimensions)); root.rotation.z = -angle;
+        if (part.kind === 'propeller') {root.position.set(0,-.16,-dimensions.z);root.rotation.z=0;}
         attachment(root, part, dimensions, p, motions);
       }
     }
   }
-  model.userData.visual = visual; model.userData.motions = motions; model.userData.ownedMaterials = owned; model.userData.vehicleStats = vehicleStats(g);
+  model.userData.visual = visual; model.userData.motions = motions; model.userData.ownedMaterials = owned; model.userData.vehicleStats = vehicleStats(g); model.userData.carrier = g.carrier;
   animateMachine(model, 0, 0, false); model.updateMatrixWorld(true);
   const bounds = new THREE.Box3().setFromObject(model);
   if (bounds.isEmpty()) bounds.set(new THREE.Vector3(), new THREE.Vector3());
@@ -156,9 +177,11 @@ export function createMachine(g: VehicleBlueprint): THREE.Group {
 
 export function animateMachine(model: THREE.Group, time: number, speed: number, active: boolean): void {
   const clock = Number.isFinite(time) ? time : 0, movement = Number.isFinite(speed) ? THREE.MathUtils.clamp(speed, -40, 40) : 0;
+  if(model.userData.carrier==='boat') (model.userData.visual as THREE.Group).rotation.x=active&&movement!==0?Math.sin(clock*2)*.025:0;
   for (const motion of (model.userData.motions ?? []) as Motion[]) {
     const node = motion.node;
     if (motion.kind === 'rotor') node.rotation.y = clock * (6 + Math.abs(movement) * 2);
+    else if (motion.kind === 'propeller') node.rotation.z = active ? clock * movement * 4 : 0;
     else if (motion.kind === 'drill') node.rotation.z = active ? clock * 14 : 0;
     else if (motion.kind === 'wheel') node.rotation.x = clock * movement * 3;
     else if (motion.kind === 'tread') {

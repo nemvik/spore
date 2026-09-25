@@ -6,6 +6,10 @@ export type VehiclePartId='hull'|'cabin'|'tracks'|'rotor'|'drill'|'seeder'|'cann
 export type VehicleCategory='structure'|'drive'|'module'|'armor';
 export interface VehiclePart extends Omit<Part,'kind'|'limb'> {kind:VehiclePartId;}
 export interface VehicleBlueprint {version:1;kind:'vehicle';carrier:Carrier;name:string;length:number;width:number;hue:number;pattern:number;parts:VehiclePart[];}
+export type SeaPartId='hull'|'cabin'|'propeller';
+export interface SeaPart extends Omit<VehiclePart,'kind'> {kind:SeaPartId;}
+export interface SeaBlueprint extends Omit<VehicleBlueprint,'version'|'carrier'|'parts'> {version:2;carrier:'boat';parts:SeaPart[];}
+export type VehicleConstruction=VehicleBlueprint|SeaBlueprint;
 export type OrganismBlueprint=Genome&{kind:'organism'};
 export type Blueprint=OrganismBlueprint|VehicleBlueprint;
 export type BlueprintPart=Part|VehiclePart;
@@ -17,7 +21,23 @@ export const VEHICLE_PARTS:readonly VehiclePartSpec[]=[
   part('drill','module',16,4,5,7,1,['tank']),part('seeder','module',14,2,3,6,1,['air']),
   part('cannon','module',20,5,6,11),part('broadcast','module',14,2,3,6),part('armor','armor',10,4,35,0,3),
 ];
-export const vehiclePart=(id:VehiclePartId):VehiclePartSpec=>VEHICLE_PARTS.find(p=>p.id===id)!;
+export interface SeaPartSpec extends Omit<VehiclePartSpec,'id'|'carriers'> {id:SeaPartId;carriers:readonly ['boat'];}
+/** Separate catalogue keeps the historical v1 editor and saved-design validator unchanged. */
+export const SEA_PARTS:readonly SeaPartSpec[]=[
+  ...VEHICLE_PARTS.filter(p=>p.id==='hull'||p.id==='cabin').map(p=>({...p,id:p.id as SeaPartId,carriers:['boat'] as const})),
+  {id:'propeller',category:'drive',cost:32,mass:3,durability:10,power:0,max:1,carriers:['boat'],...C.parts.propeller},
+];
+export function vehiclePart(id:VehiclePartId):VehiclePartSpec;
+export function vehiclePart(id:VehiclePartId|SeaPartId):VehiclePartSpec|SeaPartSpec;
+export function vehiclePart(id:VehiclePartId|SeaPartId):VehiclePartSpec|SeaPartSpec {return VEHICLE_PARTS.find(p=>p.id===id)??SEA_PARTS.find(p=>p.id===id)!;}
+/** First paid maritime construction is fixed; it is not an editor or library entry. */
+export function seaBlueprint():SeaBlueprint {
+  return {version:2,kind:'vehicle',carrier:'boat',name:'Expediční člun',length:1,width:1,hue:40,pattern:0,parts:[
+    {id:'sea-hull',kind:'hull',axial:0,angle:0,scale:1,mirrored:false},
+    {id:'sea-cabin',kind:'cabin',axial:.2,angle:0,scale:1,mirrored:false},
+    {id:'sea-propeller',kind:'propeller',axial:-1,angle:Math.PI,scale:1,mirrored:false},
+  ]};
+}
 export const fromGenome=(genome:Genome):OrganismBlueprint=>({...structuredClone(genome),kind:'organism'});
 /** Preserve the exact genome discriminant and every nested body field. */
 export const toGenome = (g: OrganismBlueprint): Genome => {
@@ -37,19 +57,31 @@ export function initialVehicle(carrier:Carrier,archetype:'restoration'|'predator
   return {version:1,kind:'vehicle',carrier,name:carrier==='tank'?'První pozemní stroj':'První létající stroj',length:1,width:1,hue:40,pattern:0,
     parts:ids.map((kind,i)=>({id:`vehicle-${kind}`,kind,axial:kind==='cabin'?.35:kind===module?.75:0,angle:kind==='tracks'?Math.PI:0,scale:1,mirrored:false}))};
 }
-export function vehicleStats(g:VehicleBlueprint){
+export function vehicleStats(g:VehicleConstruction){
   let mass=Math.abs(g.length*g.width)*2,durability=0,power=0;let module:VehiclePartId|null=null;
-  for(const p of g.parts){const spec=vehiclePart(p.kind);if(!spec)continue;const factor=p.scale*(p.mirrored?1.6:1);mass+=spec.mass*factor;durability+=spec.durability*factor;if(spec.category==='module'){module=p.kind;power+=spec.power*factor;}}
+  for(const p of g.parts){const spec=vehiclePart(p.kind);if(!spec)continue;const factor=p.scale*(p.mirrored?1.6:1);mass+=spec.mass*factor;durability+=spec.durability*factor;if(spec.category==='module'&&p.kind!=='propeller'){module=p.kind;power+=spec.power*factor;}}
   durability*=.7+.3*g.length*g.width;
-  const capacity=g.carrier==='tank'?48:24,drive=g.parts.find(p=>p.kind===(g.carrier==='tank'?'tracks':'rotor'));
-  const speed=drive?Math.max(1.5,(g.carrier==='tank'?5.2:10.5)*drive.scale/(.6+mass/32)):0;
+  const capacity=g.carrier==='tank'?48:24,drive=g.parts.find(p=>p.kind===(g.carrier==='tank'?'tracks':g.carrier==='boat'?'propeller':'rotor'));
+  const speed=drive?Math.max(1.5,(g.carrier==='tank'?5.2:g.carrier==='boat'?6:10.5)*drive.scale/(.6+mass/32)):0;
   return {mass,durability:Math.round(durability),power,speed,capacity,module};
 }
-export function vehicleCost(g:VehicleBlueprint):number {
+export function vehicleCost(g:VehicleConstruction):number {
   return Math.ceil(g.parts.reduce((sum,p)=>sum+(vehiclePart(p.kind)?.cost??0)*p.scale*(p.mirrored?1.6:1),0)+Math.abs(g.length-1)*16+Math.abs(g.width-1)*12-1e-8);
 }
 function exact(value:unknown,keys:readonly string[]):value is Record<string,unknown>{return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(k=>Object.hasOwn(value,k));}
 const finite=(n:unknown,min:number,max:number)=>typeof n==='number'&&Number.isFinite(n)&&n>=min&&n<=max;
+/** v2 currently admits exactly the first construction, including attachment identities. */
+export function validateSeaBlueprint(value:unknown):string[]{
+  const expected=seaBlueprint();
+  if(!exact(value,Object.keys(expected)))return [C.shape];
+  for(const key of ['version','kind','carrier','name','length','width','hue','pattern'] as const)if(value[key]!==expected[key])return [C.seaConstruction];
+  if(!Array.isArray(value.parts)||value.parts.length!==expected.parts.length)return [C.attachments];
+  for(let i=0;i<expected.parts.length;i++){
+    const p=value.parts[i],canonical=expected.parts[i];
+    if(!exact(p,Object.keys(canonical))||Object.keys(canonical).some(key=>p[key]!==canonical[key as keyof SeaPart]))return [C.attachments];
+  }
+  return [];
+}
 /** Validates saved designs without depending on current funds or unlock UI. */
 export function validateVehicle(value:unknown):string[]{
   if(!exact(value,['version','kind','carrier','name','length','width','hue','pattern','parts'])||value.version!==1||value.kind!=='vehicle'||!['tank','air'].includes(value.carrier as string))return [C.shape];

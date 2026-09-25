@@ -91,3 +91,12 @@ without historical rites, income, relationships or units. The source and all
 older active exports remain untouched.
 
 SHA-256: `ef18ee498054528ab141fd3a69acde110d007fc6188a2e348862f8bbc34b6386`.
+
+## SP-009.H conversion compatibility input
+
+`sp-009h-conversion.save.json` is byte-identical to the actual H production export
+`evidence/sp-009h/browser/active-campaign.save.json` at `907dd49fd`.
+SHA-256: `c2f0d211d71661671114f23bf8dc694124558bddac2763ddfbcd2d42ab3c88d4`.
+Home amber 50.70500000006726, B1 springs 1.8/s, all five cities owned by lineage.
+Svaz accounts 0/203 and Liga 40/0 are frozen; no ship or naval history exists.
+The original and all older active saves remain untouched.

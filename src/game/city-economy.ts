@@ -1,3 +1,4 @@
+import { atSea } from './maritime';
 import { cityCommandRevision } from './defense';
 import { defaultBuildingAppearance, validateBuildingAppearance, appearanceName, type BuildingAppearance } from './building-design';
 import type { GameState } from './types';
@@ -66,7 +67,7 @@ export function cityEconomyPreview(city:City) {
 
 export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:number):{ok:boolean;reason:string;cost:number} {
   const reject=(reason:string)=>({ok:false,reason,cost:0});
-  if(!s.cities||s.cities.version<2||!s.cities.entries.includes(city)||!cityProgression(s)||s.deathReason||s.player.health<=0
+  if(atSea(s)||!s.cities||s.cities.version<2||!s.cities.entries.includes(city)||!cityProgression(s)||s.deathReason||s.player.health<=0
     ||navigation(s)?.mode!=='local'||activeField(s)?.id!==city.address.locationId||city.owner.kind!=='lineage'||city.owner.id!==s.homePlanet?.id) return reject('Akci proveď při hraní ve vlastním místním městě.');
   const e=city.economy;
   if(revision!==cityCommandRevision(city))return reject('Toto potvrzení už bylo použité nebo se město změnilo. Vyber akci znovu.');

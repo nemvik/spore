@@ -1,3 +1,4 @@
+import { atSea } from './maritime';
 import type { GameState, Vec3 } from './types';
 import { cityAt, cityGuard, cityProgression, type City } from './cities';
 import { cityCommandRevision, raids, TRANSFER_LIMIT } from './defense';
@@ -53,7 +54,7 @@ export function conversionQuote(s:GameState,c:City|null=cityAt(s),cost=CONVERSIO
   if(!r||!m)return deny('Chybí vlastník nebo domácí účet.');
   const situation:ConversionSituation={cities:stateCities(s,r).length,reserve:r.reserve,tradeReserve:r.tradeReserve!,residents:c.economy?.residents.length??0,food:c.economy?.food??0,guard:cityGuard(c)?.health??0,fortification:c.fortification!};
   const token:ConversionToken={cityId:c.id,ownerId:r.id,epoch:c.transfers!.length,events:c.conversion!.events.length,revision:cityCommandRevision(c),situation};
-  if(s.stage!==4||!cityProgression(s)||s.deathReason||s.player.health<=0)return deny('Obřady vyžadují živou linii v dosažené strojové etapě.',token);
+  if(atSea(s)||s.stage!==4||!cityProgression(s)||s.deathReason||s.player.health<=0)return deny('Obřady vyžadují živou linii v dosažené strojové etapě.',token);
   if(navigation(s)?.mode!=='local'||activeField(s)?.id!==c.address.locationId)return deny('Přerušeno mimo místní návštěvu cíle. Pečeti zůstávají do změny vlastníka.',token);
   if(!m.springs.some(p=>p.owner==='player')||!landRoute(s,c))return deny('Potřebuješ vlastní původní pramen a pevninskou cestu od domova.',token);
   if(situation.residents===0)return deny('Bez civilních obyvatel nelze svolat konverzní shromáždění.',token);

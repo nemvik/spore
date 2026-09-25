@@ -1,3 +1,4 @@
+import { atSea } from './maritime';
 import { obstacleSegmentEntry } from './obstacle-geometry';
 import type { ActiveMachineState, MachineRegion, MachineUnit } from './era-types';
 import type { GameState, Vec3, World } from './types';
@@ -23,7 +24,7 @@ export function minimumMachineCost():number {return Math.min(...(['restoration',
  * a still-living fleet when no ground carrier can be financed. */
 export function machineEconomyStranded(s:GameState):boolean {const m=activeMachines(s);return s.stage===4&&!!m&&machineIncome(m)===0&&m.resource<minimumMachineCost()&&!m.fleet.some(u=>u.health>0&&machineDesign(m,u).carrier==='tank');}
 const fail=(message:string):TribeAction=>({ok:false,message});
-const playable=(s:GameState)=>s.stage===4&&!s.deathReason&&!s.military?.deployment?activeMachines(s):null;
+const playable=(s:GameState)=>s.stage===4&&!atSea(s)&&!s.deathReason&&!s.military?.deployment?activeMachines(s):null;
 
 /** Once-only stage construction; the inherited coast receives a real closed
  * cliff ring. It is ordinary saved collision geometry, not an AI-only veto. */

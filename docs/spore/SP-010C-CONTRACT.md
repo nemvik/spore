@@ -80,3 +80,15 @@ samostatným příkazem. Běžná návštěva C dál žádné jednotky nepřená
 má uloženou pevninskou trasu, cestovní fázi a čas; do cíle dorazí tentýž tank se
 stejným zdravím. Mimo aktivní cílový detail stojí i nasazení. Odchod resetuje pouze
 rozehrané obsazování; globál je pauza. Ostatní původní domovské systémy a B1 zůstávají.
+
+## Navazující SP-009.I · explicitní námořní přístup
+
+Volitelné `maritime` v1 ([smlouva I](SP-009I-CONTRACT.md)) ve strojové etapě
+omezuje nové přechody mezi oddělenými pevninami na placený člun a skutečnou
+vodní trasu. Původní Navigation v1 ani generátory se nepřepisují. Migrační
+seznam zachová pouze už existující historické detaily v každé větvi zvlášť,
+bez lodí a minulých plaveb. Na moři zůstává uložená místní adresa u výchozího
+pobřeží jako zmrazený odkaz; žádný místní svět se nesimuluje. Teprve výslovné
+přistání změní adresu a návštěvu. Místní akce a přímé přechody jsou během
+plavby odmítnuté, atlas čas pozastaví. Samotná návštěva nového zámořského
+místa nezakládá trvalý bezplatný přístup přes původní výběr C.

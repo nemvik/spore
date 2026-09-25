@@ -61,3 +61,13 @@
 .atlas-legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;margin:12px 0}.atlas-legend span{display:flex;align-items:center;gap:6px}.atlas-legend i{width:14px;height:14px;border:1px solid #ffffff66;border-radius:3px}
 .habitat-overview{display:grid;grid-template-columns:180px 1fr;gap:20px;align-items:center;margin:18px 0}.habitat-inset{display:block;width:180px;border:1px solid #aecbbd55;border-radius:8px}.habitat-list{margin:0;padding-left:22px;font-size:13px}.habitat-list li{padding:5px 8px;line-height:1.5}.habitat-list li[aria-current]{background:#bcd8a617;border-left:2px solid var(--gold);border-radius:3px}.habitat-list span{display:block;font-size:12px;color:var(--muted)}.habitat-overview p{margin-bottom:4px}.atlas-details{font-size:13px;border-top:1px solid var(--line);padding:12px 0}.atlas-details summary{cursor:pointer;color:var(--gold)}.atlas-details p{margin:10px 0}.home-planet .atlas-origin{margin-bottom:8px}
 @media(max-width:650px){.habitat-overview{grid-template-columns:1fr;gap:10px}.habitat-inset{width:160px}.atlas-legend{gap:8px}.home-planet h3{font-size:22px}}
+
+/* SP-009.I uses the existing scrollable expedition layout. */
+.sea-panel { position:absolute; left:18px; top:92px; bottom:66px; width:310px; overflow:auto; padding:20px; pointer-events:auto; }
+.sea-map { width:100%; max-height:150px; display:block; border-radius:8px; }
+.sea-route { overflow-wrap:anywhere; font-size:12px; }
+.sea-confirm { padding:12px; border:1px solid #d6b86e; border-radius:10px; margin:12px 0; }
+#sea-panel { margin-top:20px; border-top:1px solid #718c7d; padding-top:12px; }
+#sea-panel button,.sea-panel button { margin:4px 4px 4px 0; }
+.sea-panel progress { width:100%; }
+@media(max-width:1100px){.sea-panel{width:285px;left:12px;top:85px;padding:15px;}}

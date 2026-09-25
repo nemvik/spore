@@ -1,3 +1,4 @@
+import { maritimeLandReason, homeCoast, atSea } from './maritime';
 import { cityPositionClear } from './city-spatial';
 import type { GameState, Input, Vec3, World } from './types';
 import { enableHomePlanet, locationId, resolveLocationAddress, type LocationAddress } from './home-planet';
@@ -57,6 +58,7 @@ export function travelAvailability(s: GameState, cellId: number): { available: b
   else if (s.stage < 2) reason = 'Výpravy se otevřou po skutečném přechodu na souš v etapě tvora.';
   else if (cell.surface !== 'land') reason = 'Vodní lokalita vyžaduje budoucí námořní cestování.';
   else if (atlas!.anchors.some(a => a.cellId === cellId)) reason = 'Domovský habitat: použij Návrat domů. Etapy mění pouze původní postup.';
+  else if (maritimeLandReason(s, cellId)) reason = maritimeLandReason(s, cellId)!;
   else if (!activeField(s) && s.stage === 2 && s.journey.cargo) reason = 'Nejprve odevzdej nesený ekologický náklad.';
   else if (!activeField(s) && s.stage === 2 && Math.hypot(s.player.pos.x - campaignWorld(s).landmarks[0].pos.x, s.player.pos.z - campaignWorld(s).landmarks[0].pos.z) >= 11) reason = 'Výpravu zahaj u vlastního hnízda (do 11 místních jednotek).';
   else if (!nav.fields.some(f => f.cellId === cellId) && nav.fields.length >= FIELD_LIMIT) reason = 'Uloženo 64 míst. Další výpravy zatím nejsou dostupné; navštívená místa zůstávají přístupná.';
@@ -81,6 +83,7 @@ export function enterField(s: GameState, cellId: number): boolean {
 }
 export function returnHome(s: GameState): void {
   const nav = navigation(s); if (!nav || !s.homePlanet) return;
+  const blocked = maritimeLandReason(s, homeCoast(s)); if(blocked){nav.notice=blocked;return;}
   const travelled = !!activeField(s);
   if(s.military?.deployment)s.military.deployment.hold=0;
   for(const r of s.military?.raids??[]){r.hold=0;if(r.phase==='occupying')r.phase='field';}
@@ -94,7 +97,7 @@ export function fieldSurvey(s: GameState): { index: number; distance: number; do
 }
 export function surveyField(s: GameState): boolean {
   const nav = navigation(s), field = activeField(s), target = fieldSurvey(s);
-  if (!nav || !field || nav.mode !== 'local' || !target || s.deathReason || s.player.health <= 0) return false;
+  if (atSea(s) || !nav || !field || nav.mode !== 'local' || !target || s.deathReason || s.player.health <= 0) return false;
   if (target.distance > 3) { nav.notice = 'Přibliž se ke stanovišti na 3 místní jednotky a stiskni E.'; return false; }
   if (target.done) { nav.notice = 'Toto měření už je uložené. Vyhledej další stanoviště.'; return false; }
   field.world.patches[target.index].discovered = true; field.world.landmarks[target.index + 2].charge = 1;
