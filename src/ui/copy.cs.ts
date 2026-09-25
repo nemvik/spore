@@ -45,6 +45,8 @@ export const COPY = {
   heroCaption: "Jedno tělo. Tisíc možností.",
   menuGenre: "Originální evoluční odysea · 6 kapitol",
   localDevice: "Klávesnice + myš · ukládáno na tomto zařízení",
+  supportDevelopment: "Podpořit vývoj",
+  supportDevelopmentHint: "Dobrovolně přispět přes Buy Me a Coffee (otevře se v nové kartě)",
   importLineage: "IMPORT LINIE ↗",
   journalShortcut: "Deník cesty (J)",
   saveLineage: "Uložit linii",
