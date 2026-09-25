@@ -90,3 +90,12 @@ Historické fixtures včetně skutečného pokračování C zůstávají byte-id
 Nezasahuje do jednotek, organismu, knihovny budov, historie/B1, původního
 postupu ani SP-007.B2/D. Dobývání, obchodní převzetí, konverze, obrana, lodě,
 moře a vesmír nejsou implementovány; celé mateřské karty zůstávají otevřené.
+
+## Navazující SP-009.E · 25. 9. 2026
+
+[Smlouva E v1](SP-009E-CONTRACT.md) výslovně migruje na registry měst v5/států v2.
+`foundingOwner` zachovává doložený původ; `owner` se smí změnit jen skutečným
+vojenským výsledkem s uloženým dokladem. Obrana je nový budoucí nákup z původní
+konečné rezervy. Staré transakce se kontrolují proti původním městům a snapshotu
+hospodářství při převzetí; pozdější hráčská správa je nepřepisuje. Zde popsaná v4/v1
+zůstává historickým vstupem bez domyšlené války. Poražený stát nezakládá další města.

@@ -1,5 +1,6 @@
+import { obstacleSegmentEntry } from './obstacle-geometry';
 import type { ActiveMachineState, MachineRegion, MachineUnit } from './era-types';
-import type { GameState, Vec3 } from './types';
+import type { GameState, Vec3, World } from './types';
 import type { UnitOrder, UnitTarget } from './unit-order';
 import type { VehicleBlueprint } from './blueprint';
 import { initialVehicle, quoteVehicle, vehicleCost, vehicleStats } from './blueprint';
@@ -22,7 +23,7 @@ export function minimumMachineCost():number {return Math.min(...(['restoration',
  * a still-living fleet when no ground carrier can be financed. */
 export function machineEconomyStranded(s:GameState):boolean {const m=activeMachines(s);return s.stage===4&&!!m&&machineIncome(m)===0&&m.resource<minimumMachineCost()&&!m.fleet.some(u=>u.health>0&&machineDesign(m,u).carrier==='tank');}
 const fail=(message:string):TribeAction=>({ok:false,message});
-const playable=(s:GameState)=>s.stage===4&&!s.deathReason?activeMachines(s):null;
+const playable=(s:GameState)=>s.stage===4&&!s.deathReason&&!s.military?.deployment?activeMachines(s):null;
 
 /** Once-only stage construction; the inherited coast receives a real closed
  * cliff ring. It is ordinary saved collision geometry, not an AI-only veto. */
@@ -97,9 +98,15 @@ function fly(unit:MachineUnit,target:Vec3,speed:number,dt:number,stop:number):bo
   const gap=horizontalDistance(unit.pos,target);unit.pos.y=groundHeight(unit.pos.x,unit.pos.z,2)+15;if(gap<=stop)return true;
   const travel=Math.min(gap-stop,speed*dt),dx=target.x-unit.pos.x,dz=target.z-unit.pos.z;unit.pos.x+=dx/gap*travel;unit.pos.z+=dz/gap*travel;unit.heading=Math.atan2(dx,dz);return gap-travel<=stop+.05;
 }
+export function machineStrike(attacker:{cooldown:number},target:{health:number},power:number):boolean {if(attacker.cooldown!==0)return false;target.health=Math.max(0,target.health-power*2);attacker.cooldown=1.2;return true;}
+export function machineShot(world:World,attacker:{pos:Vec3;cooldown:number},target:{pos:Vec3;health:number},power:number,range:number):boolean {
+  const a={...attacker.pos,y:attacker.pos.y+1},b={...target.pos,y:target.pos.y+1};
+  if(horizontalDistance(a,b)>range||world.obstacles.some(o=>obstacleSegmentEntry(a,b,o)!==null))return false;
+  machineStrike(attacker,target,power);return true;
+}
 export function stepMachines(s:GameState,dt:number):string[]{
   const m=activeMachines(s);if(!m)return [];const messages:string[]=[],home=machineHome(s);m.elapsed+=dt;m.resource=Math.min(1e9,m.resource+effectiveMachineIncome(s)*dt);
-  const units=[...m.fleet].sort((a,b)=>a.id-b.id),frozen=units.map(u=>({id:u.id,pos:{...u.pos}}));
+  const units=m.fleet.filter(u=>u.id!==s.military?.deployment?.unitId).sort((a,b)=>a.id-b.id),frozen=units.map(u=>({id:u.id,pos:{...u.pos}}));
   for(const u of units){if(u.health<=0)continue;const g=machineDesign(m,u),stats=vehicleStats(g);u.cooldown=Math.max(0,u.cooldown-dt);
     const travel=(pos:Vec3,stop=3)=>g.carrier==='air'?fly(u,pos,stats.speed,dt,stop):moveUnit(s.world,u,pos,frozen,stats.speed,dt,stop,1.1);
     const order=u.orders[0],target=order?.target;const finish=()=>{u.orders.shift();u.navigation.rethink=0;u.intent='rest';};
@@ -124,7 +131,7 @@ export function stepMachines(s:GameState,dt:number):string[]{
       if(region.soil>=100&&u.cargo>0){u.cargo=0;region.settlers=Math.min(2,region.settlers+1);}
       if(region.settlers>=2)region.owner='player';
     }else if(m.archetype==='predator'){
-      region.alarm=12;if(u.cooldown===0){region.health=Math.max(0,region.health-power*2);region.soil=Math.max(0,region.soil-2);u.cooldown=1.2;}
+      region.alarm=12;if(machineStrike(u,region,power))region.soil=Math.max(0,region.soil-2);
       if(region.health===0)region.owner='player';
     }else{
       region.relation=Math.min(100,region.relation+power*dt*.65);

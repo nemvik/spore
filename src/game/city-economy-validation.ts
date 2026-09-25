@@ -16,9 +16,10 @@ const integer=(v:unknown,max=CITY_LEDGER_LIMIT,min=0)=>check(typeof v==='number'
 export function validateCityEconomy(s:GameState,c:City):void {
   const raw=c.economy;if(raw===null)return;
   const row=shape(raw,['version','opened','revision','nextId','elapsed','cycle','treasury','food','buildings','residents','ledger','last']);
-  check(row.version===(c.owner.kind==='state'?3:s.cities!.version>=3?2:1));
-  const opened=shape(row.opened,['source','tick','transferredAmber',...(c.owner.kind==='state'?['transactionId']:[])]);
-  check(opened.source===(c.owner.kind==='state'?'state':'player')&&opened.transferredAmber===80);integer(opened.tick,s.tick,c.founded.tick);
+  const stateOrigin=s.cities!.version===5?(c.capture?.economy?c.foundingOwner!.kind==='state':c.capture?false:c.foundingOwner!.kind==='state'):c.owner.kind==='state';
+  check(row.version===(stateOrigin?3:s.cities!.version>=3?2:1));
+  const opened=shape(row.opened,['source','tick','transferredAmber',...(stateOrigin?['transactionId']:[])]);
+  check(opened.source===(stateOrigin?'state':'player')&&opened.transferredAmber===80);integer(opened.tick,s.tick,c.founded.tick);
   integer(row.revision,1e9,1);integer(row.nextId,1e9,1);integer(row.cycle,CITY_CYCLE_LIMIT);
   check(typeof row.elapsed==='number'&&Number.isFinite(row.elapsed)&&row.elapsed>=0&&row.elapsed<10);
   integer(row.treasury);integer(row.food,CITY_FOOD_CAPACITY);
@@ -62,7 +63,7 @@ export function validateCityEconomy(s:GameState,c:City):void {
 export function cityEconomyCheckpointMatches(live:City,cp:City):boolean {
   const a=live.economy,b=cp.economy;
   if(!b)return true;
-  if(!a||a.opened.tick!==b.opened.tick||a.cycle<b.cycle||a.revision<b.revision||a.nextId<b.nextId)return false;
+  if(!a||JSON.stringify([a.opened.source,a.opened.tick,a.opened.transferredAmber,'transactionId' in a.opened?a.opened.transactionId:null])!==JSON.stringify([b.opened.source,b.opened.tick,b.opened.transferredAmber,'transactionId' in b.opened?b.opened.transactionId:null])||a.cycle<b.cycle||a.revision<b.revision||a.nextId<b.nextId)return false;
   if(a.cycle===b.cycle&&a.elapsed+1e-7<b.elapsed)return false;
   if(Object.keys(b.ledger).some(k=>a.ledger[k as keyof typeof a.ledger]<b.ledger[k as keyof typeof b.ledger]))return false;
   if(b.residents.some(r=>!a.residents.some(v=>v.id===r.id&&v.cycle===r.cycle)))return false;

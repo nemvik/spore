@@ -53,3 +53,14 @@ C migrates only the appearance schema: exact default B models, no authored
 creations/library rows, purchases, history or time. Source remains untouched.
 
 SHA-256: `bb6520f3949acb30e7c33974169cab753b09d80ed5989d7797d0ac355688e71c`.
+
+## SP-009.D state compatibility input
+
+`sp-009d-states.save.json` is the byte-identical actual D production export from
+`evidence/sp-009d/browser/active-campaign.save.json`, commit `eb3c05025`.
+It contains two independently financed rival states, four real state cities,
+played local economy and visits, and the unchanged earlier checkpoint. E migrates
+only explicit new schemas; no historical defenses, combat, purchases or captures.
+The original D export and older active B/C saves remain untouched.
+
+SHA-256: `e7e6329b53e4d9688a084207b1cbd74add0b2cfec9d20569d860969560fe3bbf`.

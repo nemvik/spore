@@ -90,7 +90,7 @@ export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:nu
   } else if(order.kind==='build') {
     if(!isBuildingKind(order.building))return reject('Neznámý druh provozu.');
     if(e.buildings.length>=CITY_BUILDING_LIMIT)return reject('Město má nejvýše 16 budov; lze zbourat nepotřebný provoz.');
-    if(order.appearance){try{validateBuildingAppearance(order.appearance,order.building);}catch(error){return reject((error as Error).message);}if(e.version!==2)return reject('Nejprve aktivuj novou verzi měst načtením kampaně.');}
+    if(order.appearance){try{validateBuildingAppearance(order.appearance,order.building);}catch(error){return reject((error as Error).message);}if(e.version<2)return reject('Nejprve aktivuj novou verzi měst načtením kampaně.');}
     const site=buildingSite(s,city,order.lot,order.building);
     if(site)return reject(site);
     cost=CITY_BUILDINGS[order.building].cost;reason=`Postavit ${CITY_BUILDINGS[order.building].name} na parcele ${order.lot+1} za ${cost} jantaru. Údržba ${CITY_BUILDINGS[order.building].upkeep} / cyklus. Vzhled: ${appearanceName(order.appearance)}. Vzhled nemění cenu ani účinky.`;
@@ -98,7 +98,7 @@ export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:nu
     const b=e.buildings.find(b=>b.id===order.id);
     if(!b)return reject('Tato stavba už neexistuje.');
     if(order.kind==='appearance') {
-      if(e.version!==2)return reject('Vzhled vyžaduje novou verzi měst.');
+      if(e.version<2)return reject('Vzhled vyžaduje novou verzi měst.');
       try{validateBuildingAppearance(order.appearance,b.kind);}catch(error){return reject((error as Error).message);}
       if(JSON.stringify(b.appearance)===JSON.stringify(order.appearance))return reject('Budova už tento vzhled má.');
       reason=`Změnit pouze vzhled ${CITY_BUILDINGS[b.kind].name} na parcele ${b.lot+1}: ${appearanceName(order.appearance)}. Cena 0 jantaru; typ, kapacita, produkce, údržba a čas zůstávají.`;
@@ -128,7 +128,7 @@ export function applyCityOrder(s:GameState,cityId:string,order:CityOrder,revisio
   } else {
     const e=city.economy!;
     if(order.kind==='fund'){s.machines!.resource-=20;e.treasury+=20;e.ledger.transfers+=20;}
-    else if(order.kind==='build'){e.treasury-=q.cost;e.ledger.construction+=q.cost;e.buildings.push({id:e.nextId++,kind:order.building,lot:order.lot,enabled:true,paidAmber:q.cost,...(e.version===2?{appearance:structuredClone(order.appearance??defaultBuildingAppearance())}:{})});}
+    else if(order.kind==='build'){e.treasury-=q.cost;e.ledger.construction+=q.cost;e.buildings.push({id:e.nextId++,kind:order.building,lot:order.lot,enabled:true,paidAmber:q.cost,...(e.version>=2?{appearance:structuredClone(order.appearance??defaultBuildingAppearance())}:{})});}
     else if(order.kind==='invite'){e.treasury-=q.cost;e.ledger.immigration+=q.cost;e.food+=4;for(let i=0;i<2;i++)e.residents.push({id:e.nextId++,source:'invited',cycle:e.cycle,paidAmber:4});}
     else if(order.kind==='supplies'){e.treasury-=q.cost;e.ledger.supplies+=q.cost;e.food+=20;}
     else if(order.kind==='enable')e.buildings.find(b=>b.id===order.id)!.enabled=order.enabled;

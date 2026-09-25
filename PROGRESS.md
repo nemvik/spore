@@ -2,6 +2,21 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-009.E · první vojenská cesta · 2026-09-25
+
+- **E hotovo v omezeném rozsahu smlouvy** nad čistým `eb3c050250e848bf7ca7becae16584b690086065`, bez commitu/pushe/deploye. [Plán před kódem](docs/superpowers/plans/2026-09-25-sp-009e-military.md), [smlouva v1](docs/spore/SP-009E-CONTRACT.md), [report v1](docs/spore/SP-009E-REPORT.md).
+- Jediný původní placený tank, explicitní pevninská přeprava, skutečný oboustranný boj se zaplacenou stráží a přerušitelné 5s obsazení. CityRegistry v5 / States v2 / Military v1, původ oddělený od vlastníka, atomický doklad se snapshotem hospodářství; historie, konečné finance a B/C/D časy zachované. Migrace live/checkpoint před rekey nevymýšlí minulost.
+- D export přidán byte-identicky jako `tests/fixtures/geography/sp-009d-states.save.json`, SHA `e7e6329b53e4d9688a084207b1cbd74add0b2cfec9d20569d860969560fe3bbf`. Všech 29 původních tracked fixtures porovnáno s HEAD bez změny; aktivní B/C/D nedotčené.
+- Úplná sada **150 souborů / 3 072 testů**, 91,75 s. Po poslední opravě UI/renderu finálních **29/29 vojenských regresí**, typecheck/build/diff-check. Nový renderer test doplněn až po celé sadě; celý běh znovu neopakován. Build `index-CIODeTc_.js` 1 365,16 kB / gzip 424,65 kB, známý chunk warning, bez nových závislostí.
+- Produkční browser **5/5, 0 chyb**: skutečný D vstup, peníze vydělané prameny v reálném čase, tank za 56, stráž za 40; zdraví stráže 62→0 a tanku 88→41,8. Skutečný pohyb/střet, save během boje, odchod/návrat, přerušené obsazení a převzetí, hospodářský příkaz, ústup, rekey/save/load a 20 návratů. Pouze mrtvá checkpointová větev připravená offline z odehraných exportů; žádné živé zápisy či zrychlení.
+- Historický browser **12/12**, původní skill klient s adaptérem skutečného času. Finální snímky boje/převzetí 1024×640, výsledku 1280×720 i historických strojů/sandboxu prohlédnuté. Odezva útoku 34,66 ms; boj p95 16,80 ms; návraty domů p50 48,61 / p95 52,00 ms. Po zahřátí 10→20 stabilních 331 geometrií / 18 programů / 1 294 GPU bufferů, heap 20,06→21,26 MB po GC. Krátký vzorek, nikoli důkaz dlouhodobé stability či GPU času.
+- Nezávislé review `/root/sp009e_review`: pět nálezů opraveno a uzavřeno (překrytí tanku stavbou, původ ekonomiky, obal geometrie, ID vlastníka, výška tanku); dotčené chování znovu ověřeno. Druhé město navíc ověřilo úplný původní navigační graf. Review i vlastní kontrola dokončené.
+- Aktivní save `evidence/sp-009e/browser/active-campaign.save.json`; kompaktní výsledky, finální snímky a úklidový manifest v `evidence/sp-009e/`. Trace/video vypnuté; vlastní pracovní kopie a duplicity uklizené. Disk před 16 GiB, po úklidu přibližně 13 GiB; nemažou se cizí data. Ruční migrace není potřebná.
+- **Otevřeno:** AI invaze/obrana hráče/opakované převzetí a více jednotek, obchod/konverze, knihovna vozidel/lodí, moře/vesmír, SP-007.B2/D a celé SP-005.B/SP-009/SP-010/SP-017. Přesně dále nejprve smlouva obrany hráčova města a protiútoku s konečnými zdroji a ztrátou posledního hráčova města. Lidský playtest/poslech, Safari/mobil a dlouhý soak neprovedeny.
+
+
+- Navazující pokyn uživatele autorizoval commit SP-009.E. Před uložením všech 57 otisků finálního manifestu souhlasilo s ověřenými soubory; HEAD stále `eb3c05025`. Doplněn pouze tento záznam a report, bez změny herního kódu. Push ani deploy nepožadovány.
+
 ## SP-009.D · soupeřící státy · 2026-09-25
 
 - Zadání: skutečné samostatné státy nad C `3dfbfc7c4`, bez commitu/pushe/deploye. [Plán](docs/superpowers/plans/2026-09-25-sp-009d-states.md) a [smlouva v1](docs/spore/SP-009D-CONTRACT.md) sepsány před kódem; použit develop-web-game.

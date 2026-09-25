@@ -1,3 +1,4 @@
+import { enableMilitary, stepMilitary } from './military';
 import { enableStates, stepStates } from './states';
 import { enableCities } from './cities';
 import { stepCityEconomy } from './city-economy';
@@ -72,7 +73,7 @@ export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution
 }
 export function makeCheckpoint(s:GameState) { syncHomePlanet(s);if(!activeField(s))observeLineageHistory(s);s.checkpoint=JSON.stringify({...s,checkpoint:null}); }
 export function recoverGeneration(s:GameState):GameState {
- if(!s.checkpoint){const fresh=createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth,!!s.lineageHistory,!!s.homePlanet);if(navigation(s)){enablePlanetTravel(fresh);if(s.states)enableStates(fresh,'birth');else if(s.cities)enableCities(fresh);makeCheckpoint(fresh);}return fresh;}
+ if(!s.checkpoint){const fresh=createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth,!!s.lineageHistory,!!s.homePlanet);if(navigation(s)){enablePlanetTravel(fresh);if(s.military)enableMilitary(fresh,'birth');else if(s.states)enableStates(fresh,'birth');else if(s.cities)enableCities(fresh);makeCheckpoint(fresh);}return fresh;}
  const restored=JSON.parse(s.checkpoint) as GameState; bindActiveWorld(restored);restored.checkpoint=s.checkpoint;restored.deathReason=null;restored.player.invulnerable=10;announce(restored,TEXT.restored);return restored;
 }
 export function nearNest(s:GameState) { return horizontalDistance(s.player.pos,s.world.landmarks.find(l=>l.kind==='nest')!.pos)<11; }
@@ -187,7 +188,7 @@ export function continueToMachinesEra(s:GameState):boolean {
 }
 export function continueToPlanetEra(s:GameState):boolean {
  if(activeField(s)||navigation(s)?.mode==='global')return false;
- const m=activeMachines(s);if(s.stage!==4||s.planet||s.deathReason||!m?.completed||!m.fleet.some(u=>u.health>0))return false;
+ const m=activeMachines(s);if(s.stage!==4||s.planet||s.deathReason||s.military?.deployment||!m?.completed||!m.fleet.some(u=>u.health>0))return false;
  s.planet=createPlanet(s);s.stage=5;
  s.lineage.push({generation:s.player.generation,stage:5,time:s.tick/60,name:s.player.genome.name,parts:s.player.genome.parts.map(p=>p.kind),event:CHAPTERS[5].title});
  announce(s,PLANET_COPY.founded);makeCheckpoint(s);return true;
@@ -349,6 +350,7 @@ function pulse(s: GameState) {
 export function step(s:GameState,input:Input,dt=1/60) {
  if(navigation(s)?.mode==='global')return;
  stepStates(s,dt);
+ stepMilitary(s,dt);
  if(activeField(s)){stepField(s,input,dt);stepCityEconomy(s,dt);return;}
  if(s.deathReason||awaitingOrganismVictory(s))return;
  if(!isOrganismStage(s.stage)){

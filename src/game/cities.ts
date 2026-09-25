@@ -12,13 +12,16 @@ import type { CityEconomy } from './city-economy';
 export interface City {
   id: string;
   name: string;
+  foundingOwner?: {kind:'lineage'|'state';id:string};
+  defense?: import('./military').CityDefense|null;
+  capture?: import('./military').CityCapture|null;
   owner: { kind: 'lineage' | 'state'; id: string };
   address: LocationAddress;
   founded: { source: 'player'; stage: 4 | 5; tick: number; paidAmber: 60; springId: number } | { source:'state'; stage:4|5; tick:number; paidAmber:60; transactionId:string; purpose:'activation'|'expansion' };
   local: { version: 1 }; // Immutable civic square + hall layout from A.
   economy?: CityEconomy | null; // Required in registry v2–v4; absent in historical v1.
 }
-export interface CityRegistry { version: 1 | 2 | 3 | 4; entries: City[]; selectedId: string | null; }
+export interface CityRegistry { version: 1 | 2 | 3 | 4 | 5; entries: City[]; selectedId: string | null; }
 export const CITY_COST = 60;
 export const CITY_RADIUS = 18;
 export const cityId = (locationId: string) => `${locationId}:city`;
@@ -98,6 +101,7 @@ export function foundCity(s: GameState, name: string): boolean {
   const m=activeMachines(s)!, address=status.address!;
   const city: City = {id:cityId(address.locationId),name,owner:{kind:'lineage',id:s.homePlanet!.id},address,
     founded:{source:'player',stage:s.stage as 4|5,tick:s.tick,paidAmber:CITY_COST,springId:m.springs.find(p=>p.owner==='player')!.id},local:{version:1},...(s.cities!.version>=2?{economy:null}:{})};
+  if(s.cities!.version===5){city.foundingOwner={...city.owner};city.defense=null;city.capture=null;}
   // One synchronous commit after every precondition; no grant, refund or World edit.
   m.resource-=CITY_COST; s.cities!.entries.push(city); s.cities!.selectedId=city.id;
   nav.notice=`Založeno město ${name} · zaplaceno ${CITY_COST} jantaru. Identita a adresa jsou uložené v kampani.`;

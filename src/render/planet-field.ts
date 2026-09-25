@@ -1,3 +1,5 @@
+import { MilitaryPresentation } from './military';
+import { activeMachines } from '../game/machines';
 import { ownerColor } from '../game/states';
 import { createBuilding } from './building';
 import { cityAt } from '../game/cities';
@@ -13,7 +15,9 @@ import { biomeStyle } from '../ui/home-planet';
 /** One disposable remote scene, shared WebGL renderer. Inactive fields retain data only. */
 export class PlanetFieldRenderer {
   cityView = false;
-  cameraState(){return {cityView:this.cityView,position:{x:this.camera.position.x,y:this.camera.position.y,z:this.camera.position.z}};}
+  warView = false;
+  private military=new MilitaryPresentation();
+  cameraState(){return {warView:this.warView,cityView:this.cityView,position:{x:this.camera.position.x,y:this.camera.position.y,z:this.camera.position.z}};}
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, .1, 400);
   private identity: unknown = null;
@@ -26,10 +30,10 @@ export class PlanetFieldRenderer {
   private actor: THREE.Group | null = null;
   private markers: THREE.Mesh[] = [];
   private last = new THREE.Vector3();
-  dispose(): void { this.citizens?.dispose();this.citizenHeads?.dispose();disposeObject(this.scene); this.scene.clear(); this.identity = null; this.cityIdentity = null; this.actor = null; this.markers = [];this.cityLayout='';this.lights=[];this.citizens=null;this.citizenHeads=null; }
+  dispose(): void { this.military.dispose(); this.citizens?.dispose();this.citizenHeads?.dispose();disposeObject(this.scene); this.scene.clear(); this.identity = null; this.cityIdentity = null; this.actor = null; this.markers = [];this.cityLayout='';this.lights=[];this.citizens=null;this.citizenHeads=null; }
   render(renderer: THREE.WebGLRenderer, s: GameState, yaw: number, pitch: number, zoom: number): void {
     const field = activeField(s)!; const cell = planetAtlas(s.homePlanet!)!.cells[field.cellId];
-    const current=cityAt(s),layout=JSON.stringify([current?.economy?.buildings.map(b=>[b.id,b.kind,b.lot,b.appearance]),current?.economy?.residents.map(r=>r.id)]);
+    const current=cityAt(s),layout=JSON.stringify([current?.economy?.buildings.map(b=>[b.id,b.kind,b.lot,b.appearance]),current?.economy?.residents.map(r=>r.id),current?.owner]);
     if (this.identity !== field || this.cityIdentity !== current || this.cityLayout!==layout) {
       if(this.identity!==field)this.cityView=false;
       this.dispose(); this.identity = field; this.cityIdentity = current;this.cityLayout=layout;
@@ -77,8 +81,9 @@ export class PlanetFieldRenderer {
         marker.rotation.x = -Math.PI / 2; marker.position.set(patch.center.x, patch.center.y + .3, patch.center.z); this.markers.push(marker); this.scene.add(marker);
         const post = new THREE.Mesh(new THREE.OctahedronGeometry(.8), new THREE.MeshStandardMaterial({ color: '#ffe8a1' })); post.position.set(patch.center.x, patch.center.y + 2, patch.center.z); this.scene.add(post);
       }
-      this.actor = createOrganism(s.player.genome); this.scene.add(this.actor); const p = fieldActorPosition(s)!; this.last.set(p.x,p.y,p.z);
+      this.actor = createOrganism(s.player.genome); this.scene.add(this.actor);this.scene.add(this.military.group); const p = fieldActorPosition(s)!; this.last.set(p.x,p.y,p.z);
     }
+    this.military.update(s);
     const p = fieldActorPosition(s)!;
     this.actor!.position.set(p.x, p.y, p.z); this.actor!.rotation.y = field.heading;
     const moved = this.last.distanceTo(this.actor!.position) > .001; this.last.copy(this.actor!.position);
@@ -101,8 +106,10 @@ export class PlanetFieldRenderer {
     this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix();
     const city=cityAt(s),hall=city&&cityHall(city.address.position);
     const nearCity=city&&(this.cityView||Math.hypot(p.x-city.address.position.x,p.z-city.address.position.z)<24);
-    const focus=this.cityView&&city?{x:city.address.position.x+7,y:city.address.position.y+2,z:city.address.position.z}:nearCity&&hall?{x:(p.x+hall.x)/2,y:p.y+2,z:(p.z+hall.z)/2}:p;
-    const distance = nearCity&&city?.economy?Math.max(25,Math.min(100,65+(zoom-25)*1.6)):Math.max(nearCity?40:18,Math.min(45,zoom));
+    const deployment=s.military?.deployment,unit=deployment&&activeMachines(s)?.fleet.find(u=>u.id===deployment.unitId);
+    const battle=this.warView&&deployment?.cityId===city?.id&&deployment?.phase==='field'&&unit;
+    const focus=battle?unit!.pos:this.cityView&&city?{x:city.address.position.x+7,y:city.address.position.y+2,z:city.address.position.z}:nearCity&&hall?{x:(p.x+hall.x)/2,y:p.y+2,z:(p.z+hall.z)/2}:p;
+    const distance = battle?Math.max(25,zoom*1.5):nearCity&&city?.economy?Math.max(25,Math.min(100,65+(zoom-25)*1.6)):Math.max(nearCity?40:18,Math.min(45,zoom));
     this.camera.position.set(focus.x + Math.sin(yaw) * distance * Math.cos(pitch), focus.y + Math.max(12, distance * Math.sin(pitch)), focus.z + Math.cos(yaw) * distance * Math.cos(pitch));
     this.camera.lookAt(focus.x, focus.y, focus.z); renderer.render(this.scene, this.camera);
   }

@@ -1,3 +1,5 @@
+import { DEFENSE_COST, defenseDesign } from './military';
+import { vehicleStats } from './blueprint';
 import type { GameState } from './types';
 import type { LocationAddress } from './home-planet';
 import { cityId, cityProgression, citySite, enableCities, type City } from './cities';
@@ -14,11 +16,11 @@ export const STATE_PROFILES = [
   {name:'Svaz zelených údolí',color:'#79d4b3',priority:'garden'},
   {name:'Liga měděných věží',color:'#dc9ee5',priority:'workshop'},
 ] as const;
-export type StateAction = {kind:'found';address:LocationAddress} | {kind:'open';cityId:string} | {kind:'fund';cityId:string} | {kind:'build';cityId:string;building:CityBuildingKind;lot:number} | {kind:'invite';cityId:string};
+export type StateAction = {kind:'defend';cityId:string} | {kind:'found';address:LocationAddress} | {kind:'open';cityId:string} | {kind:'fund';cityId:string} | {kind:'build';cityId:string;building:CityBuildingKind;lot:number} | {kind:'invite';cityId:string};
 export interface StateTransaction {id:string;turn:number;action:StateAction;cost:number;account:'reserve'|'city';}
 export interface StateDecision {turn:number;action:StateAction|null;reason:string;outcome:'paid'|'blocked';transactionId:string|null;}
 export interface RivalState {id:string;profile:0|1;endowment:400;reserve:number;last:StateDecision|null;transactions:StateTransaction[];}
-export interface StateRegistry {version:1;origin:'birth'|'legacy-activation';activated:{tick:number;stage:4|5}|null;clock:{version:1;turn:number;elapsed:number};entries:RivalState[];}
+export interface StateRegistry {version:1|2;origin:'birth'|'legacy-activation';activated:{tick:number;stage:4|5}|null;clock:{version:1;turn:number;elapsed:number};entries:RivalState[];}
 export const stateId=(planetId:string,profile:number)=>`${planetId}:state-${profile}`;
 export const stateCities=(s:GameState,r:RivalState)=>(s.cities?.entries.filter(c=>c.owner.kind==='state'&&c.owner.id===r.id)??[]).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
 export const ownerName=(s:GameState,c:City)=>c.owner.kind==='lineage'?'Tvoje linie':STATE_PROFILES[s.states!.entries.find(r=>r.id===c.owner.id)!.profile].name;
@@ -65,7 +67,9 @@ export function stateOpportunity(s:GameState,r:RivalState):StateOpportunity {
   if(!s.states?.activated||!s.states.entries.includes(r)||!cityProgression(s))return blocked('Státní vrstva ještě není aktivní.');
   if(r.transactions.length>=64||s.states.clock.turn>=STATE_TURN_LIMIT)return blocked('Dosažen limit státních dokladů nebo strategického času.');
   const owned=stateCities(s,r);
+  if(systemDefeated(s,r))return blocked('Stát ztratil poslední město. Rezerva zůstává zmrazená; další osídlení neprovede.');
   for(const c of owned){
+    if(s.states.version===2&&!c.defense){const action={kind:'defend',cityId:c.id} as const;return r.reserve<DEFENSE_COST?blocked(`Na stráž chybí ${DEFENSE_COST} jantaru v konečné rezervě.`,action,DEFENSE_COST):{action,cost:DEFENSE_COST,account:'reserve',reason:`Zaplatit jednu městskou stráž za ${DEFENSE_COST} z konečné rezervy.`,available:true};}
     const e=c.economy;
     if(!e){const action={kind:'open',cityId:c.id} as const;return r.reserve<80?blocked('V rezervě chybí 80 jantaru pro otevření hospodářství.',action,80):{action,cost:80,account:'reserve',reason:'Převést 80 z vlastní rezervy do nové městské pokladny.',available:true};}
     if(e.revision>=1e9||e.nextId>=1e9-2||Object.values(e.ledger).some(v=>v>CITY_LEDGER_LIMIT-100))return blocked('Dosažen účetní limit města.');
@@ -88,7 +92,7 @@ export function stateOpportunity(s:GameState,r:RivalState):StateOpportunity {
     const action={kind:'build',cityId:c.id,building:missing,lot:lot.id} as const;
     return e.treasury<cost?shortage(`Městské pokladně chybí ${cost} jantaru na ${CITY_BUILDINGS[missing].name}.`,action,cost):{action,cost,account:'city',reason:`${missing==='house'?'Zajistit bydlení':`${missing===priority?'Priorita státu':'Doplnit provoz'}: ${CITY_BUILDINGS[missing].name}`} · parcela ${lot.id+1}, cena ${cost}.`,available:true};
   }
-  if(owned.length>=2)return blocked('Dosažen limit dvou měst státu. Další expanze neproběhne.');
+  if((s.states.version===2?r.transactions.filter(t=>t.action.kind==='found').length:owned.length)>=2)return blocked('Dosažen limit dvou měst státu. Další expanze neproběhne.');
   if(navigation(s)!.fields.length>=FIELD_LIMIT)return blocked('Registr 64 lokalit je plný; žádný svět se nepřepíše.');
   // Reserve the complete 60 + 80 establishment cost; never create an unfundable colony.
   if(r.reserve<140)return blocked('Expanze potřebuje 140 jantaru v rezervě: založení 60 a budoucí převod 80.');
@@ -109,10 +113,13 @@ export function executeStateDecision(s:GameState,id:string,turn:number):boolean 
     const field=createField(s.seed,s.homePlanet!.id,cell);
     const city:City={id:cityId(field.id),name:`${r.profile===0?'Zelený dvůr':'Měděná věž'} ${stateCities(s,r).length+1}`,owner:{kind:'state',id:r.id},address:structuredClone(action.address),
       founded:{source:'state',stage:s.stage as 4|5,tick:s.tick,paidAmber:60,transactionId,purpose:stateCities(s,r).length?'expansion':'activation'},local:{version:1},economy:null};
+    if(s.cities!.version===5){city.foundingOwner={...city.owner};city.defense=null;city.capture=null;}
     r.reserve-=60;nav.fields.push(field);s.cities!.entries.push(city);
   }else{
     const city=s.cities!.entries.find(c=>c.id===action.cityId)!;
-    if(action.kind==='open'){
+    if(action.kind==='defend'){
+      const blueprint=defenseDesign();r.reserve-=DEFENSE_COST;city.defense={transactionId,blueprint,pos:{...city.address.position,y:city.address.position.y+.8},health:vehicleStats(blueprint).durability,cooldown:0};
+    }else if(action.kind==='open'){
       r.reserve-=80;
       city.economy={version:3,opened:{source:'state',tick:s.tick,transferredAmber:80,transactionId},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],ledger:{transfers:80,construction:0,immigration:0,supplies:0,income:0,upkeep:0,produced:0,consumed:0,discarded:0},last:null};
     }else if(action.kind==='fund'){r.reserve-=20;city.economy!.treasury+=20;city.economy!.ledger.transfers+=20;city.economy!.revision++;}
@@ -135,3 +142,5 @@ export function stepStates(s:GameState,dt:number):void {
   system.clock.elapsed=Math.max(0,system.clock.elapsed-STATE_TURN_SECONDS);system.clock.turn++;
   for(const r of system.entries)executeStateDecision(s,r.id,system.clock.turn);
 }
+
+export const systemDefeated=(s:GameState,r:RivalState)=>s.states?.version===2&&r.transactions.some(t=>t.action.kind==='found')&&stateCities(s,r).length===0;

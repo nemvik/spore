@@ -121,7 +121,7 @@ export class FleetPresentation {
     this.group.visible = state.stage >= 4 && machines?.version === 2;
     if (!this.group.visible || !machines || machines.version !== 2) { this.clear(); return; }
     const designs = new Map(machines.blueprints.map(design => [design.id, design.blueprint]));
-    const living = machines.fleet.filter(unit => unit.health > 0 && designs.has(unit.blueprint)).sort((a, b) => a.id - b.id);
+    const living = machines.fleet.filter(unit => unit.id !== state.military?.deployment?.unitId && unit.health > 0 && designs.has(unit.blueprint)).sort((a, b) => a.id - b.id);
     const selectedIds = new Set(selected.filter(ref => ref.kind === 'machine').map(ref => ref.id));
     this.retire(this.units, new Set(living.map(unit => unit.id)));
     this.retire(this.regions, new Set(machines.regions.map(region => region.id)));

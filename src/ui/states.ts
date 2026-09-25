@@ -2,7 +2,7 @@ import type { GameState } from '../game/types';
 import { STATE_PROFILES, STATE_TURN_LIMIT, stateCities, type StateAction } from '../game/states';
 import { CITY_BUILDINGS } from '../game/city-economy';
 import { cityEscape } from './cities';
-export const stateActionText=(a:StateAction|null)=>!a?'Vyčkávání':a.kind==='found'?'Založení města':a.kind==='open'?'Otevření hospodářství':a.kind==='fund'?'Převod 20 do města':a.kind==='invite'?'Pozvání dvou občanů':`Stavba: ${CITY_BUILDINGS[a.building].name}`;
+export const stateActionText=(a:StateAction|null)=>!a?'Vyčkávání':a.kind==='found'?'Založení města':a.kind==='open'?'Otevření hospodářství':a.kind==='fund'?'Převod 20 do města':a.kind==='invite'?'Pozvání dvou občanů':a.kind==='defend'?'Nákup městské stráže':`Stavba: ${CITY_BUILDINGS[a.building].name}`;
 export function statesMarkup(s:GameState):string {
   const states=s.states;if(!states)return '';
   if(!states.activated)return '<h3>Soupeřící státy</h3><p>Nové státy se aktivují při místním hraní po dosažení strojové etapy. Minulá osídlení ani rozhodnutí se nedoplňují.</p>';

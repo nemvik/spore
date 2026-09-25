@@ -72,3 +72,11 @@ hráčských návštěv. Místní produkce B, zmrazení domova C, identity, adre
 generátory a snapshoty vzhledů se nemění. Historická migrace nejprve
 přidá pouze prázdná pravidla live i checkpointu; nové osídlení vzniká
 při skutečném pokračování hry se zaznamenaným původem a cenou.
+
+## Výslovná vojenská výjimka SP-009.E
+
+[Smlouva E v1](SP-009E-CONTRACT.md) dovoluje jediný původní placený tank nasadit
+samostatným příkazem. Běžná návštěva C dál žádné jednotky nepřenáší. Vojenský příkaz
+má uloženou pevninskou trasu, cestovní fázi a čas; do cíle dorazí tentýž tank se
+stejným zdravím. Mimo aktivní cílový detail stojí i nasazení. Odchod resetuje pouze
+rozehrané obsazování; globál je pauza. Ostatní původní domovské systémy a B1 zůstávají.

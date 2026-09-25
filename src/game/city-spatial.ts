@@ -1,3 +1,5 @@
+import { tankRadius } from './military';
+import { activeMachines, machineDesign } from './machines';
 import type { GameState, Vec3 } from './types';
 import type { FieldLocation } from './planet-travel';
 import type { AtlasCell } from './planet-geography';
@@ -54,6 +56,8 @@ export function buildingSite(s:GameState,c:City,lot:number,kind:CityBuildingKind
   if(f.world.landmarks.some(l=>distance(l.pos)<r+body+3)||f.world.patches.some(l=>distance(l.center)<l.radius+r+body+1)||f.world.obstacles.some(o=>distance(o.pos)<o.radius+r+clearance))return 'Parcela zasahuje stanoviště, příchod nebo překážku.';
   if(fieldDecorations(f,geo.cell).some(d=>distance(d)<r+d.radius+1))return 'Na parcele stojí skála nebo vegetace.';
   if((c.economy?.buildings??[]).some(b=>b.id!==ignoreId&&(b.lot===lot||distance(cityLot(c,b.lot)!)<r+CITY_BUILDINGS[b.kind].radius+clearance)))return 'Parcela je obsazená nebo nemá průchod mezi budovami.';
+  const deployment=s.military?.deployment,m=activeMachines(s),tank=deployment?.cityId===c.id&&deployment.phase!=='outbound'?m?.fleet.find(u=>u.id===deployment.unitId):null;
+  if(checkActor&&tank&&distance(tank.pos)<r+tankRadius(machineDesign(m!,tank))+.1)return 'Na parcele stojí nasazený tank. Nejprve jej odveď.';
   if(checkActor&&distance(f.position)<r+body+.5)return 'Na parcele stojí tvůj tvor. Popojdi a potvrď znovu.';
   let low=Infinity,high=-Infinity;
   for(const x of [-r,0,r])for(const z of [-r,0,r]) {
