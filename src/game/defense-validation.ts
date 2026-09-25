@@ -1,3 +1,4 @@
+import { validateConversionTransfer } from './conversion-validation';
 import { validateTradeTransfer } from './trade-validation';
 import { cityGuard } from './cities';
 import type { GameState, Vec3 } from './types';
@@ -15,7 +16,7 @@ const integer=(v:unknown,max=1e9,min=0)=>{num(v,max,min);check(Number.isSafeInte
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 const vector=(p:Vec3)=>{shape(p,['x','y','z']);num(p.x,78,-78);num(p.z,78,-78);num(p.y,1024,-1024);};
 export function validateDefense(s:GameState):void {
-  const w=s.military!;check((s.cities!.version===6&&s.states!.version===3||s.cities!.version===7&&s.states!.version===4)&&w.version===2&&Array.isArray(w.raids)&&w.raids.length<=2);
+  const w=s.military!;check((s.cities!.version===6&&s.states!.version===3||s.cities!.version>=7&&s.states!.version===4)&&w.version===2&&Array.isArray(w.raids)&&w.raids.length<=2);
   const raids=w.raids!;check(new Set(raids.map(r=>r.stateId)).size===raids.length);
   for(const r of raids){
     shape(r,['id','stateId','sourceCityId','cityId','route','blueprint','unit','phase','remaining','elapsed','hold']);
@@ -42,29 +43,30 @@ export function validateDefense(s:GameState):void {
     if(player&&['field','occupying','garrison','retreat'].includes(r.phase))check(Math.hypot(player.pos.x-u.pos.x,player.pos.z-u.pos.z)>=tankRadius(machineDesign(activeMachines(s)!,player))+tankRadius(r.blueprint)-1e-5);
     if(r.phase==='returned')check(same(u.pos,cityEntry(s,source!,true)));
     if(r.hold>0)check(r.phase==='occupying'&&c!.owner.kind==='lineage'&&c!.fortification===0&&Math.hypot(u.pos.x-c!.address.position.x,u.pos.z-c!.address.position.z)<=2.86);
-    if(r.phase==='garrison')check(c!.owner.id===r.stateId&&c!.transfers!.some(t=>t.method!=='trade'&&t.raidId===r.id));
+    if(r.phase==='garrison')check(c!.owner.id===r.stateId&&c!.transfers!.some(t=>!t.method&&t.raidId===r.id));
   }
   for(const c of s.cities!.entries){
     check(Array.isArray(c.transfers)&&c.transfers.length<=TRANSFER_LIMIT);num(c.fortification,FORTIFICATION);
     let owner=originalCityOwner(s,c),previous={...c,economy:c.capture?.economy??null},turn=0;
     for(const [index,t] of c.transfers!.entries()){
-      if(t.method==='trade')validateTradeTransfer(s,c,t,index);
+      if(t.method==='conversion')validateConversionTransfer(s,c,t,index);
+      else if(t.method==='trade')validateTradeTransfer(s,c,t,index);
       else shape(t,['from','to','unitId','raidId','turn','elapsed','economy']);
       shape(t.from,['kind','id']);shape(t.to,['kind','id']);
       check(sameOwner(t.from,owner)&&!sameOwner(t.to,owner));integer(t.turn,s.states!.clock.turn,turn);turn=t.turn;
-      if(t.method!=='trade'){num(t.elapsed,1e9,5);
+      if(!t.method){num(t.elapsed,1e9,5);
       if(t.to.kind==='lineage'){check(t.to.id===s.homePlanet!.id&&t.raidId===null);integer(t.unitId,activeMachines(s)!.nextId-1,1);}
       else{const r=raids.find(r=>r.id===t.raidId);check(t.to.kind==='state'&&r?.stateId===t.to.id&&r.cityId===c.id&&t.unitId===1&&r.elapsed>=t.elapsed&&s.states!.entries.find(v=>v.id===r.stateId)!.transactions.find(v=>v.id===r.id)!.turn<=t.turn&&r.phase!=='preparing'&&r.phase!=='outbound'&&r.phase!=='waiting');
-        check(c.transfers!.filter(v=>v.method!=='trade'&&v.raidId===t.raidId).length===1);}
+        check(c.transfers!.filter(v=>!v.method&&v.raidId===t.raidId).length===1);}
       }
       const archived={...c,economy:t.economy};validateCityEconomy(s,archived);check(cityEconomyCheckpointMatches(archived,previous));
       if(previous.economy&&t.economy)check(t.economy.revision>previous.economy.revision);
       previous=archived;owner=t.to;
     }
     check(sameOwner(c.owner,owner)&&cityEconomyCheckpointMatches(c,previous));
-    if(c.transfers!.some(t=>t.method!=='trade'))check(c.fortification===0&&(!cityGuard(c)||c.defense!.health===0));
+    if(c.transfers!.some(t=>!t.method))check(c.fortification===0&&(!cityGuard(c)||c.defense!.health===0));
     // A later sale cannot erase the destroyed guard required by an earlier battle.
-    if(c.transfers!.length&&c.transfers![0].method!=='trade')check(!c.defense||c.defense.health===0);
+    if(c.transfers!.length&&!c.transfers![0].method)check(!c.defense||c.defense.health===0);
     if(c.transfers!.length){if(previous.economy)check(c.economy!.revision>previous.economy.revision);}
   }
 }

@@ -121,6 +121,7 @@ export function executeStateDecision(s:GameState,id:string,turn:number):boolean 
       founded:{source:'state',stage:s.stage as 4|5,tick:s.tick,paidAmber:60,transactionId,purpose:stateCities(s,r).length?'expansion':'activation'},local:{version:1},economy:null};
     if(s.cities!.version>=5){city.foundingOwner={...city.owner};city.defense=null;city.capture=null;}
     if(s.cities!.version>=6){city.transfers=[];city.fortification=80;}
+    if(s.cities!.version>=8)city.conversion={version:1,events:[]};
     r.reserve-=60;nav.fields.push(field);s.cities!.entries.push(city);
   }else{
     const city=s.cities!.entries.find(c=>c.id===action.cityId)!;

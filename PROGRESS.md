@@ -2,6 +2,22 @@ Original prompt: /goal V tomto repozitáři vytvoř a dokonči originální 3D w
 
 # LUMAVORA · průběh
 
+## SP-009.H · náboženská konverze · 2026-09-25
+
+- Navazující pokyn uživatele autorizoval commit a push H na `main`. Před uložením všech 74 otisků finálního manifestu souhlasilo. Tento publikační dodatek mění pouze dokumentaci; implementace a ověřené výsledky zůstávají stejné. Bez deploye, evidence zůstává lokální podle `.gitignore`.
+
+- Navazuje na čistý `55e8f4ad1`, bez commitu/pushe/deploye a nových závislostí. [Plán před implementací](docs/superpowers/plans/2026-09-25-sp-009h-conversion.md), [smlouva v1](docs/spore/SP-009H-CONTRACT.md).
+- Skutečný G export zachován a přidán byte-identicky jako regresní fixture. Domov 13,085 / prameny s B1 1,8/s, městské pokladny oddělené; poražený Svaz 0/203, Liga 40/0. Žádná historická víra, dotace, vztahy či jednotky.
+- CityRegistry v8 / konverzní deník v1; States v4, Military v2 beze změny. Aktivní místní obřady Souznění, situační námitky, 20 domácího jantaru za každý pokus i samostatné dokončení. Spotřeba bez příjemce, špatná odpověď ztrácí pečeť; čekání nic nevytváří. Epoch podle společných převodů, atomické dokončení, G/E/F konflikty, stráž bez léčení/jednotek, poslední město a zmrazené původní rezervy.
+- Migrace live/checkpoint před rekey je opakovatelná a prázdná; obnova vrací celou větev. Přísný parser ověřuje doklady i historicky možné snapshoty. Nezávislé review uzavřelo dvě P2 mezery historických snapshotů, včetně přesné populace; opravy mají negativní regrese.
+- **153 souborů / 3 232 testů**, včetně **65 H regresí**, typecheck a build prošly. 32 původních datových/kódových fixtures proti HEAD a 25 starších exportů proti G manifestu beze změny.
+- **H hotovo v omezeném rozsahu smlouvy:** [report v1](docs/spore/SP-009H-REPORT.md). Finální produkční průchod **5/5, 0 chyb**: skutečný výdělek 277,05 za 154,063 s, aktivní pouť/odmítnutí, obě převzetí za 120 a 100, vklad/hospodaření, pause/editor/knihovna/globál, klávesnice/fokus/kamera, rekey/save/load a přesná obnova jednopečetní větve. Pouze spouštěč smrti/checkpoint připraven offline, žádné živé zápisy nebo zrychlení.
+- Historický browser **12/12, 0 chyb** a původní skill klient s nativním adaptérem prošly. Finální snímky včetně 1024×640 prohlédnuté. Build `index-B7HcULZS.js` 1 419,44 kB / gzip 441,11 kB, známý chunk warning trvá. Vlastní diff kontrola a nezávislé review dokončené bez otevřeného blokujícího nálezu.
+- Obřady p50/p95 37,86/50,58 ms, dokončení max 63,91 ms; 38 GPU timer vzorků se skutečným kreslením p50/p95 0,510/2,428 ms. Při 20 návratech vzrostly geometrie/buffery; samostatná 40cyklová diagnostika se od 10. návratu ustálila na 349/1 374 (19 programů, 1 textura). Počáteční příčinu neurčujeme, dlouhý soak/netěsnost obecně neprohlašujeme za ověřené.
+- [Aktivní H save](evidence/sp-009h/browser/active-campaign.save.json), finální domov 50,705, státní účty 0/203 a 40/0. [Úklid](evidence/sp-009h/cleanup.json): 24 vlastních mezivýsledků/pracovních kopií, 4,57 MB odstraněno, přibližně 5,03 MB evidence. Disk před ~12 GiB / po 11,53 GiB. Bez trace/video; starší aktivní kampaně beze změny. Ruční migrace není potřebná.
+- **Přesně dále:** podle pořadí roadmapy samostatný návrh SP-009.I, první omezené námořní expanze, nejprve audit pobřežních cílů a konečných financí skutečného H save, potom smlouva placeného prostředku/přepravy/persistence. Celé SP-005.B/SP-009/SP-010/SP-017, SP-007.B2/D i širší strategie zůstávají otevřené. Lidský playtest/poslech, Safari/mobil a dlouhý soak neprovedeny.
+
+
 ## SP-009.G · obchodní převzetí · 2026-09-25
 
 - Navazující výslovný pokyn uživatele autorizoval commit a push G na `main`. Před uložením všech 90 otisků finálního manifestu souhlasilo; vzdálený `main` byl stále `f3b67b2bf`. Publikační dodatek mění pouze dokumentaci, herní implementace a ověřené výsledky zůstávají stejné. Bez deploye; evidence je lokální podle `.gitignore`.

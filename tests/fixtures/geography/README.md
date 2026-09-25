@@ -77,3 +77,17 @@ civil accounts. The new purchase funds must be earned from the original springs.
 The original F export and all older active saves remain untouched.
 
 SHA-256: `1ceed299a31254e8bda104be18b0a86213e37ccfbf45aa2456aed194bad4c2cc`.
+
+## SP-009.G trade compatibility input
+
+`sp-009g-trade.save.json` is the byte-identical actual G production export from
+`evidence/sp-009g/browser/active-campaign.save.json`, commit `55e8f4ad1`.
+It retains E capture, both F transfers, the destroyed paid counterattack and
+the G purchase for 203. The defeated Svaz has original reserve 0 / frozen civil
+account 203; Liga retains two cities and original reserve 40 / civil account 0.
+Home amber is 13.085000000089229, with original springs earning 1.8/s via B1.
+H migrates live and checkpoint to CityRegistry 8 with empty conversion logs,
+without historical rites, income, relationships or units. The source and all
+older active exports remain untouched.
+
+SHA-256: `ef18ee498054528ab141fd3a69acde110d007fc6188a2e348862f8bbc34b6386`.

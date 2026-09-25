@@ -1,3 +1,4 @@
+import { enableConversion } from './conversion';
 import { enableTrade } from './trade';
 import { enableDefense, unresolvedRaid } from './defense';
 import { enableMilitary, stepMilitary } from './military';
@@ -75,7 +76,7 @@ export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution
 }
 export function makeCheckpoint(s:GameState) { syncHomePlanet(s);if(!activeField(s))observeLineageHistory(s);s.checkpoint=JSON.stringify({...s,checkpoint:null}); }
 export function recoverGeneration(s:GameState):GameState {
- if(!s.checkpoint){const fresh=createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth,!!s.lineageHistory,!!s.homePlanet);if(navigation(s)){enablePlanetTravel(fresh);if(s.military){if(s.cities?.version===7)enableTrade(fresh,'birth');else if(s.military.version===2)enableDefense(fresh,'birth');else enableMilitary(fresh,'birth');}else if(s.states)enableStates(fresh,'birth');else if(s.cities)enableCities(fresh);makeCheckpoint(fresh);}return fresh;}
+ if(!s.checkpoint){const fresh=createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth,!!s.lineageHistory,!!s.homePlanet);if(navigation(s)){enablePlanetTravel(fresh);if(s.military){if(s.cities?.version===8)enableConversion(fresh,'birth');else if(s.cities?.version===7)enableTrade(fresh,'birth');else if(s.military.version===2)enableDefense(fresh,'birth');else enableMilitary(fresh,'birth');}else if(s.states)enableStates(fresh,'birth');else if(s.cities)enableCities(fresh);makeCheckpoint(fresh);}return fresh;}
  const restored=JSON.parse(s.checkpoint) as GameState; bindActiveWorld(restored);restored.checkpoint=s.checkpoint;restored.deathReason=null;restored.player.invulnerable=10;announce(restored,TEXT.restored);return restored;
 }
 export function nearNest(s:GameState) { return horizontalDistance(s.player.pos,s.world.landmarks.find(l=>l.kind==='nest')!.pos)<11; }

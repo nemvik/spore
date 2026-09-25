@@ -77,7 +77,7 @@ function entryAvailable(s:GameState,c:City,enemy:boolean,g:VehicleBlueprint):boo
 }
 export function raidOpportunity(s:GameState,r:RivalState):StateOpportunity|null {
   if(s.military?.version!==2||s.stage!==4)return null;
-  const targets=s.cities!.entries.filter(c=>c.owner.kind==='lineage'&&c.foundingOwner?.id===r.id&&c.transfers?.at(-1)?.method!=='trade');
+  const targets=s.cities!.entries.filter(c=>c.owner.kind==='lineage'&&c.foundingOwner?.id===r.id&&!c.transfers?.at(-1)?.method);
   if(!targets.length)return null; // Counterattack is a response to an actual territorial loss.
   const blocked=(reason:string):StateOpportunity=>({action:null,cost:DEFENSE_COST,account:'reserve',available:false,reason});
   if(raids(s).some(v=>v.stateId===r.id))return blocked('Stát již zaplatil svůj jediný výpad. Zničený ani navrácený tank nenahrazuje zdarma.');

@@ -8,7 +8,7 @@ const num=(v:unknown,max=1e9)=>check(typeof v==='number'&&Number.isFinite(v)&&v>
 const integer=(v:unknown,max=CITY_LEDGER_LIMIT)=>{num(v,max);check(Number.isSafeInteger(v));};
 /** History/ownership/economy continuity is checked by the common F/G chain validator. */
 export function validateTradeTransfer(s:GameState,c:City,t:TradeTransfer,index:number):void {
-  check(s.cities!.version===7&&s.states!.version===4);
+  check(s.cities!.version>=7&&s.states!.version===4);
   shape(t,['method','version','id','from','to','turn','economy','price','payment','decision','defenseHealth','fortification']);
   check(t.method==='trade'&&t.version===1&&t.id===`${c.id}:trade-${index+1}`);
   check(t.from.kind==='state'&&s.states!.entries.some(r=>r.id===t.from.id)&&t.to.kind==='lineage'&&t.to.id===s.homePlanet!.id);

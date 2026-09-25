@@ -15,7 +15,7 @@ export function tradeAction(s:GameState,action:string):boolean {
   return false;
 }
 export function tradeMarkup(s:GameState):string {
-  const c=select(s);if(!c||s.cities?.version!==7||s.stage!==4)return '';
+  const c=select(s);if(!c||(s.cities?.version??0)<7||s.stage!==4)return '';
   const q=tradeQuote(s,c),offer=q.offer;
   const name=(id:string)=>STATE_PROFILES[s.states!.entries.find(r=>r.id===id)!.profile].name;
   const receipt=tradeTransfers(c).at(-1);

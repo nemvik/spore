@@ -1,3 +1,4 @@
+import { validateConversion, conversionCheckpointMatches } from './conversion-validation';
 import { validateMilitary, militaryCheckpointMatches } from './military-validation';
 import { validateStates, statesCheckpointMatches } from './states-validation';
 import { cityId, cityNameValid, cityProgression, citySite, CITY_COST, type City } from './cities';
@@ -150,11 +151,11 @@ function citySignature(c: City): string {
 }
 function validateCities(s: GameState): void {
   const at='state.cities', registry=object(s.cities,at,['version','entries','selectedId']);
-  oneOf(registry.version,[1,2,3,4,5,6,7],at+'.version');
+  oneOf(registry.version,[1,2,3,4,5,6,7,8],at+'.version');
   if(s.homePlanet?.version!==3)invalid(at,SAVE_ERRORS.unknownValue);
   const ids:string[]=[];
   for(const raw of array(registry.entries,at+'.entries',FIELD_LIMIT)) {
-    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(Number(registry.version)>=2?['economy']:[]),...(Number(registry.version)>=5?['foundingOwner','defense','capture']:[]),...(Number(registry.version)>=6?['transfers','fortification']:[])]);
+    const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(Number(registry.version)>=2?['economy']:[]),...(Number(registry.version)>=5?['foundingOwner','defense','capture']:[]),...(Number(registry.version)>=6?['transfers','fortification']:[]),...(Number(registry.version)>=8?['conversion']:[])]);
     string(row.id,at+'.id',140);string(row.name,at+'.name',40);
     if(!cityNameValid(row.name))invalid(at+'.name',SAVE_ERRORS.invalidText);
     const owner=object(row.owner,at+'.owner',['kind','id']);
@@ -1142,6 +1143,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   if (hasCities) validateCities(s as unknown as GameState);
   if(hasMilitary||((s as unknown as GameState).cities?.version??0)>=5)validateMilitary(s as unknown as GameState);
   if(hasStates || (s as unknown as GameState).cities?.version===4||((s as unknown as GameState).cities?.version??0)>=5) validateStates(s as unknown as GameState);
+  validateConversion(s as unknown as GameState);
   if (s.checkpoint !== null) {
     if (nestedCheckpoint) invalid('checkpoint', SAVE_ERRORS.nestedCheckpoint);
     const checkpoint = string(s.checkpoint, 'checkpoint', MAX_BYTES);
@@ -1160,6 +1162,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     }
     if (restored.machines?.version !== (s.machines as GameState['machines'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if(!conversionCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.conversion',SAVE_ERRORS.checkpointMismatch);
     if(!militaryCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.military',SAVE_ERRORS.checkpointMismatch);
     if(!statesCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.states',SAVE_ERRORS.checkpointMismatch);
     const liveCities = (s as unknown as GameState).cities;

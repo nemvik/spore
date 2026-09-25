@@ -108,3 +108,13 @@ obchod/konverze, rozsáhlé armády, knihovny vozidel/lodí, moře/vesmír a SP-
 obchodní variantu společné historie a oddělený civilní účet skutečné kupní ceny.
 Původní rezervní rozpočet, doklady a omezení výpadu F zůstávají; příjem nezakládá
 novou armádu ani zpětný obchod. Migrace live/checkpoint před rekey nevytváří minulost.
+
+
+## Navazující SP-009.H (CityRegistry v8)
+
+[Smlouva H v1](SP-009H-CONTRACT.md) přidává aktivní konverzní obřady a další
+variantu společného převodu. Původní smlouva a historické doklady této verze
+zůstávají zachované. H používá spotřebu domácích prostředků bez příjemce;
+civilní účet G ani původní rezervy F nedoplňuje. Ve v8 nabídku G zneplatní nový
+konverzní doklad, vojenské závazky H blokují a mírové přijetí samo nezakládá
+protiútok. Přesná pravidla epoch, posledního města a checkpointu určuje H.

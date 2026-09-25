@@ -32,9 +32,9 @@ function validateAction(a:StateAction,s:GameState,owner:string):void {
 }
 export function validateStates(s:GameState):void {
   const states=s.states;
-  check([4,5,6,7].includes(s.cities?.version??0)&&!!states);
+  check([4,5,6,7,8].includes(s.cities?.version??0)&&!!states);
   shape(states,['version','origin','activated','clock','entries']);
-  check(states!.version===(s.cities?.version===7?4:s.cities?.version===6?3:s.cities?.version===5?2:1)&&(states!.origin==='birth'||states!.origin==='legacy-activation'));
+  check(states!.version===((s.cities?.version??0)>=7?4:s.cities?.version===6?3:s.cities?.version===5?2:1)&&(states!.origin==='birth'||states!.origin==='legacy-activation'));
   shape(states!.clock,['version','turn','elapsed']);check(states!.clock.version===1);integer(states!.clock.turn,STATE_TURN_LIMIT);
   const elapsed=states!.clock.elapsed;check(Number.isFinite(elapsed)&&elapsed>=0&&elapsed<10);
   check(Array.isArray(states!.entries)&&states!.entries.length===(states!.activated?2:0));

@@ -91,3 +91,13 @@ SP-017: vlastník, cena/rozpis, jediný zdroj a příjemce, rozhodnutí/odmítnu
 explicitní potvrzení/zrušení/výsledek a celá historie; stabilní fokus a nativní
 Enter/mezerník, kamera města a scroll při 1024×640. Kritéria a produkční důkazy
 určuje [plán v1](../superpowers/plans/2026-09-25-sp-009g-trade.md).
+
+
+## Navazující SP-009.H (CityRegistry v8)
+
+[Smlouva H v1](SP-009H-CONTRACT.md) přidává aktivní konverzní obřady a další
+variantu společného převodu. Původní smlouva a historické doklady této verze
+zůstávají zachované. H používá spotřebu domácích prostředků bez příjemce;
+civilní účet G ani původní rezervy F nedoplňuje. Ve v8 nabídku G zneplatní nový
+konverzní doklad, vojenské závazky H blokují a mírové přijetí samo nezakládá
+protiútok. Přesná pravidla epoch, posledního města a checkpointu určuje H.

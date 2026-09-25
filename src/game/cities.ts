@@ -14,7 +14,8 @@ export interface City {
   name: string;
   foundingOwner?: {kind:'lineage'|'state';id:string};
   defense?: import('./military').CityDefense|null;
-  transfers?: (import('./defense').CityTransfer | import('./trade').TradeTransfer)[];
+  transfers?: (import('./defense').CityTransfer | import('./trade').TradeTransfer | import('./conversion').ConversionTransfer)[];
+  conversion?: import('./conversion').Conversion;
   fortification?: number;
   capture?: import('./military').CityCapture|null;
   owner: { kind: 'lineage' | 'state'; id: string };
@@ -23,7 +24,7 @@ export interface City {
   local: { version: 1 }; // Immutable civic square + hall layout from A.
   economy?: CityEconomy | null; // Required in registry v2–v4; absent in historical v1.
 }
-export interface CityRegistry { version: 1 | 2 | 3 | 4 | 5 | 6 | 7; entries: City[]; selectedId: string | null; }
+export interface CityRegistry { version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8; entries: City[]; selectedId: string | null; }
 export const CITY_COST = 60;
 export const CITY_RADIUS = 18;
 export const cityId = (locationId: string) => `${locationId}:city`;
@@ -105,6 +106,7 @@ export function foundCity(s: GameState, name: string): boolean {
     founded:{source:'player',stage:s.stage as 4|5,tick:s.tick,paidAmber:CITY_COST,springId:m.springs.find(p=>p.owner==='player')!.id},local:{version:1},...(s.cities!.version>=2?{economy:null}:{})};
   if(s.cities!.version>=5){city.foundingOwner={...city.owner};city.defense=null;city.capture=null;}
   if(s.cities!.version>=6){city.transfers=[];city.fortification=80;}
+  if(s.cities!.version>=8)city.conversion={version:1,events:[]};
   // One synchronous commit after every precondition; no grant, refund or World edit.
   m.resource-=CITY_COST; s.cities!.entries.push(city); s.cities!.selectedId=city.id;
   nav.notice=`Založeno město ${name} · zaplaceno ${CITY_COST} jantaru. Identita a adresa jsou uložené v kampani.`;
@@ -125,4 +127,4 @@ export function enterCity(s: GameState, id: string): boolean {
 }
 
 /** A commercial sale permanently demobilizes the old guard without altering its paid health record. */
-export const cityGuard=(c:City)=>c.transfers?.some(t=>t.method==='trade')?null:c.defense;
+export const cityGuard=(c:City)=>c.transfers?.some(t=>t.method==='trade'||t.method==='conversion')?null:c.defense;
