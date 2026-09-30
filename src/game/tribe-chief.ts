@@ -4,7 +4,7 @@ import type { GameState, Vec3 } from './types';
 import { clamp, horizontalDistance } from './random';
 import { computeStats } from './genome';
 import { cultureEffects } from './culture';
-import { creatureInheritance } from './lineage-history';
+import { firstInheritanceUse, creatureInheritance } from './lineage-history';
 import { recallExpedition, tribeContact } from './tribe-society';
 import { resolveNeighbourAlliance } from './tribe-neighbours';
 
@@ -121,6 +121,7 @@ export function stepChief(s: GameState,dt: number): void {
   if(!contact){e.contactLost=Math.min(CHIEF.grace,e.contactLost+dt);if(e.contactLost>=CHIEF.grace)cancelChiefCouncil(s,'contact');return;}
   e.contactLost=0;e.remaining=Math.max(0,e.remaining-dt);if(e.remaining>1e-8)return;
   const before=n.relation;n.relation=clamp(before+CHIEF.gain*e.multiplier,-100,100);
+  if(n.relation>before&&creatureInheritance(s).social>1)firstInheritanceUse(s,'creature','Přátelství tvora → silnější sněm náčelníka.');
   n.society!.truce=Math.max(n.society!.truce,CHIEF.truce);recallExpedition(n.society!);
   cancelChiefCouncil(s,'success');c.result!.delta=n.relation-before;resolveNeighbourAlliance(t,n);
 }

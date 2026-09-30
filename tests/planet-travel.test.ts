@@ -56,6 +56,13 @@ describe('SP-010.C expedition state and geography', () => {
     s.player.health=0;expect(enterField(s,c.id)).toBe(false);
     const coast=fixture('won-current-coast.fixture.json');enablePlanetTravel(coast);coast.player.pos.x=78;coast.player.pos.z=78;expect(enterField(coast,cells(coast)[0].id)).toBe(false);
   });
+  it('dismisses stale home hints after a real visit without advancing the frozen world', () => {
+    const s=base(), before=structuredClone(original(s));
+    s.messages=[{id:1,text:'Sjednoť zbývající soupeřova města: 4.',time:s.world.time}];
+    returnHome(s);expect(s.messages).toHaveLength(1);
+    expect(enterField(s,cells(s)[0].id)).toBe(true);
+    returnHome(s);expect(s.messages).toEqual([]);expect(original(s)).toEqual(before);
+  });
   it('bounds clamp movement and retain valid ground through native simulation steps', () => {
     const s=base();expect(enterField(s,cells(s)[0].id)).toBe(true);for(let i=0;i<1200;i++)step(s,{...EMPTY_INPUT,x:1,z:1},1/30);
     expect(activeField(s)!.position.x).toBe(78);expect(activeField(s)!.position.z).toBe(78);expect(()=>round(s)).not.toThrow();

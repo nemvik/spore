@@ -1,8 +1,8 @@
 import type { GameState } from './types';
-import { seaBlueprint, validateSeaBlueprint, vehicleCost, vehicleStats } from './blueprint';
+import { validateSeaBlueprint, vehicleCost, vehicleStats } from './blueprint';
 import { atSea, currentCoast, homeCoast, isCoast, seaRoute, SEA_LIMIT } from './maritime';
 import { planetAtlas } from './planet-geography';
-import { navigation } from './planet-travel';
+import { navigation, FIELD_STORAGE_LIMIT } from './planet-travel';
 const check=(v:unknown):void=>{if(!v)throw new Error('Poškozený save: neplatná námořní cesta, prostředek nebo účetní doklad.');};
 const shape=(v:unknown,keys:string[])=>{check(!!v&&typeof v==='object'&&!Array.isArray(v));const r=v as Record<string,unknown>;check(Object.keys(r).length===keys.length&&keys.every(k=>Object.hasOwn(r,k)));};
 const num=(v:unknown,max=1e9,min=0)=>check(typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max);
@@ -15,7 +15,7 @@ export function validateMaritime(s:GameState):void {
   const m=s.maritime;shape(m,['version','legacyAccess','revision','vessel','journeys']);
   check(m!.version===1&&s.homePlanet?.version===3&&s.cities?.version===8);
   const nav=navigation(s)!;
-  check(Array.isArray(m!.legacyAccess)&&m!.legacyAccess.length<=64);
+  check(Array.isArray(m!.legacyAccess)&&m!.legacyAccess.length<=FIELD_STORAGE_LIMIT);
   for(const [i,id] of m!.legacyAccess.entries()){integer(id,2591);check(i===0||id>m!.legacyAccess[i-1]);check(nav.fields.some(f=>f.cellId===id));}
   integer(m!.revision);check(Array.isArray(m!.journeys)&&m!.journeys.length<=SEA_LIMIT);
   if(m!.vessel===null){check(m!.journeys.length===0&&m!.revision===0);return;}
@@ -24,7 +24,7 @@ export function validateMaritime(s:GameState):void {
   check(v.id===`${s.homePlanet!.id}:vessel-1`&&!validateSeaBlueprint(v.blueprint).length);
   check(v.health===vehicleStats(v.blueprint).durability);integer(v.mooring,2591);check(isCoast(s,v.mooring));
   const p=v.payment;shape(p,['source','use','amount','before','after','springId','tick']);
-  check(p.source==='home'&&p.use==='consumed'&&p.amount===vehicleCost(seaBlueprint()));num(p.before);num(p.after);check(p.before-p.amount===p.after);
+  check(p.source==='home'&&p.use==='consumed'&&p.amount===vehicleCost(v.blueprint));num(p.before);num(p.after);check(p.before-p.amount===p.after);
   integer(p.tick,s.tick);integer(p.springId);check(s.machines!.version===2&&s.machines!.springs.some(q=>q.id===p.springId&&q.owner==='player'));
   let mooring=homeCoast(s),revision=1,turn=0;
   for(const [i,j] of m!.journeys.entries()){

@@ -1,3 +1,5 @@
+import { raids } from './defense';
+import { inCommerce } from './commerce';
 import { maritimeLandReason, homeCoast, atSea } from './maritime';
 import { cityPositionClear } from './city-spatial';
 import type { GameState, Input, Vec3, World } from './types';
@@ -13,6 +15,8 @@ export interface PlanetNavigation {
   fields: FieldLocation[]; visits: { locationId: string; tick: number }[]; notice: string;
 }
 export const FIELD_LIMIT = 64;
+/** Four paid rival cities cannot be crowded out by earlier player exploration. */
+export const FIELD_STORAGE_LIMIT = FIELD_LIMIT + 4;
 export const fieldId = (planetId: string, cell: number) => `${planetId}:field-${cell}`;
 export const navigation = (s: GameState) => s.homePlanet?.version === 3 ? s.homePlanet.navigation : null;
 export const activeField = (s: GameState) => navigation(s)?.fields.find(f => f.id === s.homePlanet?.currentLocationId) ?? null;
@@ -54,39 +58,48 @@ export function travelAvailability(s: GameState, cellId: number): { available: b
   const nav = navigation(s), atlas = s.homePlanet && planetAtlas(s.homePlanet), cell = atlas?.cells[cellId];
   let reason = '';
   if (!nav || !cell || !Number.isInteger(cellId)) reason = 'Neplatný cíl.';
+  else if (s.space?.location) reason = 'Nejprve přistaň vlastní lodí v domácí dílně.';
+  else if (inCommerce(s)) reason = 'Nejprve dokonči obchodní přepravu a návrat.';
   else if (s.deathReason || s.player.health <= 0) reason = 'Nejprve obnov živou generaci.';
   else if (s.stage < 2) reason = 'Výpravy se otevřou po skutečném přechodu na souš v etapě tvora.';
-  else if (cell.surface !== 'land') reason = 'Vodní lokalita vyžaduje budoucí námořní cestování.';
+  else if (cell.surface !== 'land') reason = 'Vodní lokalita nemá pěší výpravu. Člunem pluj mezi pobřežními místy; cíl vyber na pevnině.';
   else if (atlas!.anchors.some(a => a.cellId === cellId)) reason = 'Domovský habitat: použij Návrat domů. Etapy mění pouze původní postup.';
   else if (maritimeLandReason(s, cellId)) reason = maritimeLandReason(s, cellId)!;
   else if (!activeField(s) && s.stage === 2 && s.journey.cargo) reason = 'Nejprve odevzdej nesený ekologický náklad.';
   else if (!activeField(s) && s.stage === 2 && Math.hypot(s.player.pos.x - campaignWorld(s).landmarks[0].pos.x, s.player.pos.z - campaignWorld(s).landmarks[0].pos.z) >= 11) reason = 'Výpravu zahaj u vlastního hnízda (do 11 místních jednotek).';
-  else if (!nav.fields.some(f => f.cellId === cellId) && nav.fields.length >= FIELD_LIMIT) reason = 'Uloženo 64 míst. Další výpravy zatím nejsou dostupné; navštívená místa zůstávají přístupná.';
+  else if (!nav.fields.some(f => f.cellId === cellId) && nav.fields.length >= FIELD_LIMIT) reason = 'Kapacita 64 výprav je plná. Existující místa i nová města soupeřů zůstávají přístupná.';
   return { available: !reason, reason: reason || 'Dostupná pevninská výprava · původní dění bude pozastavené.' };
 }
 export function openAtlas(s: GameState): void {
+  if(s.space?.location)return;
   const nav = navigation(s); if (!nav) return;
   nav.mode = 'global';
 }
 export function enterField(s: GameState, cellId: number): boolean {
+  if(s.space?.location)return false;
   const nav = navigation(s), planet = s.homePlanet, status = travelAvailability(s, cellId);
   if (!nav || !planet) return false;
   if (!status.available) { nav.notice = status.reason; return false; }
   let field = nav.fields.find(f => f.cellId === cellId);
   if (!field) { field = createField(s.seed, planet.id, planetAtlas(planet)!.cells[cellId]); nav.fields.push(field); }
   if(s.military?.deployment&&planet.currentLocationId!==field.id)s.military.deployment.hold=0;
-  if(planet.currentLocationId!==field.id)for(const r of s.military?.raids??[]){r.hold=0;if(r.phase==='occupying')r.phase='field';}
+  if(planet.currentLocationId!==field.id)for(const r of raids(s)){r.hold=0;if(r.phase==='occupying')r.phase='field';}
   planet.currentLocationId = field.id; s.world = field.world; nav.mode = 'local'; nav.selectedCell = cellId;
   if (!nav.visits.some(v => v.locationId === field.id)) nav.visits.push({ locationId: field.id, tick: s.tick });
   nav.notice = `Příchod · lokalita ${cellId}. WASD k terénním stanovištím, E změří povrch. N otevře planetu.`;
   return true;
 }
 export function returnHome(s: GameState): void {
+  if(s.space?.location)return;
   const nav = navigation(s); if (!nav || !s.homePlanet) return;
+  if(inCommerce(s)){nav.notice='Nejprve dokonči obchodní přepravu.';return;}
   const blocked = maritimeLandReason(s, homeCoast(s)); if(blocked){nav.notice=blocked;return;}
   const travelled = !!activeField(s);
+  // Home time stops during a visit. Old home hints must not reappear as fresh
+  // advice after ownership/progression changed in a distant city.
+  if (travelled) s.messages = [];
   if(s.military?.deployment)s.military.deployment.hold=0;
-  for(const r of s.military?.raids??[]){r.hold=0;if(r.phase==='occupying')r.phase='field';}
+  for(const r of raids(s)){r.hold=0;if(r.phase==='occupying')r.phase='field';}
   s.homePlanet.currentLocationId = homeLocationId(s); bindActiveWorld(s); nav.mode = 'local';
   if (travelled && !nav.visits.some(v => v.locationId === s.homePlanet!.currentLocationId)) nav.visits.push({ locationId: s.homePlanet.currentLocationId, tick: s.tick });
   nav.notice = travelled ? 'Návrat domů · původní svět, poloha a rozpracované příkazy zachované.' : 'Zpět k místnímu dění.';

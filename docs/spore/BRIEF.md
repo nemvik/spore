@@ -4,11 +4,17 @@ Směr přijatý 17. září 2026. Tento brief a [tracker](ROADMAP.md) navazují 
 
 ## Cíl a platnost
 
-**Co největší podobnost se Spore v tvorbě vlastních výtvorů, herních smyčkách, návaznosti evoluce a růstu měřítka od buňky po galaxii.** Terraformace se má stát součástí vesmírné hry, po které pokračují kolonizace, obchod, vztahy říší, průzkum a cesta k jádru galaxie. Následný cíl zahrnuje také kapitána a dobrodružství podle Galactic Adventures.
+**Co největší podobnost se Spore v tvorbě vlastních výtvorů, herních smyčkách, návaznosti evoluce a růstu měřítka od buňky po galaxii.** Terraformace se má stát součástí vesmírné hry, po které pokračují kolonizace, obchod, vztahy říší, průzkum a cesta k jádru galaxie.
+
+**Změna rozsahu na přání uživatele 26. září 2026:** hlavní cíl končí milníkem D — dosažením jádra galaxie a získáním použitelné odměny. Ověření zahrnuje souvislou kampaň od nové buňky, použití a uložení odměny i bezpečný návrat a možnost další výpravy v existující galaxii. Kapitán, dobrodružství, jejich editor a přenos (milník E / SP-016 a příslušné části SP-005/SP-017) jsou volitelné budoucí pokračování mimo aktuální cíl; nezačínat je automaticky po D. Kritéria A–D, jejich vizuál, zvuk, ovládání, kompatibilita a závěrečné ověření zůstávají součástí hlavního cíle.
 
 Tento směr má při dalším plánování přednost před omezením na tři etapy v [původním briefu](../../GAME_BRIEF.md) a před koncem u terraformace ve [starším návrhu rozšíření](../superpowers/specs/2026-09-15-lumavora-machine-era-design.md). Starší dokumenty zůstávají záznamem dosavadního zadání a implementace. Požadavky na funkční hru, vlastní obsah, lokální provoz a ověřování zůstávají použitelné.
 
 Referencí je **vydané Spore**, následně rozšíření Galactic Adventures. Základní sled je buňka → tvor → kmen → civilizace → vesmír. Útesová fáze LUMAVORY je existující obsah navíc; její další rozšiřování má nižší prioritu. Případné zkrácení nebo volitelnost útesu se má řešit samostatným návrhem, nikoli odstraněním během jiné práce. [Přehled původní hry](https://www.spore.com/what/spore), [Galactic Adventures](https://www.spore.com/what/ga).
+
+## Aktuální korekce směru · 30. září 2026
+
+Prioritou je kratší a zajímavější buněčný začátek a čitelné dědictví evoluce. Pracovní hypotéza prvního lidského průchodu buňkou je 3–5 minut; automatický průchod ji nepotvrzuje. Buňka používá růst 2/4/7 a jednu smysluplnou přestavbu, její ekologie je dobrovolná. Útes ani další etapy se nezkracují plošně. Využíváme stávající historii: výslovná buněčná adaptace → útes, skutečná hnízda tvora → kmen, skutečné městské sjednocení → kombinovaná vesmírná filozofie. Detail změny, bezpečné staré savey a meze ověření uvádí [report](EVOLUTION-OPENING-REPORT.md). Rozsah A–D zůstává, E je odložené. Následující starší pořadí mezer je historický výchozí směr; aktuální technický stav vede ROADMAP.
 
 ## Z čeho vycházíme
 
@@ -25,7 +31,7 @@ Největší mezery jsou volnost stavby tvora, život druhů a smečky, města se
 | **B — společnost a planeta** | Aktivní kmenoví sousedé, kulturní výstroj, městská ekonomika a soupeřící státy. Hráč může sjednotit planetu vojensky, obchodem nebo nábožensky; využije pevninu, moře i vzduch. Minulé volby mají konkrétní následky. | SP-007 až SP-010; budovy a vozidla v SP-005; SP-017 |
 | **C — první úplný vesmírný okruh** | Vlastní loď odletí z domova do cizí soustavy, získá život, upraví planetu, založí kolonii, prodá její produkci a vrátí se. Stav cizího světa přežije odlet i načtení hry. | První ucelené výstupy SP-011 až SP-013; lodě v SP-005; SP-017 |
 | **D — otevřená galaxie** | Rozšiřitelná galaxie, různé říše, obchod, diplomacie i války, vybavení, mise a události vytvářejí důvod pokračovat. Lze dosáhnout jádra a hrát dál. | Dokončení SP-011 až SP-015 a vesmírného dědictví SP-007; SP-017 |
-| **E — kapitán a dobrodružství** | Hráč vystoupí jako člen svého druhu, dokončí různé mise, rozvíjí kapitána a vytvoří přenositelnou vlastní misi. | SP-016; dokončení průřezových SP-005 a SP-017 |
+| **E — volitelné pokračování: kapitán a dobrodružství** | Mimo aktuální cíl; případný další vývoj umožní vystoupit jako člen svého druhu, dokončit různé mise, rozvíjet kapitána a vytvořit přenositelnou vlastní misi. | Odložené SP-016 a části SP-005/SP-017 pro E |
 
 Milník C ověřuje první úplnou smyčku; neuzavírá celý vesmírný rozsah. Splnění jednoho dílčího výstupu rovněž neznamená dokončení celé karty. Stav se vede pouze v trackeru, nikoli kopírováním procent sem.
 

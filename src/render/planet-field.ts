@@ -1,3 +1,4 @@
+import { liveTowers, towerTarget, towerOnline, TOWER_RANGE } from '../game/city-defense';
 import { fieldRaid } from '../game/defense';
 import { MilitaryPresentation } from './military';
 import { activeMachines } from '../game/machines';
@@ -17,26 +18,28 @@ import { biomeStyle } from '../ui/home-planet';
 export class PlanetFieldRenderer {
   cityView = false;
   warView = false;
+  towerView:number|null=null;
   private military=new MilitaryPresentation();
-  cameraState(){return {warView:this.warView,cityView:this.cityView,position:{x:this.camera.position.x,y:this.camera.position.y,z:this.camera.position.z}};}
+  cameraState(){return {warView:this.warView,cityView:this.cityView,towerView:this.towerView,position:{x:this.camera.position.x,y:this.camera.position.y,z:this.camera.position.z}};}
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, .1, 400);
   private identity: unknown = null;
   private cityIdentity: unknown = null;
   private cityLayout = '';
   private lights: {id:number;mesh:THREE.Mesh}[]=[];
+  private towers: {id:number;model:THREE.Group;bar:THREE.Mesh;range:THREE.Mesh;flash:THREE.Mesh}[]=[];
   private citizens: THREE.InstancedMesh|null=null;
   private citizenHeads: THREE.InstancedMesh|null=null;
   private matrix = new THREE.Object3D();
   private actor: THREE.Group | null = null;
   private markers: THREE.Mesh[] = [];
   private last = new THREE.Vector3();
-  dispose(): void { this.military.dispose(); this.citizens?.dispose();this.citizenHeads?.dispose();disposeObject(this.scene); this.scene.clear(); this.identity = null; this.cityIdentity = null; this.actor = null; this.markers = [];this.cityLayout='';this.lights=[];this.citizens=null;this.citizenHeads=null; }
+  dispose(): void { this.military.dispose(); this.citizens?.dispose();this.citizenHeads?.dispose();disposeObject(this.scene); this.scene.clear(); this.identity = null; this.cityIdentity = null; this.actor = null; this.markers = [];this.cityLayout='';this.lights=[];this.towers=[];this.citizens=null;this.citizenHeads=null; }
   render(renderer: THREE.WebGLRenderer, s: GameState, yaw: number, pitch: number, zoom: number): void {
     const field = activeField(s)!; const cell = planetAtlas(s.homePlanet!)!.cells[field.cellId];
     const current=cityAt(s),layout=JSON.stringify([current?.economy?.buildings.map(b=>[b.id,b.kind,b.lot,b.appearance]),current?.economy?.residents.map(r=>r.id),current?.owner]);
     if (this.identity !== field || this.cityIdentity !== current || this.cityLayout!==layout) {
-      if(this.identity!==field)this.cityView=false;
+      if(this.identity!==field){this.cityView=false;this.towerView=null;}
       this.dispose(); this.identity = field; this.cityIdentity = current;this.cityLayout=layout;
       this.scene.background = new THREE.Color(cell.biome === 'tundra' ? '#bbcdd0' : '#a9c9cf');
       this.scene.fog = new THREE.Fog(this.scene.background, 85, 240);
@@ -68,6 +71,12 @@ export class PlanetFieldRenderer {
         for(const b of city.economy?.buildings??[]) {
           const q=cityLot(city,b.lot)!,y=fieldGround(s.seed,cell,q.x,q.z);
           const model=createBuilding(b.kind,b.appearance,(x,z)=>fieldGround(s.seed,cell,q.x+x,q.z+z)-y);model.position.set(q.x,y,q.z);this.scene.add(model);
+          if(b.kind==='tower'){
+            const bar=mesh(new THREE.BoxGeometry(3,.25,.25),'#9af0c2',q.x,y+8,q.z);
+            const range=mesh(new THREE.TorusGeometry(TOWER_RANGE,.07,4,64),ownerColor(s,city),q.x,y+.2,q.z);range.rotation.x=-Math.PI/2;
+            const flash=mesh(new THREE.SphereGeometry(.5,8,6),'#ffe4a0',q.x,y+7.2,q.z);
+            this.towers.push({id:b.id,model,bar,range,flash});
+          }
           const lamp=mesh(new THREE.SphereGeometry(.3,8,6),'#9af0c2',q.x,y+4.9,q.z);this.lights.push({id:b.id,mesh:lamp});
         }
         if(city.economy?.residents.length){
@@ -92,7 +101,8 @@ export class PlanetFieldRenderer {
     this.markers.forEach((m, i) => { const mat = m.material as THREE.MeshStandardMaterial; mat.color.set(field.world.patches[i].discovered ? '#88f2bb' : '#ffe8a1'); mat.emissive.set(field.world.patches[i].discovered ? '#2a8460' : '#b58629'); });
     if(current?.economy){
       const preview=cityEconomyPreview(current);
-      this.lights.forEach(({id,mesh})=>{const b=current.economy!.buildings.find(b=>b.id===id)!;(mesh.material as THREE.MeshStandardMaterial).color.set(!b.enabled?'#777979':!preview.funded?'#e67968':preview.staffed.includes(id)||b.kind==='house'?'#9af0c2':'#edca7c');});
+      this.lights.forEach(({id,mesh})=>{const b=current.economy!.buildings.find(b=>b.id===id)!;(mesh.material as THREE.MeshStandardMaterial).color.set(b.kind==='tower'?!b.defense!.health?'#ad5149':towerOnline(current,b)?'#9af0c2':'#edca7c':!b.enabled?'#777979':!preview.funded?'#e67968':preview.staffed.includes(id)||b.kind==='house'?'#9af0c2':'#edca7c');});
+      this.towers.forEach(t=>{const b=current.economy!.buildings.find(b=>b.id===t.id)!;t.model.scale.y=b.defense!.health>0?1:.3;t.bar.scale.x=Math.max(.001,b.defense!.health/100);t.range.visible=this.cityView||this.warView||this.towerView===t.id;t.flash.visible=towerOnline(current,b)&&b.defense!.cooldown>1.05;(t.bar.material as THREE.MeshStandardMaterial).color.set(b.defense!.health>30?'#9af0c2':'#e97963');});
       current.economy.residents.forEach((r,i)=>{
         if(!this.citizens||!this.citizenHeads)return;
         // Small civic figures represent the saved census. Their motion is visual,
@@ -111,9 +121,12 @@ export class PlanetFieldRenderer {
     const selected=deployment?.cityId===city?.id&&deployment?.phase==='field'?unit:null;
     const opponent=city&&fieldRaid(s,city)?.unit;
     const battle=this.warView&&city&&(selected??opponent);
-    const battleFocus=battle&&(selected&&opponent&&Math.hypot(selected.pos.x-opponent.pos.x,selected.pos.z-opponent.pos.z)<=24?{x:(selected.pos.x+opponent.pos.x)/2,y:(selected.pos.y+opponent.pos.y)/2,z:(selected.pos.z+opponent.pos.z)/2}:battle.pos);
-    const focus=battleFocus?battleFocus:this.cityView&&city?{x:city.address.position.x+7,y:city.address.position.y+2,z:city.address.position.z}:nearCity&&hall?{x:(p.x+hall.x)/2,y:p.y+2,z:(p.z+hall.z)/2}:p;
-    const distance = battle?Math.max(25,zoom*1.5):nearCity&&city?.economy?Math.max(25,Math.min(100,65+(zoom-25)*1.6)):Math.max(nearCity?40:18,Math.min(45,zoom));
+    const tower=battle&&city?liveTowers(city).map(b=>towerTarget(s,city,b).pos).sort((a,b)=>Math.hypot(a.x-battle.pos.x,a.z-battle.pos.z)-Math.hypot(b.x-battle.pos.x,b.z-battle.pos.z))[0]:null;
+    const partner=selected&&opponent?opponent.pos:tower;
+    const battleFocus=battle&&(partner&&Math.hypot(battle.pos.x-partner.x,battle.pos.z-partner.z)<=32?{x:(battle.pos.x+partner.x)/2,y:(battle.pos.y+partner.y)/2,z:(battle.pos.z+partner.z)/2}:battle.pos);
+    const selectedTower=city?.economy?.buildings.find(b=>b.kind==='tower'&&b.id===this.towerView),towerFocus=selectedTower&&city?towerTarget(s,city,selectedTower).pos:null;
+    const focus=towerFocus??(battleFocus?battleFocus:this.cityView&&city?{x:city.address.position.x+7,y:city.address.position.y+2,z:city.address.position.z}:nearCity&&hall?{x:(p.x+hall.x)/2,y:p.y+2,z:(p.z+hall.z)/2}:p);
+    const distance = towerFocus?Math.max(20,zoom):battle?Math.max(25,zoom*1.5):nearCity&&city?.economy?Math.max(25,Math.min(100,65+(zoom-25)*1.6)):Math.max(nearCity?40:18,Math.min(45,zoom));
     this.camera.position.set(focus.x + Math.sin(yaw) * distance * Math.cos(pitch), focus.y + Math.max(12, distance * Math.sin(pitch)), focus.z + Math.cos(yaw) * distance * Math.cos(pitch));
     this.camera.lookAt(focus.x, focus.y, focus.z); renderer.render(this.scene, this.camera);
   }

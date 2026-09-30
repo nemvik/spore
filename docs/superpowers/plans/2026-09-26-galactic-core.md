@@ -1,0 +1,36 @@
+# D5 · cesta k jádru a návrat s planetární odměnou
+
+**Dokončeno podle [finálního reportu](../../spore/SP-015D5-REPORT.md):** full204/4620, runtime18, prezentace38, finálnífixtures/prezentace20, typecheck/build; obě skutečné cesty, zachovaná prohra/záchrana/servis, dar/planetární platba/import/návrat a další výprava. Main prohlédl finální6PNG; výkon a jeho30Hz browser baseline jsou výslovně oddělené. Úklid10 361 602B/manifest. Nová celá linie a lidské přijetí zůstávají v navazujícím A–D plánu; E odložené. Následující text zachovává původní integrační smlouvu.
+
+
+Runtime, validace, UI a modely jsou integrované; **hraný důkaz SP-015 dosud čeká**. Cílené runtime18/18, prezentace38/38 a typecheck prošly; celá sada nyní běží. Navazuje na aktuální BRIEF A–D. Nezahajovat E. Přijatá kritéria zůstávají beze změny.
+
+## Výsledek a dvě skutečné cesty
+
+Mapa a deník srozumitelně ukážou Srdce světla31, chráněnou oblast24–31 a kontakt před hranicí. Původní mocnost **Tichý val** střeží vnitřní soustavy; nejde o povinnost zničit všechny jejich planety. Průchod lze získat osobním diplomatickým jednáním s doloženým doporučením rozvinutého Kruhu prvních světel, nebo skutečným vítězstvím nad hraniční hlídkou. Neúspěch/ústup zachová dosavadní loď, náklad a dostupnou nouzovou obnovu; boj sám nevytváří hotovost ani kolonii.
+
+V obou případech hráč vlastní lodí skutečně proletí do31 a osobně dosáhne centrálního místa. Získaná původní odměna musí mít výrazný trvalý účinek na cizí planetě, uložený i po odletu/importu, a být konkrétně dostupná v běžném UI. Návrat domů a další výprava pokračují v témže účtu, galaxii a ekologii.
+
+## Integrační hranice k uzavření před editací
+
+- Generator1 a32 existujících adres se nemění. Oprávnění kontrolovat na **každém novém vstupu přes hranici celé oblasti**, nejen na jedné mezilehlé hvězdě; dlouhý dosah nesmí obejít cestu. Průchod D4 končí22 mimo oblast. Výstup je vždy možný. Staré živé/CP návštěvy, rozpracované lety a kolonie uvnitř dostanou explicitní přechodovou kompatibilitu bez zpětně vymyšleného vítězství nebo nové odměny.
+- D4 doporučení se použije jako konkrétní diplomatická podmínka. Samotné načtení, dávná návštěva31 ani počet vztahových bodů nesmí automaticky vytvořit setkání/odměnu. Akce musí mít trvalé časové a letové řezy a idempotentní osobní příkazy.
+- Hlídka musí používat skutečný stávající pulz, pohyb, ústup, zranění a obnovu. Před editací zmapovat uzavřený union typu boje, archivní počty, válečné/event doklady a CP: dnes rozlišují pirate/invasion/defense. Neoznačovat hlídku falešně jako obyčejného piráta nebo invazi cizí existující říše; rozšířit konkrétní typ a archiv bez změny starých dokladů.
+- Předběžná odměna **Kořen jasu**: jedním skutečným místním použitím upraví oba klimatické rozměry na obyvatelný střed a zanechá trvalou klimatickou kotvu na planetě. Nevymaže původní organismy ani kolonii; stabilitu a produkci dál určuje skutečný život. Síla a cena použití se uzavřou podle současné bilance terraformace, aby nešlo jen o text nebo kosmetický bonus. Nutný přesný doklad původního klimatu, výsledku, energie a lokálního času; klimatická integrace/CP musí účinek výslovně započíst, ne přepisovat historii zaplacených nástrojů.
+- Zachovat staré parsery bez automatické aktivace. Nová explicitní registrace proběhne zvlášť pro live/CP. Nezávislé agentreview je nyní technicky omezené limitem účtu; pokračovat v hlavním auditu a testech a tuto mez nezamlčet.
+
+## Přiměřené ověření
+
+Nejprve cíleně testovat obě cesty, všechny vstupní trasy včetně dosahu32, historického hráče uvnitř, pending let a návrat, ztrátu/ústup, archivaci důkazu vítězství, jednorázové setkání, skutečnou planetární změnu a její účet/CP/import. Pak relevantní regrese, typecheck/build a native pokračování z dokončeného D4; alternativní strategie z veřejného exportu. D4 zůstane připnutý během svého nedokončeného native ověření. SP-015 uzavřít až s hraným setkáním, použitím/uložením odměny, návratem a další výpravou. Souvislá nová buňka→jádro, lidské přijetí a zbývající A/SP-005/SP-007/SP-017 jsou další povinné výsledky celého cíle.
+
+## Uzavřená datová smlouva po cíleném auditu
+
+Main ověřil aktuální combat/archive, travel, war/event, klima a energetické CP. Následující smlouva je zapojená do runtime, importu/checkpointů, běžných ovládacích panelů a scén.
+
+1. `space.core.version1` má aktivační DiscoveryStamp + nextCombatSerial, jednotné původní `legacyWorlds` live/CP a nejvýše34 permanentních akcí: kontakt23, jeden výsledek průchodu, osobní setkání31, nejvýše31 kořenů na různých cizích planetách. Neúspěšné/ustoupené hlídky zůstanou ve stávající lodní bojové historii. Historická vnitřní návštěva/kolonie/current/pending leg zachová přístup do oblasti, ale nedá setkání ani dar. Celou oblast24–31 kontroluje běžný jump, červí díra a parser nových dokončených/pending letů s tehdejším řezem oprávnění; stará hranice generátoru se nemění.
+2. Kontakt na orbitě23 u majáku otevře dvě volby. Diplomacie potřebuje skutečný permanentní supportSerial z D4. Druhá cesta je jeden skutečný souboj s výraznější lodí Tichého valu; výhra zajistí průchod, ne vlastnictví jeho planet. Žádné vyhlazování všech soustav. Původní piracy/invasion/defense se nezmění: nový `warden` dostane vlastní combat3 a archivní3čísla. Všechny dosavadní kontroly `kind !== pirate` ve válce/UI/renderu se musí zpřesnit na konkrétní vojenské typy. Event dostupné pirátské výsledky musí odečítat i nové warden výsledky. Interval90s mezi boji,12s obnova a účtování pulzů zůstanou.
+3. Hlídka má108odolnosti,9skutečných pulzů, rychlost8, střelbu12 po1,4s do22, odstup12. Piráti a dosavadní vojska zůstávají60/8/1,8s/do18. Profil musí společně používat runtime, validace trajektorie/pulzů, archivní meze, CP, UI i model. Žádný grant zdraví/energie při změně verze.
+4. Osobní setkání na31 u bodu9,−8 daruje Kořen jasu. Jedno místní použití na cizí planetě stojí30skutečné lodní energie, okamžitě nastaví obě osy klimatu na0 a trvale ukotví klima. Původní organismy, jejich zdraví/výživa/původ, stavby a placené klimatické práce zůstanou. Biologická stabilita dál vzniká skutečnými10s života a rolemi; na pusté planetě dar nenahradí dovoz života. To je silnější než běžné nástroje: oba rozměry okamžitě a bez pozdějšího driftu, opakovaně na různých planetách.
+5. Doklad kořene nese původní klima, přesný tehdejší šestipoložkový climateWork, místní čas a časový řez. Klima se ověří jako původní paidWork+drift minus doložené předchozí klima. Na ukotvené planetě jsou následné nástroje blokované a drift stojí; work se zpětně nepřepisuje, součet biosférického energySpent se nemění. Vlastní rootEnergySpent=30×počet skutečných použití se odečte navíc v energetickém CP (včetně nulového času a probíhajícího letu). Dřívější světy bez core se validují přesně jako dosud.
+
+Toto je konkrétní main integrační audit, ne náhrada tvrzením neprovedeného agentreview. Runtime18/18 včetně32 dalších bojů a archivace, odměny, návratu, importu a starého pending letu prošly. Prezentace38/38 a typecheck prošly. Opravené dvě skutečné mezery: root platba v druhé nulové energetické CP kontrole a kanonický čas force dokladu podle battle.end (plovoucí akumulace). Zbývá celá sada/build a skutečné obě cesty; zatím žádné SP-015 kritérium není označené hotové.

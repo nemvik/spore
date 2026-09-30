@@ -1,3 +1,4 @@
+import { liveTowers, towerTarget, towerOnline, towerShotWorld, TOWER_POWER, TOWER_RANGE } from './city-defense';
 import type { GameState, Vec3, World } from './types';
 import type { MachineUnit } from './era-types';
 import { cityGuard, type City } from './cities';
@@ -27,7 +28,7 @@ export interface Raid {
   phase:'preparing'|'outbound'|'waiting'|'field'|'occupying'|'garrison'|'retreat'|'returning'|'returned'|'withdrawn'|'destroyed';
   remaining:number; elapsed:number; hold:number;
 }
-export const raids=(s:GameState):Raid[]=>s.military?.version===2?s.military.raids!:[];
+export const raids=(s:GameState):Raid[]=>s.military?.version===2?[...s.military.raids!,...(s.mobilization?.raids??[])]:[];
 export const unresolvedRaid=(s:GameState)=>raids(s).some(r=>!['destroyed','returned','withdrawn'].includes(r.phase));
 export const fieldRaid=(s:GameState,c:City)=>raids(s).find(r=>r.cityId===c.id&&['field','occupying','garrison','retreat'].includes(r.phase)&&r.unit.health>0);
 export const sameOwner=(a:City['owner'],b:City['owner'])=>a.kind===b.kind&&a.id===b.id;
@@ -98,13 +99,13 @@ export function createRaid(s:GameState,stateId:string,source:City,c:City,id:stri
     unit:{id:1,blueprint:1,pos,heading:0,health:vehicleStats(blueprint).durability,cooldown:0,cargo:0,orders:[],navigation:unitNavigation(pos),intent:'rest'},
     phase:'preparing',remaining:RAID_PREPARATION,elapsed:0,hold:0};
 }
-export function enemyTarget(s:GameState,c:City):{pos:Vec3;health:number;cooldown:number}|null {
+export function enemyTarget(s:GameState,c:City):{pos:Vec3;health:number;cooldown:number;buildingId?:number}|null {
   const raid=fieldRaid(s,c);if(raid)return raid.unit;
   const guard=cityGuard(c);if(c.owner.kind==='state'&&guard&&guard.health>0)return guard;
-  return null;
+  const tower=c.owner.kind==='state'?liveTowers(c)[0]:undefined;return tower?towerTarget(s,c,tower):null;
 }
 export function canOccupy(s:GameState,c:City,owner:City['owner']):boolean {
-  if(sameOwner(c.owner,owner)||c.fortification!==0||c.transfers!.length>=TRANSFER_LIMIT||c.economy&&c.economy.revision>=1e9)return false;
+  if(sameOwner(c.owner,owner)||liveTowers(c).length||c.fortification!==0||c.transfers!.length>=TRANSFER_LIMIT||c.economy&&c.economy.revision>=1e9)return false;
   if(owner.kind==='lineage')return !enemyTarget(s,c);
   const d=s.military!.deployment,u=d?.cityId===c.id&&d.phase==='field'?activeMachines(s)!.fleet.find(u=>u.id===d.unitId):null;
   return !u||u.health<=0;
@@ -141,8 +142,9 @@ function moveTank(s:GameState,c:City,u:MachineUnit,g:VehicleBlueprint,world:Worl
   const cell=planetAtlas(s.homePlanet!)!.cells[navigation(s)!.fields.find(f=>f.id===c.address.locationId)!.cellId];
   u.pos.y=fieldGround(s.seed,cell,u.pos.x,u.pos.z)+.8;return horizontalDistance(u.pos,p)<=stop+.05;
 }
-function shootOrApproach(s:GameState,c:City,u:MachineUnit,g:VehicleBlueprint,world:World,target:{pos:Vec3;health:number},dt:number):void {
-  u.intent='attack';if(!machineShot(world,u,target,vehicleStats(g).power,MILITARY_RANGE))moveTank(s,c,u,g,world,target.pos,dt,Math.max(3,tankRadius(g)+1));
+function shootOrApproach(s:GameState,c:City,u:MachineUnit,g:VehicleBlueprint,world:World,target:{pos:Vec3;health:number;buildingId?:number},dt:number):void {
+  const rayWorld=target.buildingId===undefined?world:towerShotWorld(world,c,target.buildingId);
+  u.intent='attack';if(!machineShot(rayWorld,u,target,vehicleStats(g).power,MILITARY_RANGE))moveTank(s,c,u,g,world,target.pos,dt,Math.max(3,tankRadius(g)+1));
 }
 function shootFort(s:GameState,c:City,u:MachineUnit,g:VehicleBlueprint,world:World,dt:number):void {
   const target={pos:{...c.address.position,y:c.address.position.y+.8},health:c.fortification!};
@@ -180,8 +182,13 @@ export function stepDefense(s:GameState,dt:number):void {
   if(r) {r.elapsed=Math.min(1e9,r.elapsed+dt);r.unit.cooldown=Math.max(0,r.unit.cooldown-dt);}
   if(cityGuard(c))c.defense!.cooldown=Math.max(0,c.defense!.cooldown-dt);
   if(d&&!here)d.hold=0;
+  for(const b of c.economy?.buildings??[])if(b.kind==='tower'){
+    const t=towerTarget(s,c,b);t.cooldown=Math.max(0,t.cooldown-dt);
+    const target=c.owner.kind==='lineage'?r?.unit:here&&d?.phase==='field'?u:null;
+    if(towerOnline(c,b)&&target&&target.health>0)machineShot(towerShotWorld(world,c,b.id),t,target,TOWER_POWER,TOWER_RANGE);
+  }
   if(here&&d&&u){
-    if(u.health<=0){w.deployment=null;u=undefined;}
+    if(u.health<=0){m.fleet=m.fleet.filter(v=>v!==u);w.deployment=null;u=undefined;w.notice='Tvůj nasazený tank byl zničen palbou věže. Nový stroj vyrob za jeho cenu doma.';}
     else{
       d.elapsed=Math.min(1e9,d.elapsed+dt);
       if(d.phase!=='field'){
@@ -219,7 +226,8 @@ export function stepDefense(s:GameState,dt:number):void {
         if(moveTank(s,c,enemy,r.blueprint,world,cityEntry(s,c,true),dt,2.8)){r.phase='returning';r.remaining=(r.route.length-1)*5;enemy.intent='return';}
       }else if(u&&d?.phase==='field'&&u.health>0){r.hold=0;if(r.phase==='occupying')r.phase='field';shootOrApproach(s,c,enemy,r.blueprint,world,u,dt);}
       else if(c.owner.kind==='lineage'){
-        if(c.fortification!>0){r.hold=0;shootFort(s,c,enemy,r.blueprint,world,dt);}
+        if(liveTowers(c).length){r.hold=0;const b=liveTowers(c).sort((a,b)=>horizontalDistance(enemy.pos,towerTarget(s,c,a).pos)-horizontalDistance(enemy.pos,towerTarget(s,c,b).pos))[0];shootOrApproach(s,c,enemy,r.blueprint,world,towerTarget(s,c,b),dt);}
+        else if(c.fortification!>0){r.hold=0;shootFort(s,c,enemy,r.blueprint,world,dt);}
         else if(!canOccupy(s,c,{kind:'state',id:r.stateId})){r.hold=0;r.phase='retreat';w.notice='Obsazení odmítnuto limitem historie nebo hospodářství; zaplacený tank ustupuje.';}
         else if(moveTank(s,c,enemy,r.blueprint,world,c.address.position,dt,2.8)){
           r.phase='occupying';r.hold=Math.min(5,r.hold+dt);

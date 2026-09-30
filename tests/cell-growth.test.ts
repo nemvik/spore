@@ -26,7 +26,7 @@ describe('SP-006 food, size and contact',()=>{
  });
  it('three discrete earned steps increase body and camera without mutating the genome or heading',()=>{
   const s=fresh(),g=cloneGenome(s.player.genome),pos={...s.player.pos},heading=s.player.heading,budget=s.player.totalDna;
-  for(let n=0;n<=15;n++){expect(cellScale(s)).toBe(CELL_SCALES[n<3?0:n<8?1:n<15?2:3]);if(n<15)grow(s,1);}
+  for(let n=0;n<=15;n++){expect(cellScale(s)).toBe(CELL_SCALES[n<2?0:n<4?1:n<7?2:3]);if(n<15)grow(s,1);}
   expect(s.player.genome).toEqual(g);expect(s.player.pos).toEqual(pos);expect(s.player.heading).toBe(heading);expect(s.player.totalDna).toBe(budget+30);expect(cellCameraZoom(s,25)).toBeCloseTo(32.5);grow(s);expect(s.player.totalDna).toBe(budget+30);
  });
  it('only successful food consumption grows; holding at a depleted source or rejected actions does not',()=>{

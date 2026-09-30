@@ -1,4 +1,6 @@
+import { inCommerce } from './commerce';
 import { atSea } from './maritime';
+import { activeField } from './planet-travel';
 import { obstacleSegmentEntry } from './obstacle-geometry';
 import type { ActiveMachineState, MachineRegion, MachineUnit } from './era-types';
 import type { GameState, Vec3, World } from './types';
@@ -16,7 +18,8 @@ export const activeMachines=(s:GameState):ActiveMachineState|null=>s.machines?.v
 export const machineHome=(s:GameState):Vec3=>tribeHome(activeTribe(s)!);
 export const machineIncome=(m:ActiveMachineState):number=>m.springs.filter(p=>p.owner==='player').reduce((n,p)=>n+p.rate,0);
 export const machineDesign=(m:ActiveMachineState,u:MachineUnit):VehicleBlueprint=>m.blueprints.find(d=>d.id===u.blueprint)!.blueprint;
-export const effectiveMachineIncome=(s:GameState):number=>{const m=activeMachines(s);return m?machineIncome(m)*(s.stage===4?tribeInheritance(s).income:1):0;};
+export const domesticIncomeMultiplier=(s:GameState):number=>s.stage===4&&!!s.civilization&&!!activeMachines(s)?.completed?2:1;
+export const effectiveMachineIncome=(s:GameState):number=>{const m=activeMachines(s);return m?machineIncome(m)*domesticIncomeMultiplier(s)*(s.stage===4?tribeInheritance(s).income:1):0;};
 export const machineRegionPower=(s:GameState,base:number):number=>base*(s.stage===4?tribeInheritance(s).power:1);
 export const machinesReady=(s:GameState):boolean=>{const m=activeMachines(s);return !!m&&m.fleet.some(u=>u.health>0)&&m.regions.every(r=>r.owner==='player')&&m.springs.filter(p=>p.owner==='player').length>=2;};
 export function minimumMachineCost():number {return Math.min(...(['restoration','predator','migration'] as const).map(archetype=>{const g=initialVehicle('tank',archetype);for(const p of g.parts)p.scale=.55;return vehicleCost(g);}));}
@@ -24,7 +27,7 @@ export function minimumMachineCost():number {return Math.min(...(['restoration',
  * a still-living fleet when no ground carrier can be financed. */
 export function machineEconomyStranded(s:GameState):boolean {const m=activeMachines(s);return s.stage===4&&!!m&&machineIncome(m)===0&&m.resource<minimumMachineCost()&&!m.fleet.some(u=>u.health>0&&machineDesign(m,u).carrier==='tank');}
 const fail=(message:string):TribeAction=>({ok:false,message});
-const playable=(s:GameState)=>s.stage===4&&!atSea(s)&&!s.deathReason&&!s.military?.deployment?activeMachines(s):null;
+const playable=(s:GameState)=>s.stage===4&&!atSea(s)&&!inCommerce(s)&&!s.deathReason&&!s.military?.deployment?activeMachines(s):null;
 
 /** Once-only stage construction; the inherited coast receives a real closed
  * cliff ring. It is ordinary saved collision geometry, not an AI-only veto. */
@@ -40,6 +43,7 @@ export function createMachines(s:GameState):ActiveMachineState {
   return {version:2,resource:100,blueprints:[],fleet:[],regions,springs,archetype:t.legacyAbility,airUnlocked:false,barrierIds,nextId,elapsed:0,completed:false};
 }
 export function buildMachine(s:GameState,draft:VehicleBlueprint):TribeAction {
+  if(s.space?.location||inCommerce(s)||activeField(s))return fail('S výrobou se vrať do domácí dílny.');
   const m=s.stage===5&&s.planet?.version===2&&!s.deathReason?activeMachines(s):playable(s);if(!m)return fail(C.unavailable);
   if(s.stage===5){const planet=s.planet;const active=planet?.version===2?m.fleet.find(u=>u.id===planet.activeMachine):null;if(!active||horizontalDistance(active.pos,machineHome(s))>12)return fail('S výrobou se vrať do vzdálenosti 12 metrů od dílny.');}
   const quote=quoteVehicle(draft,m.resource,m.airUnlocked);if(!quote.ok)return fail(quote.errors.join(' '));

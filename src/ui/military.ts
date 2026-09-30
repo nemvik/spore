@@ -1,3 +1,5 @@
+import { raids } from '../game/defense';
+import { liveTowers, towerOnline } from '../game/city-defense';
 import { canOccupy, enemyTarget, fieldRaid } from '../game/defense';
 import { raidPhase } from './defense';
 import type { GameState } from '../game/types';
@@ -16,17 +18,18 @@ export function militaryMarkup(s:GameState):string {
 
 function defenseMarkup(s:GameState):string {
   const w=s.military!,c=cityAt(s)!,m=activeMachines(s)!,d=w.deployment,here=d?.cityId===c.id,u=here?m.fleet.find(u=>u.id===d!.unitId):null;
-  const r=w.raids!.find(r=>r.cityId===c.id),enemy=enemyTarget(s,c),ready=here&&d?.phase==='field';
+  const r=raids(s).filter(r=>r.cityId===c.id).sort((a,b)=>Number(['returned','withdrawn','destroyed'].includes(a.phase))-Number(['returned','withdrawn','destroyed'].includes(b.phase))).at(0),enemy=enemyTarget(s,c),ready=here&&d?.phase==='field';
   const button=(cmd:string,label:string,reason='')=>`<div><button class="secondary" data-action="military:${cmd}" ${reason?'disabled':''}>${label}</button><small class="tiny">${cityEscape(reason)}</small></div>`;
   const unavailable=ready?'':'Tank musí nejprve dorazit do tohoto města.';
   const name=(id:string)=>id===s.homePlanet!.id?'Tvoje linie':s.states!.entries.find(v=>v.id===id)?.profile===0?'Svaz zelených údolí':'Liga měděných věží';
   return `<h3>Obrana a obsazení</h3><p><strong>Náměstí · odolnost ${c.fortification!.toFixed(1)} / 80</strong><br>${c.owner.kind==='lineage'?'Tvoje město':'Město soupeře'} · bez automatické obnovy</p>
+  ${liveTowers(c).length?`<p>Strážní věže: ${liveTowers(c).map(b=>`parcela ${b.lot+1} · ${b.defense!.health.toFixed(1)}/100 · ${towerOnline(c,b)?'dosah 24':'čeká na placené hospodaření'} <button class="secondary" data-action="city-tower-camera:${b.id}">Zaměřit věž</button>`).join('<br>')}</p>`:''}
   ${u?`<p><strong>Tvůj tank #${u.id}: ${u.health.toFixed(1)} / ${vehicleStats(machineDesign(m,u)).durability}</strong></p>`:''}
   ${r?`<p class="raid-status"><strong>${raidPhase(r)} · ${r.unit.health.toFixed(1)} / 62 zdraví</strong><br>${r.remaining>0?`Zbývá ${r.remaining.toFixed(1)} s · `:''}obsazení ${r.hold.toFixed(1)} / 5 s</p><details data-preserve-open><summary>Cena ${DEFENSE_COST} ◈ · trasa a doklad</summary><p>Zaplaceno z rezervy, další příjem 0.<br>${cityEscape(s.cities!.entries.find(c=>c.id===r.sourceCityId)!.name)} → ${cityEscape(c.name)}<br>${r.route.join(' → ')}<br>${cityEscape(r.id)}</p></details>`:'<p>Žádný zaplacený výpad proti tomuto městu.</p>'}
   ${c.transfers?.some(t=>t.method==='trade'||t.method==='conversion')?'<p>Původní stráž je trvale demobilizovaná; její zaplacený doklad a zdraví jsou zachované.</p>':c.defense&&c.defense.health>0?`<p>Původní stráž E: ${c.defense.health.toFixed(1)} / 62 zdraví.</p>`:''}
   ${button('camera','Zaměřit boj / vybraný tank')}
   ${u&&d?`<p><strong>Vybraný tank #${u.id} · ${cityEscape(machineDesign(m,u).name)}</strong><br>Zdraví ${u.health.toFixed(1)} / ${vehicleStats(machineDesign(m,u)).durability}<br>${d.phase==='field'?`Rozkaz: ${{stop:'stát',attack:'útok',defend:'obrana',occupy:'obsazování',retreat:'ústup'}[d.order]} · ${d.hold.toFixed(1)} / 5 s`:`Přeprava ${d.phase==='outbound'?'sem':'domů'} · ${d.remaining.toFixed(1)} s`}</p>
-  <p>Cíl: ${fieldRaid(s,c)?'nepřátelský tank':enemy?'původní stráž':c.owner.kind==='state'&&c.fortification!>0?'odolnost náměstí':'náměstí'}</p>
+  <p>Cíl: ${fieldRaid(s,c)?'nepřátelský tank':enemy?enemy.buildingId!==undefined?'strážní věž':'původní stráž':c.owner.kind==='state'&&c.fortification!>0?'odolnost náměstí':'náměstí'}</p>
   ${button('defend','Bránit město',unavailable||(c.owner.kind==='lineage'?'':'Obrana vyžaduje vlastní město.'))}
   ${button('attack','Útok na označený cíl',unavailable||(!enemy&&!(c.owner.kind==='state'&&c.fortification!>0)?'Žádný živý nepřátelský cíl.':''))}
   ${button('occupy','Obsadit náměstí · 5 s',unavailable||(canOccupy(s,c,{kind:'lineage',id:s.homePlanet!.id})?'':'Vyžaduje cizí město bez živé obrany a s nulovou odolností.'))}

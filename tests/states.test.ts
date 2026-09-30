@@ -66,8 +66,8 @@ describe('SP-009.D independent finite states',()=>{
  });
  it('occupied navigation, full registries, actor position and time limits are respected',()=>{
   const s=base();stepStates(s,1/30);const atlas=planetAtlas(s.homePlanet!)!;
-  for(const c of atlas.cells.filter(c=>c.surface==='land'&&!atlas.anchors.some(a=>a.cellId===c.id))){if(navigation(s)!.fields.length>=64)break;if(!navigation(s)!.fields.some(f=>f.cellId===c.id))navigation(s)!.fields.push(createField(s.seed,s.homePlanet!.id,c));}
-  const before=structuredClone(navigation(s)!.fields);turns(s,1);expect(s.states!.entries[0].last!.reason).toContain('64');expect(navigation(s)!.fields).toEqual(before);
+  for(const c of atlas.cells.filter(c=>c.surface==='land'&&!atlas.anchors.some(a=>a.cellId===c.id))){if(navigation(s)!.fields.length>=68)break;if(!navigation(s)!.fields.some(f=>f.cellId===c.id))navigation(s)!.fields.push(createField(s.seed,s.homePlanet!.id,c));}
+  const before=structuredClone(navigation(s)!.fields);turns(s,1);expect(s.states!.entries[0].last!.reason).toContain('plný');expect(navigation(s)!.fields).toEqual(before);
   const t=base();turns(t,2);const r=t.states!.entries[0],c=stateCities(t,r)[0],q=stateOpportunity(t,r);expect(q.action!.kind).toBe('build');const a=q.action as Extract<NonNullable<typeof q.action>,{kind:'build'}>,f=navigation(t)!.fields.find(f=>f.id===c.address.locationId)!;const p=cityLot(c,a.lot)!;f.position={...p,y:0};expect(buildingSite(t,c,a.lot,a.building)).toContain('tvor');expect(stateOpportunity(t,r).action).not.toEqual(q.action);
   t.states!.clock.turn=STATE_TURN_LIMIT;const freeze=structuredClone(t.states);stepStates(t,1/30);expect(t.states).toEqual(freeze);
  });

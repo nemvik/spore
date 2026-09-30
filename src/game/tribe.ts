@@ -5,7 +5,7 @@ import { chiefBusy, cancelChiefCouncil, stepChiefMember, stepChief } from './tri
 import { acquisitionCaretaker, cancelDomestication, domesticAnimal, stepAcquisitionMember, stepDomestication, damageDomesticAnimal } from './tribe-domestication';
 import { cancelMusic, musicParticipant, stepMusic } from './tribe-music';
 import { initializeNeighbours, tribeContact } from './tribe-society';
-import { creatureInheritance } from './lineage-history';
+import { firstInheritanceUse, creatureInheritance } from './lineage-history';
 import { worldSpecies } from './npc-genome';
 import { recordEcologyContact } from './ecology-catalog';
 import type { ActiveTribeState, ToolId, TribeBuilding, TribeNeighbour, TribeUnit } from './era-types';
@@ -178,6 +178,19 @@ export function stepTribe(s: GameState, dt: number): string[] {
   const t = activeTribe(s); if (!t) return [];
   const inheritance = creatureInheritance(s);
   const messages: string[] = [], home = tribeHome(t), stats = computeStats(s.player.genome);
+  const explain = (kind: 'social' | 'combat') => firstInheritanceUse(s, 'creature', `${inheritance.route==='mixed'?'Smíšený život':inheritance.route==='social'?'Přátelství':'Predace'} tvora → kmenová ${kind==='social'?'diplomacie':'síla zásahu'} +${Math.round((inheritance[kind]-1)*1000)/10} %.`);
+  const inheritedStrike: typeof strikeNeighbourUnit = (u, n, target, multiplier = 1) => {
+    const before = target.health; strikeNeighbourUnit(u, n, target, multiplier);
+    if (multiplier > 1 && target.health < before) explain('combat');
+  };
+  const inheritedMeeting: typeof meetNeighbour = (tribe, u, n, kind, delta, bonus = { social: 1, combat: 1 }) => {
+    const relation = n.relation, health = n.health;
+    const result = meetNeighbour(tribe, u, n, kind, delta, bonus);
+    if (bonus.social > 1 && n.relation > relation) explain('social');
+    if (bonus.combat > 1 && n.health < health) explain('combat');
+    return result;
+  };
+
   t.elapsed += dt; t.abilityCooldown = Math.max(0, t.abilityCooldown - dt); t.abilityTime = Math.max(0, t.abilityTime - dt);
   const units = [...t.members].sort((a, b) => a.id - b.id);
   const positions = [...units, ...t.neighbours.flatMap(n=>n.society?.members??[])].filter(u=>u.health>0).sort((a,b)=>a.id-b.id).map(u => ({ id: u.id, pos: { ...u.pos } }));
@@ -217,7 +230,7 @@ export function stepTribe(s: GameState, dt: number): string[] {
     if (!order || !target) {
       u.intent = 'rest';
       const enemy=t.neighbours.flatMap(n=>!n.resolved&&n.society?.truce===0?n.society.members.filter(v=>v.health>0&&(v.task==='raid'||v.task==='defend')&&horizontalDistance(u.pos,v.pos)<(u.tool==='spear'?4.5:2.5)).map(v=>({n,v})):[]).sort((a,b)=>horizontalDistance(u.pos,a.v.pos)-horizontalDistance(u.pos,b.v.pos)||a.v.id-b.v.id)[0];
-      if(enemy&&tribeContact(s.world,u.pos,enemy.v.pos))strikeNeighbourUnit(u,enemy.n,enemy.v,u.species?1:inheritance.combat);
+      if(enemy&&tribeContact(s.world,u.pos,enemy.v.pos))inheritedStrike(u,enemy.n,enemy.v,u.species?1:inheritance.combat);
       continue;
     }
     const finish = () => { u.orders.shift(); u.navigation.rethink = 0; u.intent = 'rest'; };
@@ -245,16 +258,16 @@ export function stepTribe(s: GameState, dt: number): string[] {
       const v=n?.society?.members.find(v=>v.id===target.id);
       if(!n||!v){finish();continue;}
       if(contact(v.pos,order.kind==='attack'&&u.tool==='spear'?4.5:2.5)){
-        if(order.kind==='attack')strikeNeighbourUnit(u,n,v,u.species?1:inheritance.combat);
-        else {const message=meetNeighbour(t,u,n,'socialize',dt,u.species?undefined:inheritance);if(message)messages.push(message);}
+        if(order.kind==='attack')inheritedStrike(u,n,v,u.species?1:inheritance.combat);
+        else {const message=inheritedMeeting(t,u,n,'socialize',dt,u.species?undefined:inheritance);if(message)messages.push(message);}
       }
     } else if (target.kind === 'neighbour') {
       const neighbour = t.neighbours.find(n => n.id === target.id);
       if (!neighbour || neighbour.resolved) { finish(); continue; }
       const defender=order.kind==='attack'?neighbour.society?.members.filter(v=>v.health>0&&horizontalDistance(v.pos,u.pos)<9).sort((a,b)=>horizontalDistance(a.pos,u.pos)-horizontalDistance(b.pos,u.pos)||a.id-b.id)[0]:undefined;
-      if(defender){if(contact(defender.pos,u.tool==='spear'?4.5:2.5))strikeNeighbourUnit(u,neighbour,defender,u.species?1:inheritance.combat);continue;}
+      if(defender){if(contact(defender.pos,u.tool==='spear'?4.5:2.5))inheritedStrike(u,neighbour,defender,u.species?1:inheritance.combat);continue;}
       if (contact(neighbour.pos, order.kind === 'attack' && u.tool === 'spear' ? 4.5 : 3.5)) {
-        const message = meetNeighbour(t, u, neighbour, order.kind === 'attack' ? 'attack' : 'socialize', dt, u.species ? undefined : inheritance); if (message) messages.push(message);
+        const message = inheritedMeeting(t, u, neighbour, order.kind === 'attack' ? 'attack' : 'socialize', dt, u.species ? undefined : inheritance); if (message) messages.push(message);
       }
     } else if (target.kind === 'creature') {
       const prey = s.world.creatures.find(c => c.id === target.id);

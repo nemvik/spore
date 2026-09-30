@@ -8,11 +8,11 @@ export interface VehiclePart extends Omit<Part,'kind'|'limb'> {kind:VehiclePartI
 export interface VehicleBlueprint {version:1;kind:'vehicle';carrier:Carrier;name:string;length:number;width:number;hue:number;pattern:number;parts:VehiclePart[];}
 export type SeaPartId='hull'|'cabin'|'propeller';
 export interface SeaPart extends Omit<VehiclePart,'kind'> {kind:SeaPartId;}
-export interface SeaBlueprint extends Omit<VehicleBlueprint,'version'|'carrier'|'parts'> {version:2;carrier:'boat';parts:SeaPart[];}
+export interface SeaBlueprint extends Omit<VehicleBlueprint,'version'|'carrier'|'parts'> {version:2|3;carrier:'boat';parts:SeaPart[];}
 export type VehicleConstruction=VehicleBlueprint|SeaBlueprint;
 export type OrganismBlueprint=Genome&{kind:'organism'};
-export type Blueprint=OrganismBlueprint|VehicleBlueprint;
-export type BlueprintPart=Part|VehiclePart;
+export type Blueprint=OrganismBlueprint|VehicleConstruction;
+export type BlueprintPart=Part|VehiclePart|SeaPart;
 export interface VehiclePartSpec {id:VehiclePartId;category:VehicleCategory;cost:number;mass:number;durability:number;power:number;max:number;carriers:readonly Carrier[];name:string;description:string;tradeoff:string;}
 const part=(id:VehiclePartId,category:VehicleCategory,cost:number,mass:number,durability:number,power:number,max=1,carriers:readonly Carrier[]=['tank','air']):VehiclePartSpec=>({id,category,cost,mass,durability,power,max,carriers,...C.parts[id]});
 export const VEHICLE_PARTS:readonly VehiclePartSpec[]=[
@@ -38,6 +38,9 @@ export function seaBlueprint():SeaBlueprint {
     {id:'sea-propeller',kind:'propeller',axial:-1,angle:Math.PI,scale:1,mirrored:false},
   ]};
 }
+export const editableBoat=():SeaBlueprint=>({...seaBlueprint(),version:3});
+export const constructionParts=(carrier:VehicleConstruction['carrier'])=>carrier==='boat'?SEA_PARTS:VEHICLE_PARTS;
+export const constructionPartAllowed=(id:VehiclePartId|SeaPartId,carrier:VehicleConstruction['carrier'])=>constructionParts(carrier).some(p=>p.id===id&&(p.carriers as readonly string[]).includes(carrier));
 export const fromGenome=(genome:Genome):OrganismBlueprint=>({...structuredClone(genome),kind:'organism'});
 /** Preserve the exact genome discriminant and every nested body field. */
 export const toGenome = (g: OrganismBlueprint): Genome => {
@@ -72,6 +75,7 @@ function exact(value:unknown,keys:readonly string[]):value is Record<string,unkn
 const finite=(n:unknown,min:number,max:number)=>typeof n==='number'&&Number.isFinite(n)&&n>=min&&n<=max;
 /** v2 currently admits exactly the first construction, including attachment identities. */
 export function validateSeaBlueprint(value:unknown):string[]{
+  if(value&&typeof value==='object'&&'version' in value&&value.version===3)return validateEditableBoat(value);
   const expected=seaBlueprint();
   if(!exact(value,Object.keys(expected)))return [C.shape];
   for(const key of ['version','kind','carrier','name','length','width','hue','pattern'] as const)if(value[key]!==expected[key])return [C.seaConstruction];
@@ -81,6 +85,23 @@ export function validateSeaBlueprint(value:unknown):string[]{
     if(!exact(p,Object.keys(canonical))||Object.keys(canonical).some(key=>p[key]!==canonical[key as keyof SeaPart]))return [C.attachments];
   }
   return [];
+}
+/** v3 is an editable civilian vessel. v2 remains the exact historical construction. */
+function validateEditableBoat(value:unknown):string[]{
+  if(!exact(value,['version','kind','carrier','name','length','width','hue','pattern','parts'])||value.version!==3||value.kind!=='vehicle'||value.carrier!=='boat')return [C.shape];
+  if(typeof value.name!=='string'||!value.name.trim()||value.name.length>32||/[\u0000-\u001f\u007f]/.test(value.name))return [C.name];
+  if(!finite(value.length,.65,2.4)||!finite(value.width,.55,1.8)||!finite(value.hue,0,360)||!finite(value.pattern,0,3)||!Number.isInteger(value.pattern))return [C.dimensions];
+  if(!Array.isArray(value.parts)||value.parts.length!==3)return [C.attachments];
+  const ids=new Set<string>(),kinds=new Set<string>();
+  for(const p of value.parts){
+    if(!exact(p,['id','kind','axial','angle','scale','mirrored'])||typeof p.id!=='string'||!/^[a-zA-Z0-9_-]{1,64}$/.test(p.id)||ids.has(p.id)||!SEA_PARTS.some(s=>s.id===p.kind)||kinds.has(p.kind as string)||!finite(p.axial,-1,1)||!finite(p.angle,-Math.PI,Math.PI)||!finite(p.scale,.55,1.65)||p.mirrored!==false)return [C.attachments];
+    ids.add(p.id);kinds.add(p.kind as string);
+  }
+  const stats=vehicleStats(value as unknown as SeaBlueprint);
+  return stats.mass>stats.capacity?[C.overweight]:[];
+}
+export function validateConstruction(value:unknown):string[]{
+  return value&&typeof value==='object'&&'carrier' in value&&value.carrier==='boat'?validateSeaBlueprint(value):validateVehicle(value);
 }
 /** Validates saved designs without depending on current funds or unlock UI. */
 export function validateVehicle(value:unknown):string[]{

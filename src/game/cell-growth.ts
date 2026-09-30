@@ -7,7 +7,7 @@ import { distance, horizontalDistance } from './random';
 import { lineBlocked } from './interactions';
 
 export const CELL_PARTS = ['spines', 'antenna', 'toxin'] as const;
-export const CELL_THRESHOLDS = [0, 3, 8, 15] as const;
+export const CELL_THRESHOLDS = [0, 2, 4, 7] as const;
 export const CELL_SCALES = [.65, .9, 1.25, 1.7] as const;
 export type CellContactKind = 'mouth' | 'spines' | 'shell' | 'hurt' | 'toxin' | 'growth';
 export interface CellGrowth {
@@ -46,13 +46,17 @@ export function initializeCell(s: GameState) {
   s.cellGrowth = { version: 1, nutrition: 0, parts: [], contact: null, sites: CELL_PARTS.map((part, i) => ({ part, pos: clear(...([[8, -9], [-12, -18], [18, -25]][i] as [number, number])), collected: false })) };
 }
 export function recordCellMeal(s: GameState) {
-  const cell = activeCell(s); if (!cell || cell.nutrition >= 15) return;
+  const cell = activeCell(s); if (!cell || cell.nutrition >= CELL_THRESHOLDS[3]) return;
   const before = cellTier(s); cell.nutrition++;
   if (cellTier(s) > before) {
     s.player.dna += 10; s.player.totalDna += 10;
     cellContact(s, 'growth', s.player.pos);
     cellNotice(s, `Růst ${cellTier(s)} / 3 · tělo zesílilo! +10 DNA. ${cellTier(s) === 3 ? 'Jehloúst je teď menší kořist pro čelist.' : 'Zvládneš větší sousta.'} Prozkoumej zářící schránku ✧ klávesou T.`);
   }
+}
+/** Old completed ecology remains a valid exit; no past choice is invented. */
+export function cellOpeningReady(s: GameState): boolean {
+  return !!activeCell(s) && cellTier(s) === 3 && s.cellGrowth!.parts.some(p => p.usedGeneration !== null);
 }
 export function cellSiteTarget(s: GameState) {
   const cell = activeCell(s); if (!cell) return null;

@@ -44,7 +44,7 @@ async function eatUntil(nutrition){
  for(let attempt=0;attempt<100;attempt++){
   let s=await read();assert.equal(s.mode,'game');if(s.cellGrowth.nutrition>=nutrition){await release();return;}
   if(s.feedTarget?.kind==='food'&&(s.feedTarget.ready||s.feedTarget.reason==='cooldown')){await release();await page.keyboard.down('Space');await page.waitForTimeout(280);continue;}
-  const tier=s.cellGrowth.nutrition>=8?2:s.cellGrowth.nutrition>=3?1:0;
+  const tier=s.cellGrowth.nutrition>=4?2:s.cellGrowth.nutrition>=2?1:0;
   const food=s.world.resources.filter(r=>['algae','detritus'].includes(r.kind)&&r.amount>=1&&(r.max<7||tier>=2)).sort((a,b)=>Math.hypot(a.pos.x-s.player.pos.x,a.pos.z-s.player.pos.z)-Math.hypot(b.pos.x-s.player.pos.x,b.pos.z-s.player.pos.z))[0];assert.ok(food);
   await walkTo(food.pos,1.8);await page.keyboard.down('Space');await page.waitForTimeout(300);
  }
@@ -58,9 +58,9 @@ try{
  await page.goto(base);if(process.env.LUMAVORA_PRODUCTION==='1')assert.equal(await page.evaluate(()=>typeof window.advanceTime),'undefined');
  await action('new');const initial=await read();assert.equal(initial.cellGrowth.nutrition,0);await capture('birth');
  await page.keyboard.press('Tab');await action('category:defense');assert.equal(await page.locator('[data-action="add:spines"]').isDisabled(),true);await action('cancel-editor');
- await eatUntil(3);await capture('growth-1');await discover(0);await capture('discovery');await rebuild('spines');assert.equal((await read()).cellGrowth.parts[0].usedGeneration,2);results.push({name:'First earned growth, discovery and paid rebuild',passed:true});
- await eatUntil(8);await capture('growth-2');await discover(1);await rebuild('antenna');
- await eatUntil(15);await capture('growth-3');await discover(2);await rebuild('toxin');
+ await eatUntil(2);await capture('growth-1');await discover(0);await capture('discovery');await rebuild('spines');assert.equal((await read()).cellGrowth.parts[0].usedGeneration,2);results.push({name:'First earned growth, discovery and paid rebuild',passed:true});
+ await eatUntil(4);await capture('growth-2');await discover(1);await rebuild('antenna');
+ await eatUntil(7);await capture('growth-3');await discover(2);await rebuild('toxin');
  let s=await read();assert.equal(s.cellGrowth.parts.length,3);assert.equal(s.player.generation,4);assert.equal(s.camera.bodyScale,1.7);results.push({name:'Three visible growths and all three discovered organs actually installed',passed:true});
  await page.keyboard.press('x');await page.waitForTimeout(160);s=await read();assert.ok(s.player.abilityRecharge>6);assert.equal(s.cellGrowth.contact.kind,'toxin');await capture('toxin');results.push({name:'Native defensive pulse uses independent recharge',passed:true});
  // Trade the filter for a jaw with the earned construction budget.
@@ -80,7 +80,7 @@ try{
  // Held Space eats nearby detritus first when it is closer to the mouth; keep the real selection rules.
  for(let i=0;i<120;i++){await page.keyboard.down('Space');await page.waitForTimeout(250);s=await read();if((s.world.resources.find(r=>r.id===meat.id)?.amount??0)<meat.amount){eaten=true;break;}}
  await release();assert.ok(eaten,'The real carcass must lose a portion');assert.ok(s.player.meals>meals);results.push({name:'Former predator is eaten as actual meat',passed:true});
- const saved=await exportSave('active-lineage');await page.locator('#import-save').setInputFiles(saved);await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).mode==='game');const loaded=await read();assert.deepEqual(loaded.cellGrowth.parts,s.cellGrowth.parts);assert.equal(loaded.cellGrowth.nutrition,15);assert.deepEqual(loaded.player.genome,s.player.genome);
+ const saved=await exportSave('active-lineage');await page.locator('#import-save').setInputFiles(saved);await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).mode==='game');const loaded=await read();assert.deepEqual(loaded.cellGrowth.parts,s.cellGrowth.parts);assert.equal(loaded.cellGrowth.nutrition,7);assert.deepEqual(loaded.player.genome,s.player.genome);
  if(loaded.lineageHistory){const row=loaded.lineageHistory.stages[0];assert.equal(row.coverage,'complete');assert.equal(Object.values(row.counts.meals).reduce((a,b)=>a+b,0),loaded.player.meals);assert.ok(row.counts.meals.meat>0);assert.equal(row.counts.hunts,loaded.player.kills);assert.deepEqual(row,s.lineageHistory.stages[0]);results.push({name:'SP-007 actual diet and hunts persist from birth through rebuilds and save/load',passed:true});}
  await capture('restored');
  await page.keyboard.press('Escape');await action('library');assert.equal((await read()).mode,'library');await page.screenshot({path:path.join(out,'library.png')});results.push({name:'UI export/import and SP-005 library remain available',passed:true});assert.deepEqual(errors,[]);

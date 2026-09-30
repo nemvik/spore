@@ -4,8 +4,44 @@ import { plantedStatus, journeyAction, journeyHint, initializeJourneyStage } fro
 import { primaryInteraction, feedTarget, tendTarget } from '../src/game/interactions';
 import { createWorld } from '../src/game/world';
 import { JOURNEY_COPY } from '../src/game/journey-content';
+import { journeyGuide } from '../src/ui/journey-guide';
 
 describe('live ecological guidance', () => {
+  it('guides a side descent only while an actual upper pasture powers the vent outlet', () => {
+    const s = createGame(8675309, false, true, true);
+    s.stage = 1; s.world = createWorld(s.seed, 1); s.worlds[1] = s.world; initializeJourneyStage(s);
+    const canopy = s.journey.sites.find(site => site.id === 4)!, vent = s.journey.sites.find(site => site.id === 5)!;
+    const plant = s.world.resources.find(r => r.id === canopy.sourceId)!;
+    canopy.plantedId = plant.id; canopy.resolved = true; plant.pos = { ...canopy.refuges[0] };
+    s.player.pos = { ...vent.source, y: 12 };
+    expect(journeyGuide(s)?.instruction).toContain('Sestup klávesou C vedle něj');
+    vent.observed = true;
+    expect(journeyGuide(s)?.instruction).toContain('výstupný proud');
+    const before = JSON.stringify(s); journeyGuide(s); expect(JSON.stringify(s)).toBe(before);
+    plant.amount = 0;
+    expect(journeyGuide(s)?.instruction).not.toContain('výstupný proud');
+    plant.amount = 8; plant.pos = { ...canopy.refuges[1] };
+    expect(journeyGuide(s)?.instruction).not.toContain('výstupný proud');
+  });
+  it.each(['spines', 'jaw'] as const)('explains why a %s body should leave space at a new pasture', kind => {
+    const s = createGame(8675309, false), site = s.journey.sites[0];
+    site.observed = true; site.plantedId = site.sourceId;
+    const peaceful = structuredClone(s.player.genome.parts);
+    if (kind === 'jaw') s.player.genome.parts = s.player.genome.parts.filter(p => p.kind !== 'filter');
+    s.player.genome.parts.push({ id: 'earned-defense', kind, axial: .5, angle: 0, scale: 1, mirrored: false });
+    s.player.pos = { ...site.source, x: site.source.x + 1 };
+    const before = JSON.stringify(s), hint = journeyHint(s);
+    expect(journeyGuide(s, hint)).toMatchObject({ step: '4 · Ustup od pastvy', target: null });
+    expect(journeyGuide(s, hint)?.instruction).toContain('alespoň 14 m');
+    expect(JSON.stringify(s)).toBe(before);
+    s.player.pos.x = site.source.x + 15;
+    expect(journeyGuide(s, hint)?.step).toBe('4 · Přiveď návštěvníka');
+    s.player.pos.x = site.source.x + 1;
+    s.player.genome.parts = peaceful;
+    expect(journeyGuide(s, hint)?.step).toBe('4 · Přiveď návštěvníka');
+    site.resolved = true;
+    expect(journeyGuide(s, hint)?.step).not.toBe('4 · Ustup od pastvy');
+  });
   it('retains an unfinished canopy while luring into open water, then yields to an observed nearby encounter', () => {
     const s = createGame(20260913, false); s.stage = 1; s.world = createWorld(s.seed, 1); s.worlds[1] = s.world; initializeJourneyStage(s);
     const canopy = s.journey.sites.find(site => site.id === 4)!, coral = s.journey.sites.find(site => site.id === 3)!;

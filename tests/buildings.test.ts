@@ -56,7 +56,8 @@ describe('SP-009.C paid instances, migration and snapshots',()=>{
     const migrated=structuredClone(s.cities!);migrated.version=2;for(const c of migrated.entries)if(c.economy){c.economy.version=1;for(const b of c.economy.buildings){expect(b.appearance).toEqual(defaultBuildingAppearance());delete b.appearance;}}expect(migrated).toEqual(before.cities);
     const cp=s.checkpoint;enableCities(s);expect(s.checkpoint).toBe(cp);expect(round(s).cities).toEqual(s.cities);
   });
-  it.each(Object.keys(CITY_BUILDINGS) as CityBuildingKind[])('explicit appearance change for %s preserves economy, ownership, collisions and exactly replaces the snapshot once',kind=>{
+  // This historical B fixture contains the four original paid building types. K1 covers towers separately.
+  it.each(['house','garden','workshop','park'] as CityBuildingKind[])('explicit appearance change for %s preserves economy, ownership, collisions and exactly replaces the snapshot once',kind=>{
     const s=base(),c=cityAt(s)!,e=c.economy!,b=e.buildings.find(b=>b.kind===kind)!,before=structuredClone(s),preview=cityEconomyPreview(c),rev=e.revision,a=appearance(kind);
     expect(order(s,{kind:'appearance',id:b.id,appearance:a})).toBe(true);expect(order(s,{kind:'appearance',id:b.id,appearance:defaultBuildingAppearance()},rev)).toBe(false);expect(order(s,{kind:'appearance',id:b.id,appearance:a})).toBe(false);
     expect(e).toEqual({...cityAt(before)!.economy!,revision:rev+1,buildings:cityAt(before)!.economy!.buildings.map(v=>v.id===b.id?{...v,appearance:a}:v)});expect(cityEconomyPreview(c)).toEqual(preview);expect(original(s)).toEqual(original(before));

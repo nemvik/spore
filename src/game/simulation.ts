@@ -1,3 +1,19 @@
+import { enableSpaceCore } from './space-core';
+import { enableSpaceDiscoveries } from './space-discoveries';
+import { enableSpaceWars } from './space-war';
+import { enableSpaceEvents } from './space-events';
+import { enableSpaceCombat, stepShipRescue } from './space-combat';
+import { enableSpaceExpansion } from './space-expansion';
+import { enableSpaceOutfit } from './space-outfit';
+import { enableSpaceEmpires } from './space-empires';
+import { enableSpaceEconomy, stepSpaceEconomy } from './space-economy';
+import { enableForeignEcology } from './space-ecology';
+import { enableBiosphere } from './space-biosphere';
+import { enableSpace, inSpace, stepSpace } from './space';
+import { activeForeignPlanet, enableExpedition } from './space-expedition';
+import { enableMobilization } from './mobilization';
+import { enableCivilization, civilizationReadiness, completeCivilization } from './civilization';
+import { enableCommerce, inCommerce, stepCommerce } from './commerce';
 import { atSea, stepMaritime, enableMaritime } from './maritime';
 import { enableConversion } from './conversion';
 import { enableTrade } from './trade';
@@ -10,8 +26,8 @@ import { navigation, activeField, stepField, bindActiveWorld, enablePlanetTravel
 import { enableHomePlanet, syncHomePlanet, locationArrival } from './home-planet';
 import { cancelChiefCouncil } from './tribe-chief';
 import { cancelDomestication } from './tribe-domestication';
-import { enableLineageHistory, observeLineageHistory, recordLineageMeal, recordLineageHunt, creatureInheritance, tribeInheritance } from './lineage-history';
-import { activeCell, cellScale, cellContact, cellNotice, initializeCell, inspectCellSite, recordCellMeal, stepCellContacts } from './cell-growth';
+import { activeCellAdaptation, canChooseCellAdaptation, CELL_ADAPTATIONS, firstInheritanceUse, type CellAdaptation, enableLineageHistory, observeLineageHistory, recordLineageMeal, recordLineageHunt, creatureInheritance, tribeInheritance } from './lineage-history';
+import { activeCell, cellOpeningReady, cellTier, CELL_THRESHOLDS, cellScale, cellContact, cellNotice, initializeCell, inspectCellSite, recordCellMeal, stepCellContacts } from './cell-growth';
 import { speciesCollisionRadius } from './anatomy';
 import { npcFoodDistance, worldSpecies, type NpcDesign } from './npc-genome';
 import { emptyCreatureDiscovery, recordDiscoveryBirth, reproductionProblem } from './creature-discovery';
@@ -73,15 +89,15 @@ export function createGame(seed:number,legacy=true,dispersal=false,reefEvolution
  if(ecology)s.journey.ecology={version:1,contacts:[]};
  if(lineageHistory)enableLineageHistory(s,true);
  if(homePlanet)enableHomePlanet(s,true);
- initializeJourneyStage(s);if(cellGrowth&&!legacy&&discoveries&&creatureLife)initializeCell(s);announce(s,activeCell(s)?'Jez malé řasy · mezerník. Tři sousta tě zvětší. Pak najdi zářící schránku ✧ a prozkoumej ji klávesou T.':legacy?TEXT.welcome:'WASD · plavba. Mezerník · potrava. T u živého porostu · poznání. Západně čeká zahrada.'); makeCheckpoint(s);return s;
+ initializeJourneyStage(s);if(cellGrowth&&!legacy&&discoveries&&creatureLife)initializeCell(s);announce(s,activeCell(s)?'Jez malé řasy · mezerník. Dvě sousta tě zvětší. Pak najdi zářící schránku ✧ a prozkoumej ji klávesou T.':legacy?TEXT.welcome:'WASD · plavba. Mezerník · potrava. T u živého porostu · poznání. Západně čeká zahrada.'); makeCheckpoint(s);return s;
 }
-export function makeCheckpoint(s:GameState) { syncHomePlanet(s);if(!activeField(s))observeLineageHistory(s);s.checkpoint=JSON.stringify({...s,checkpoint:null}); }
+export function makeCheckpoint(s:GameState) { syncHomePlanet(s);if(!inSpace(s)&&!activeField(s))observeLineageHistory(s);s.checkpoint=JSON.stringify({...s,checkpoint:null}); }
 export function recoverGeneration(s:GameState):GameState {
- if(!s.checkpoint){const fresh=createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth,!!s.lineageHistory,!!s.homePlanet);if(navigation(s)){enablePlanetTravel(fresh);if(s.military){if(s.maritime)enableMaritime(fresh,'birth');else if(s.cities?.version===8)enableConversion(fresh,'birth');else if(s.cities?.version===7)enableTrade(fresh,'birth');else if(s.military.version===2)enableDefense(fresh,'birth');else enableMilitary(fresh,'birth');}else if(s.states)enableStates(fresh,'birth');else if(s.cities)enableCities(fresh);makeCheckpoint(fresh);}return fresh;}
- const restored=JSON.parse(s.checkpoint) as GameState; bindActiveWorld(restored);restored.checkpoint=s.checkpoint;restored.deathReason=null;restored.player.invulnerable=10;announce(restored,TEXT.restored);return restored;
+ if(!s.checkpoint){const fresh=createGame(s.seed,s.journey.legacy,!!s.journey.rootDispersal,!!s.journey.reefEvolution,!!s.journey.ecology,!!s.creatureStage,!!s.creatureStage?.discovery,s.worlds[2]?.creatureDesigns,!!s.cellGrowth,!!s.lineageHistory,!!s.homePlanet);if(navigation(s)){enablePlanetTravel(fresh);if(s.military){if(s.mobilization)enableMobilization(fresh,'birth');else if(s.civilization)enableCivilization(fresh,'birth');else if(s.commerce)enableCommerce(fresh,'birth');else if(s.maritime)enableMaritime(fresh,'birth');else if(s.cities?.version===8)enableConversion(fresh,'birth');else if(s.cities?.version===7)enableTrade(fresh,'birth');else if(s.military.version===2)enableDefense(fresh,'birth');else enableMilitary(fresh,'birth');}else if(s.states)enableStates(fresh,'birth');else if(s.cities)enableCities(fresh);makeCheckpoint(fresh);}if(s.space){enableSpace(fresh);if(s.space.expedition)enableExpedition(fresh);if(s.space.expedition?.version===2){enableBiosphere(fresh);if(s.space.expedition.biosphere.version===2)enableForeignEcology(fresh);if(s.space.economy)enableSpaceEconomy(fresh);if(s.space.empires)enableSpaceEmpires(fresh);if(s.space.outfit)enableSpaceOutfit(fresh);if(s.space.expansion)enableSpaceExpansion(fresh);if(s.space.combat)enableSpaceCombat(fresh);if(s.space.wars)enableSpaceWars(fresh);if(s.space.events)enableSpaceEvents(fresh);if(s.space.discoveries)enableSpaceDiscoveries(fresh);if(s.space.core)enableSpaceCore(fresh);}makeCheckpoint(fresh);}return fresh;}
+ const restored=JSON.parse(s.checkpoint) as GameState; bindActiveWorld(restored);restored.checkpoint=s.checkpoint;restored.deathReason=null;if(inSpace(restored)){restored.space!.notice=TEXT.restored;}else{restored.player.invulnerable=10;announce(restored,TEXT.restored);}return restored;
 }
 export function nearNest(s:GameState) { return horizontalDistance(s.player.pos,s.world.landmarks.find(l=>l.kind==='nest')!.pos)<11; }
-export function evolve(s:GameState,draft:Genome):{ok:boolean;errors:string[];cost:number} {
+export function evolve(s:GameState,draft:Genome,adaptation?:CellAdaptation):{ok:boolean;errors:string[];cost:number} {
  if(atSea(s)||activeField(s)||navigation(s)?.mode==='global'||!isOrganismStage(s.stage))return {ok:false,errors:[ERA_COPY.bodyLocked],cost:0};
  const problem=reproductionProblem(s);if(problem)return {ok:false,errors:[problem],cost:0};
  const mutation=s.journey.legacy?validateMutation(s.player.genome,draft,s.stage,s.player.dna-6):quoteJourneyEvolution(s,draft);
@@ -90,6 +106,7 @@ export function evolve(s:GameState,draft:Genome):{ok:boolean;errors:string[];cos
  if(!mutation.ok)return {...mutation,cost};
  if(s.player.bonds.length&&!has(draft,'symbiote'))return {ok:false,errors:[TEXT.occupiedSymbiote],cost};
  if(s.stage===2&&(!has(draft,'legs')||!has(draft,'lungs')))return {ok:false,errors:[TEXT.needLungs],cost};
+ if(adaptation && !canChooseCellAdaptation(s,draft,adaptation))return {ok:false,errors:['Dědictví vyber z objevených částí v navrženém buněčném těle. Zapsaná volba už je historie.'],cost};
  const nextGenome=cloneGenome(draft);
  const nextDna=s.journey.legacy?s.player.dna-cost:(mutation as ReturnType<typeof quoteJourneyEvolution>).remaining;
  const nextHeight=s.stage===2?groundHeight(s.player.pos.x,s.player.pos.z,2)+organismGroundClearance(nextGenome):s.player.pos.y;
@@ -102,11 +119,13 @@ export function evolve(s:GameState,draft:Genome):{ok:boolean;errors:string[];cos
  s.lineage.push({generation:s.player.generation,stage:s.stage,time:s.tick/60,name:draft.name,parts:draft.parts.map(p=>p.kind),event:TEXT.reproduction});
  s.world.patches.forEach(p=>{p.fertility=clamp(p.fertility+.02,0.15,1.5);});
  recordDiscoveryBirth(s,nextGenome);
+ if(adaptation)s.lineageHistory!.cellAdaptation={part:adaptation,at:{tick:s.tick,generation:s.player.generation}};
  announce(s,TEXT.generationBorn(s.player.generation));makeCheckpoint(s);return {ok:true,errors:[],cost};
 }
 export function transitionRequirements(s:GameState):{label:string;met:boolean;value:string}[] {
  if(!isOrganismStage(s.stage))return [];
  if(s.stage===LAST_ORGANISM_STAGE)return s.journey.legacy?[]:journeyRequirements(s);
+ if(activeCell(s)){const oldExit=journeyRequirements(s).every(r=>r.met);return [{label:'Růst buňky',met:oldExit||cellTier(s)===3,value:`${s.cellGrowth!.nutrition} / ${CELL_THRESHOLDS[3]} soust`},{label:'Použitý objev v nové generaci',met:oldExit||s.cellGrowth!.parts.some(p=>p.usedGeneration!==null),value:oldExit||cellOpeningReady(s)?'připraveno':'✧ T · potom kolébka Tab'}];}
  if(!s.journey.legacy)return [...journeyRequirements(s),...(s.stage===1?[{label:TEXT.requirementLungs,met:has(s.player.genome,'lungs'),value:has(s.player.genome,'lungs')?TEXT.developed:TEXT.missing},{label:TEXT.requirementLegs,met:has(s.player.genome,'legs'),value:has(s.player.genome,'legs')?TEXT.developed:TEXT.missing}]:[])];
  return [
  {label:TEXT.requirementNutrition,met:s.campaign.stageMeals>=CHAPTERS[s.stage].meals,value:TEXT.requirementCount(s.campaign.stageMeals,CHAPTERS[s.stage].meals)},
@@ -128,7 +147,7 @@ export function transitionStatus(s:GameState) {
  if(s.stage===2&&!s.journey.legacy){const ending=journeyEndingStatus(s),alive=s.player.health>0&&!s.deathReason;return {kind:s.campaign.won?'sandbox' as const:'ending' as const,ready:!s.campaign.won&&alive&&!!ending.finale,nearGate:false,gate,distance:gateDistance,detail:!s.campaign.won&&!alive?TEXT.transitionNotReady:ending.detail,requirements,routes:ending.routes};}
  if(s.stage===2){const ready=!s.campaign.won&&s.player.health>0&&!s.deathReason&&legacyMigrationReady(s);return {kind:'legacy-ending' as const,ready,nearGate:gateDistance<12,gate,distance:gateDistance,detail:s.campaign.won?PROGRESSION_COPY.sandbox:ready?PROGRESSION_COPY.legacyMigrationReady:TEXT.transitionNotReady,requirements,routes:[]};}
  const missing=requirements.filter(r=>!r.met);
- const ready=!!gate&&gateDistance<=10&&missing.length===0;
+ const ready=!!gate&&gateDistance<=10&&missing.length===0&&s.player.health>0&&!s.deathReason;
  const detail=!gate?PROGRESSION_COPY.noGate:missing.length?PROGRESSION_COPY.missing(missing.map(r=>r.label)):gateDistance>10?PROGRESSION_COPY.approach(gateDistance):PROGRESSION_COPY.ready;
  return {kind:'transition' as const,ready,nearGate:gateDistance<12,gate,distance:gateDistance,detail,requirements,routes:[]};
 }
@@ -142,7 +161,7 @@ export function tryTransition(s:GameState):boolean {
  Object.assign(s.campaign,{stageMeals:0,stageKills:0,stageBonds:0,stageReproductions:0});
  s.player.pos={x:0,y:s.stage===2?groundHeight(0,0,2)+organismGroundClearance(s.player.genome):surfaceY(s.stage,0,0),z:0};s.player.velocity={x:0,y:0,z:0};s.player.health=statsFor(s.player.genome).maxHealth;s.player.energy=90;s.player.oxygen=100;s.player.moisture=100;s.player.invulnerable=10;
  s.lineage.push({generation:s.player.generation,stage:s.stage,time:s.tick/60,name:s.player.genome.name,parts:s.player.genome.parts.map(p=>p.kind),event:CHAPTERS[s.stage].title});
- s.messages=[];initializeJourneyStage(s);initializeCreatureStage(s);syncHomePlanet(s);announce(s,locationArrival(s)??CHAPTERS[s.stage].title);if(s.stage===2){s.campaign.drought=.28;const arrival=locationArrival(s);announce(s,arrival?`${arrival} ${TEXT.drought}`:TEXT.drought);}makeCheckpoint(s);return true;
+ s.messages=[];initializeJourneyStage(s);initializeCreatureStage(s);syncHomePlanet(s);announce(s,locationArrival(s)??CHAPTERS[s.stage].title);if(activeCellAdaptation(s))announce(s,`Dědictví druhu · ${CELL_ADAPTATIONS[activeCellAdaptation(s)!].name}: ${CELL_ADAPTATIONS[activeCellAdaptation(s)!].later} Tělo můžeš dál měnit; toxin má na X přednost.`);if(s.stage===2){s.campaign.drought=.28;const arrival=locationArrival(s);announce(s,arrival?`${arrival} ${TEXT.drought}`:TEXT.drought);}makeCheckpoint(s);return true;
 }
 export function tryWin(s:GameState,path:'restoration'|'predator'|'migration'):boolean {
  if(atSea(s)||activeField(s)||navigation(s)?.mode==='global'||s.stage!==2||s.campaign.won||s.player.health<=0||s.deathReason)return false;
@@ -191,13 +210,16 @@ export function continueToMachinesEra(s:GameState):boolean {
  announce(s,MACHINE_COPY.founded);makeCheckpoint(s);return true;
 }
 export function continueToPlanetEra(s:GameState):boolean {
+ if(s.civilization){const q=civilizationReadiness(s);if(!q.ready){announce(s,q.reasons[0]);return false;}}
+ if(s.commerce?.contracts.some(c=>c.status==='open')){announce(s,'Nejprve dokonči nebo zruš obchodní kontrakty a vrať přepravu.');return false;}
  if(atSea(s)||activeField(s)||navigation(s)?.mode==='global')return false;
  const m=activeMachines(s);if(s.stage!==4||s.planet||s.deathReason||s.military?.deployment||unresolvedRaid(s)||!m?.completed||!m.fleet.some(u=>u.health>0))return false;
+ if(s.civilization&&!completeCivilization(s))return false;
  s.planet=createPlanet(s);s.stage=5;
  s.lineage.push({generation:s.player.generation,stage:5,time:s.tick/60,name:s.player.genome.name,parts:s.player.genome.parts.map(p=>p.kind),event:CHAPTERS[5].title});
  announce(s,PLANET_COPY.founded);makeCheckpoint(s);return true;
 }
-export const awaitingPlanetVictory=(s:GameState):boolean=>s.stage===5&&!!activePlanet(s)?.completed&&!activePlanet(s)?.sandbox;
+export const awaitingPlanetVictory=(s:GameState):boolean=>!inSpace(s)&&s.stage===5&&!!activePlanet(s)?.completed&&!activePlanet(s)?.sandbox;
 
 /** Reversible P0 preview only; never discard a developed tribe or later era. */
 export function canReturnToCoast(s:GameState):boolean {
@@ -347,12 +369,16 @@ function pulse(s: GameState) {
   const profile=profileFor(p.genome);p.energy-=15;lock(7);p.feeding=1.3;
   for(const c of [...s.world.creatures])if(distance(c.pos,p.pos)<profile.toxinRadius*cellScale(s)&&(!activeCell(s)||!lineBlocked(s,p.pos,c.pos))){recordSpeciesAggression(s,c);c.health-=profile.toxinDamage;c.fear=10;if(c.health<=0)killCreature(s,c,true);}
   cellContact(s,'toxin',p.pos);announce(s,TEXT.toxinPulse);
- }else if(has(p.genome,'sonar')&&p.energy>=3){p.energy-=3;lock(4);p.scan=5;p.feeding=1;announce(s,TEXT.sonarPulse);}
+ }else if((has(p.genome,'sonar')||activeCellAdaptation(s)==='antenna')&&p.energy>=3){p.energy-=3;lock(4);p.scan=5;p.feeding=1;announce(s,TEXT.sonarPulse);if(activeCellAdaptation(s)==='antenna')firstInheritanceUse(s,'cell','Zvídavost z buněčných tykadel → průzkumný pulz v útesu.');}
+ else if(activeCellAdaptation(s)==='spines'&&p.energy>=6){p.energy-=6;lock(8);p.feeding=1.3;let affected=false;for(const c of s.world.creatures)if(worldSpecies(s.world,c.species).role==='predator'&&distance(c.pos,p.pos)<8&&!lineBlocked(s,p.pos,c.pos)){c.fear=Math.max(c.fear,6);c.target=null;affected=true;}announce(s,'Ostražitost · lovci v dosahu 8 m ustupují, bez zranění.');if(affected)firstInheritanceUse(s,'cell','Ostražitost z buněčných ostnů → bezpečný odstup od lovců v útesu.');}
+ else if(activeCellAdaptation(s))announce(s,`Dědičný pulz potřebuje ${activeCellAdaptation(s)==='antenna'?3:6} energie.`);
  else if(has(p.genome,'sonar'))announce(s,TEXT.sonarEnergy);
 }
 
 export function step(s:GameState,input:Input,dt=1/60) {
+ if(inSpace(s)){const before=s.space!.elapsed,local=activeForeignPlanet(s),localBefore=local?.elapsed,wasLeg=!!s.space!.leg;stepSpace(s,input,dt);stepSpaceEconomy(s,s.space!.elapsed-before,local&&localBefore!==undefined?{planetId:local.id,before:localBefore,after:local.elapsed}:null,!wasLeg);stepShipRescue(s);return;}
  if(navigation(s)?.mode==='global')return;
+ if(inCommerce(s)){if(!s.deathReason&&s.player.health>0){stepStates(s,dt);stepCommerce(s,dt);}return;}
  if(atSea(s)){if(!s.deathReason&&s.player.health>0){stepStates(s,dt);stepMaritime(s,dt);}return;}
  stepStates(s,dt);
  stepMilitary(s,dt);
@@ -370,7 +396,9 @@ export function step(s:GameState,input:Input,dt=1/60) {
   }else if(s.stage===5&&activePlanet(s)){
    dt=clamp(dt,0,1/30);s.tick++;s.world.time+=dt;const completed=activePlanet(s)!.completed;
    stepEnvironment(s,dt);if(tribe)stepTribeWildlife(s,{...tribe,members:[]},dt);
+   const planetBefore=activePlanet(s)!.elapsed;
    for(const message of stepPlanet(s,input,dt))announce(s,message);
+   stepSpaceEconomy(s,activePlanet(s)!.elapsed-planetBefore);stepShipRescue(s);
    observeLineageHistory(s);if(!completed&&activePlanet(s)!.completed){s.lineage.push({generation:s.player.generation,stage:5,time:s.tick/60,name:s.player.genome.name,parts:s.player.genome.parts.map(p=>p.kind),event:PLANET_COPY.ready});makeCheckpoint(s);}
   }else if(s.stage===4&&activeMachines(s)){
    dt=clamp(dt,0,1/30);s.tick++;s.world.time+=dt;
@@ -477,7 +505,7 @@ function resolveOutcomes(s:GameState) {
 }
 export function summary(s:GameState) { return {stage:s.stage,...(s.states?{states:s.states}:{}),...(s.cities?{cities:s.cities}:{}),...(s.homePlanet?{homePlanet:s.homePlanet}:{}),...(s.lineageHistory?{lineageHistory:s.lineageHistory,inheritance:creatureInheritance(s),tribeInheritance:tribeInheritance(s)}:{}),...(s.cellGrowth?{cellGrowth:s.cellGrowth,cellScale:cellScale(s)}:{}),...(s.creatureStage?{creatureStage:s.creatureStage}:{}),...(s.tribe?{tribe:s.tribe}:{}),...(s.machines?{machines:s.machines,machineIncome:effectiveMachineIncome(s)}:{}),...(s.planet?{planet:s.planet}:{}),tick:s.tick,seed:s.seed,player:s.player,campaign:s.campaign,...(s.journey.rootDispersal?{rootDispersal:s.journey.rootDispersal}:{}),world:{...(s.world.creatureDesigns?{creatureDesigns:s.world.creatureDesigns}:{}),time:s.world.time,patches:s.world.patches,landmarks:s.world.landmarks,resources:s.world.resources.filter(r=>r.amount>=1),creatures:s.world.creatures,obstacles:s.world.obstacles,births:s.world.births,deaths:s.world.deaths},requirements:transitionRequirements(s),deathReason:s.deathReason,climate:getClimate(s),field:fieldProgress(s),stats:statsFor(s.player.genome)}; }
 
-export function senseRange(s:GameState):number { const p=s.player;return statsFor(p.genome).sense+(hasActivePartner(s,'light')?16:0)+(has(p.genome,'sonar')&&p.scan>0?35:0); }
+export function senseRange(s:GameState):number { const p=s.player;return statsFor(p.genome).sense+(hasActivePartner(s,'light')?16:0)+((has(p.genome,'sonar')||activeCellAdaptation(s)==='antenna')&&p.scan>0?35:0); }
 
 export function fieldProgress(s:GameState){return s.world.patches.map(p=>({patchId:p.id,name:p.name,done:s.campaign.journals.some(j=>j.startsWith(`field:${s.stage}:${p.id}:`))}));}
 function learnNiche(s:GameState,pos:{x:number;z:number},method:'forage'|'hunt'|'bond'|'restore'){

@@ -3,7 +3,7 @@ import type { ActiveTribeState, TribeNeighbour, TribeUnit } from './era-types';
 import type { GameState } from './types';
 import { clamp, horizontalDistance } from './random';
 import { cultureEffects } from './culture';
-import { creatureInheritance } from './lineage-history';
+import { firstInheritanceUse, creatureInheritance } from './lineage-history';
 import { neighbourGift, resolveNeighbourAlliance } from './tribe-neighbours';
 import { recallExpedition, tribeContact } from './tribe-society';
 
@@ -74,6 +74,7 @@ function finishMusic(s: GameState, reason: MusicReason): void {
   const paid = e.paid;
   const gain = reason === 'success' ? e.rounds.reduce((sum, r) => sum + (r.success ? 20 * r.multiplier : 0), 0) : paid ? reason === 'mistakes' ? -10 : -5 : 0;
   const before = n.relation; if (!n.resolved) n.relation = clamp(n.relation + gain, -100, 100);
+  if(n.relation>before&&creatureInheritance(s).social>1)firstInheritanceUse(s,'creature','Přátelství tvora → silnější hudební výsledek kmene.');
   m.result = { neighbour: e.neighbour, members: [...e.members], reason, rounds: structuredClone(e.rounds), delta: n.relation - before, paid };
   m.cooldowns = [...m.cooldowns.filter(c => c.neighbour !== e.neighbour), { neighbour: e.neighbour, remaining: MUSIC.cooldown }];
   for (const u of musicMembers(t, e)) { u.orders = []; u.intent = 'rest'; }

@@ -1,3 +1,5 @@
+import { activateArmyEconomy, stepRivalEconomies, purchaseArmies } from './mobilization';
+import { activateDefenseEconomy } from './city-defense';
 import { raidOpportunity, createRaid } from './defense';
 import { DEFENSE_COST, defenseDesign } from './military';
 import { vehicleStats } from './blueprint';
@@ -6,7 +8,7 @@ import type { LocationAddress } from './home-planet';
 import { cityId, cityProgression, citySite, enableCities, type City } from './cities';
 import { CITY_BUILDINGS, CITY_LEDGER_LIMIT, type CityBuildingKind } from './city-economy';
 import { buildingSite, CITY_LOTS } from './city-spatial';
-import { createField, fieldGround, navigation, FIELD_LIMIT, type FieldLocation } from './planet-travel';
+import { createField, fieldGround, navigation, FIELD_STORAGE_LIMIT, type FieldLocation } from './planet-travel';
 import { atlasNeighbours, planetAtlas } from './planet-geography';
 import { defaultBuildingAppearance } from './building-design';
 
@@ -69,7 +71,7 @@ export function stateOpportunity(s:GameState,r:RivalState):StateOpportunity {
   if(r.transactions.length>=64||s.states.clock.turn>=STATE_TURN_LIMIT)return blocked('Dosažen limit státních dokladů nebo strategického času.');
   const owned=stateCities(s,r);
   if(systemDefeated(s,r))return blocked('Stát ztratil poslední město. Rezerva zůstává zmrazená; další osídlení neprovede.');
-  const raid=raidOpportunity(s,r);if(raid)return raid;
+  const raid=raidOpportunity(s,r);if(raid&&(!s.mobilization||raid.available))return raid;
   for(const c of owned){
     if(s.states.version>=3&&(c.capture||c.transfers!.length))continue; // Never replay founding purchases after recapture.
     if(s.states.version>=2&&!c.defense){const action={kind:'defend',cityId:c.id} as const;return r.reserve<DEFENSE_COST?blocked(`Na stráž chybí ${DEFENSE_COST} jantaru v konečné rezervě.`,action,DEFENSE_COST):{action,cost:DEFENSE_COST,account:'reserve',reason:`Zaplatit jednu městskou stráž za ${DEFENSE_COST} z konečné rezervy.`,available:true};}
@@ -96,7 +98,7 @@ export function stateOpportunity(s:GameState,r:RivalState):StateOpportunity {
     return e.treasury<cost?shortage(`Městské pokladně chybí ${cost} jantaru na ${CITY_BUILDINGS[missing].name}.`,action,cost):{action,cost,account:'city',reason:`${missing==='house'?'Zajistit bydlení':`${missing===priority?'Priorita státu':'Doplnit provoz'}: ${CITY_BUILDINGS[missing].name}`} · parcela ${lot.id+1}, cena ${cost}.`,available:true};
   }
   if((s.states.version>=2?r.transactions.filter(t=>t.action.kind==='found').length:owned.length)>=2)return blocked('Dosažen limit dvou měst státu. Další expanze neproběhne.');
-  if(navigation(s)!.fields.length>=FIELD_LIMIT)return blocked('Registr 64 lokalit je plný; žádný svět se nepřepíše.');
+  if(navigation(s)!.fields.length>=FIELD_STORAGE_LIMIT)return blocked('Registr lokalit včetně čtyř míst pro státní města je plný; žádný svět se nepřepíše.');
   // Reserve the complete 60 + 80 establishment cost; never create an unfundable colony.
   if(r.reserve<140)return blocked('Expanze potřebuje 140 jantaru v rezervě: založení 60 a budoucí převod 80.');
   const site=settlement(s,r);
@@ -129,7 +131,7 @@ export function executeStateDecision(s:GameState,id:string,turn:number):boolean 
       const blueprint=defenseDesign();r.reserve-=DEFENSE_COST;city.defense={transactionId,blueprint,pos:{...city.address.position,y:city.address.position.y+.8},health:vehicleStats(blueprint).durability,cooldown:0};
     }else if(action.kind==='open'){
       r.reserve-=80;
-      city.economy={version:3,opened:{source:'state',tick:s.tick,transferredAmber:80,transactionId},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],ledger:{transfers:80,construction:0,immigration:0,supplies:0,income:0,upkeep:0,produced:0,consumed:0,discarded:0},last:null};
+      city.economy={version:3,opened:{source:'state',tick:s.tick,transferredAmber:80,transactionId},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],ledger:{transfers:80,construction:0,immigration:0,supplies:0,income:0,upkeep:0,produced:0,consumed:0,discarded:0},last:null};activateDefenseEconomy(s,city.economy);activateArmyEconomy(s,city.economy);
     }else if(action.kind==='fund'){if(q.account==='trade')r.tradeReserve!-=20;else r.reserve-=20;city.economy!.treasury+=20;city.economy!.ledger.transfers+=20;city.economy!.revision++;}
     else{
       const e=city.economy!;e.treasury-=q.cost;e.revision++;
@@ -143,12 +145,14 @@ export function executeStateDecision(s:GameState,id:string,turn:number):boolean 
 export function stepStates(s:GameState,dt:number):void {
   const system=s.states;
   if(!system||!cityProgression(s)||navigation(s)?.mode!=='local'||s.deathReason||s.player.health<=0||!Number.isFinite(dt)||dt<=0)return;
+  stepRivalEconomies(s,dt);
   if(!system.activated){system.activated={tick:s.tick,stage:s.stage as 4|5};system.entries=STATE_PROFILES.map((_,profile)=>({id:stateId(s.homePlanet!.id,profile),profile:profile as 0|1,endowment:400,reserve:400,...(system.version===4?{tradeReserve:0}:{}),last:null,transactions:[]}));}
   if(system.clock.turn>=STATE_TURN_LIMIT)return;
   system.clock.elapsed+=Math.min(dt,1/30);
   if(system.clock.elapsed+1e-9<STATE_TURN_SECONDS)return;
   system.clock.elapsed=Math.max(0,system.clock.elapsed-STATE_TURN_SECONDS);system.clock.turn++;
   for(const r of system.entries)executeStateDecision(s,r.id,system.clock.turn);
+  purchaseArmies(s);
 }
 
 export const systemDefeated=(s:GameState,r:RivalState)=>(s.states?.version??0)>=2&&r.transactions.some(t=>t.action.kind==='found')&&stateCities(s,r).length===0;

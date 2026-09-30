@@ -775,7 +775,7 @@ export function animateSpeciesModel(group: THREE.Group, time: number, speed: num
 export function disposeObject(group: THREE.Object3D): void {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>();
   group.traverse(node => {
-    if ((node as THREE.Mesh).isMesh || (node as THREE.Line).isLine) {
+    if ((node as THREE.Mesh).isMesh || (node as THREE.Line).isLine || (node as THREE.Points).isPoints) {
       const m = node as THREE.Mesh;
       geometries.add(m.geometry);
       (Array.isArray(m.material) ? m.material : [m.material]).forEach(material => materials.add(material));

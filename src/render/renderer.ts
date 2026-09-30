@@ -16,7 +16,7 @@ import { creaturePresentationBounds, poseCreatureLimb } from './creature-body';
 import { bodyGroundClearance } from '../game/anatomy';
 import { selectBodySection } from './body-selection';
 import { bodyWidth, spineIndex, spineAxial } from '../game/body-shape';
-import type { Blueprint, VehicleBlueprint } from '../game/blueprint';
+import type { Blueprint, VehicleConstruction } from '../game/blueprint';
 import { vehicleStats } from '../game/blueprint';
 import { createMachine, animateMachine, machineAttachmentOnBody } from './machine';
 import { controlModelFor, isOrganismStage } from '../game/stage';
@@ -54,7 +54,7 @@ import { planetVehicle } from '../game/planet';
 import { PlanetPresentation } from './planet';
 
 export { compositionCamera, keepCameraOutside } from '../game/camera';
-const isVehicle=(g:Genome|Blueprint):g is VehicleBlueprint=>'kind' in g&&g.kind==='vehicle';
+const isVehicle=(g:Genome|Blueprint):g is VehicleConstruction=>'kind' in g&&g.kind==='vehicle';
 
 type Occluder = { node: THREE.Object3D; bounds: THREE.Box3; opacity: number; resource?: true; materials: { source: THREE.MeshStandardMaterial; display: THREE.MeshStandardMaterial }[] | null };
 

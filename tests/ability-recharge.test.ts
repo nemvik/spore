@@ -163,7 +163,7 @@ describe('ability recharge persistence', () => {
     expect(loaded.player.abilityRecharge).toBe(0); expect(loaded.player.cooldown).toBe(.8);
   });
 
-  it.each([-1, 7.01, null, '7'])('rejects a present malformed recharge %s including checkpoints', recharge => {
+  it.each([-1, 8.01, null, '7'])('rejects a present malformed recharge %s including checkpoints', recharge => {
     const valid = serializeGame(fixture());
     const direct = JSON.parse(valid); direct.state.player.abilityRecharge = recharge;
     expect(() => parseGame(JSON.stringify(direct))).toThrow('player.abilityRecharge');

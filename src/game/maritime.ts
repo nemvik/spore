@@ -1,6 +1,8 @@
+import { raids } from './defense';
+import { inCommerce } from './commerce';
 import type { GameState } from './types';
 import type { SeaBlueprint } from './blueprint';
-import { seaBlueprint, vehicleCost, vehicleStats } from './blueprint';
+import { seaBlueprint, validateSeaBlueprint, vehicleCost, vehicleStats } from './blueprint';
 import { enableConversion } from './conversion';
 import { activeMachines } from './machines';
 import { cityProgression } from './cities';
@@ -59,34 +61,38 @@ export function maritimeLandReason(s: GameState, to: number): string | null {
   return 'Oddělená pevnina: zvol pobřeží a použij zaplacený člun. Běžná výprava nepřekračuje moře.';
 }
 const contextReason = (s: GameState, commitments = true): string | null => {
+  if (inCommerce(s))return 'Nejprve vrať obchodní přepravu do domácí dílny.';
   if (!s.maritime || s.stage!==4 || s.deathReason || s.player.health<=0 || !cityProgression(s) || !activeMachines(s)?.springs.some(p=>p.owner==='player')) return 'Plavba vyžaduje živou strojovou etapu, dokončený kmen a vlastní pramen.';
-  if (commitments && (s.military?.deployment || (s.military?.raids??[]).some(r=>!['destroyed','returned','withdrawn'].includes(r.phase)))) return 'Nejprve dokonči vojenské nasazení a všechny výpady i návraty.';
+  if (commitments && (s.military?.deployment || raids(s).some(r=>!['destroyed','returned','withdrawn'].includes(r.phase)))) return 'Nejprve dokonči vojenské nasazení a všechny výpady i návraty.';
   return null;
 };
 export const seaCommand = (s: GameState, to: number): SeaCommand => ({revision:s.maritime?.revision??-1,from:currentCoast(s),to,vesselId:s.maritime?.vessel?.id??null});
 const matches = (s:GameState,c:SeaCommand) => {const n=seaCommand(s,c.to);return c.revision===n.revision&&c.from===n.from&&c.vesselId===n.vesselId;};
-const fail = (s:GameState,reason:string) => {if(navigation(s))navigation(s)!.notice=reason;return false;};
-export function boatQuote(s: GameState): string | null {
+const fail = (s:GameState,reason:string) => {if(s.space?.location){s.space.notice=reason;return false;}if(navigation(s))navigation(s)!.notice=reason;return false;};
+export function boatQuote(s: GameState, blueprint:SeaBlueprint=seaBlueprint()): string | null {
+  const errors=validateSeaBlueprint(blueprint);if(errors.length)return errors.join(' ');
   const reason=contextReason(s); if(reason)return reason;
   if(s.maritime!.vessel)return 'Člun už vlastníš; další se nevyrábí.';
   if(activeField(s)||atSea(s))return 'Člun vyrábí původní domácí dílna. Vrať se domů.';
-  if(!Number.isFinite(activeMachines(s)!.resource)||activeMachines(s)!.resource<vehicleCost(seaBlueprint()))return 'Člun stojí 56 domácího jantaru. Vydělej u původních pramenů; městské a státní pokladny ho neplatí.';
+  if(!Number.isFinite(activeMachines(s)!.resource)||activeMachines(s)!.resource<vehicleCost(blueprint))return `Člun stojí ${vehicleCost(blueprint)} domácího jantaru. Vydělej u původních pramenů; městské a státní pokladny ho neplatí.`;
   return null;
 }
-export function buyBoat(s: GameState, c: SeaCommand): boolean {
+export function buyBoat(s: GameState, c: SeaCommand, design:SeaBlueprint=seaBlueprint()): boolean {
   if(!matches(s,c))return fail(s,'Zastaralý námořní příkaz. Vyber znovu prostředek a cíl.');
-  const reason=boatQuote(s); if(reason)return fail(s,reason);
-  const m=activeMachines(s)!, blueprint=seaBlueprint(), amount=vehicleCost(blueprint), before=m.resource;
+  const reason=boatQuote(s,design); if(reason)return fail(s,reason);
+  const m=activeMachines(s)!, blueprint=structuredClone(design), amount=vehicleCost(blueprint), before=m.resource;
   const vessel:NonNullable<Maritime['vessel']>={id:`${s.homePlanet!.id}:vessel-1`,blueprint,health:vehicleStats(blueprint).durability,mooring:homeCoast(s),payment:{source:'home',use:'consumed',amount,before,after:before-amount,springId:m.springs.find(p=>p.owner==='player')!.id,tick:s.tick}};
   m.resource=vessel.payment.after;s.maritime!.vessel=vessel;s.maritime!.revision++;
-  navigation(s)!.notice='Expediční člun zaplacen: 56 jantaru z domova spotřebováno. Vyber cílové pobřeží a nastup.';return true;
+  navigation(s)!.notice=`${blueprint.name} zaplacen: ${amount} jantaru z domova spotřebováno. Vyber cílové pobřeží a nastup.`;return true;
 }
+/** Route units keep historical journey/checkpoint algebra; v3 propulsion changes travel time. */
+export const sailingRate=(s:GameState)=>s.maritime?.vessel?.blueprint.version===3?vehicleStats(s.maritime.vessel.blueprint).speed/vehicleStats(seaBlueprint()).speed:1;
 export function sailingQuote(s: GameState, to: number): {reason:string|null;route:number[]|null} {
   const reason=contextReason(s,false);if(reason)return {reason,route:null};
   const m=s.maritime!,v=m.vessel,from=currentCoast(s),nav=navigation(s)!;
   const deny=(reason:string)=>({reason,route:null});
   if(s.military?.deployment)return deny('Nejprve vrať nasazenou jednotku. Člun nepřepravuje tanky.');
-  if((s.military?.raids??[]).some(r=>!['destroyed','returned','withdrawn'].includes(r.phase))&&!(from!==homeCoast(s)&&to===homeCoast(s)))return deny('Vojenský závazek: člun smí pouze vrátit avatara přímo domů k obraně.');
+  if(raids(s).some(r=>!['destroyed','returned','withdrawn'].includes(r.phase))&&!(from!==homeCoast(s)&&to===homeCoast(s)))return deny('Vojenský závazek: člun smí pouze vrátit avatara přímo domů k obraně.');
   if(atSea(s))return deny('Člun už pluje. Přistání nebo obrat dokonči před další cestou.');
   if(!v)return deny('Nejprve zaplať expediční člun za 56 domácího jantaru.');
   if(v.mooring!==from)return deny(`Člun kotví u pobřeží ${v.mooring}. Vrať se k němu po souši.`);
@@ -96,14 +102,14 @@ export function sailingQuote(s: GameState, to: number): {reason:string|null;rout
   const route=seaRoute(s,from,to);if(!route)return deny('Potřebuješ dvě odlišná pobřeží spojená souvislou vodní trasou.');
   const field=nav.fields.find(f=>f.cellId===to),city=s.cities?.entries.find(c=>c.address.locationId===field?.id);
   if(city?.owner.kind==='state')return deny('Cizí město nepřijímá civilní výsadek. Člun nepřevádí vlastnictví ani nebojuje.');
-  if(to!==homeCoast(s)&&!field&&nav.fields.length>=FIELD_LIMIT)return deny('Uloženo 64 detailů; nové přistání není dostupné.');
+  if(to!==homeCoast(s)&&!field&&nav.fields.length>=FIELD_LIMIT)return deny('Kapacita 64 výprav je plná; nové přistání není dostupné.');
   return {reason:null,route};
 }
 export function sail(s: GameState,c:SeaCommand): boolean {
   if(!matches(s,c))return fail(s,'Zastaralý námořní příkaz. Vyber znovu prostředek a cíl.');
   const q=sailingQuote(s,c.to);if(q.reason||!q.route)return fail(s,q.reason!);
   s.maritime!.journeys.push({id:s.maritime!.journeys.length+1,from:c.from,to:c.to,route:q.route,phase:'outbound',progress:0,distance:0,elapsed:0,turn:s.states!.clock.turn});
-  s.maritime!.revision++;navigation(s)!.mode='local';navigation(s)!.notice=`Nastoupen tentýž výpravový avatar. Člun vyplul ${c.from} → ${c.to}; ${q.route.length-1} aktivních sekund, další cena 0.`;return true;
+  s.maritime!.revision++;navigation(s)!.mode='local';navigation(s)!.notice=`Nastoupen tentýž výpravový avatar. Člun vyplul ${c.from} → ${c.to}; ${((q.route.length-1)/sailingRate(s)).toFixed(1)} aktivních sekund, další cena 0.`;return true;
 }
 export function turnBoat(s:GameState,revision:number):boolean {
   const j=seaJourney(s);if(contextReason(s,false)||!j||j.phase!=='outbound'||s.maritime!.revision!==revision)return false;
@@ -113,7 +119,7 @@ export function turnBoat(s:GameState,revision:number):boolean {
 export function stepMaritime(s:GameState,dt:number):void {
   const j=seaJourney(s);if(!atSea(s)||!j||navigation(s)?.mode!=='local'||s.deathReason||s.player.health<=0)return;
   const total=j.route.length-1, remaining=j.phase==='outbound'?total-j.progress:j.progress;
-  const move=Math.min(remaining,Math.max(0,Math.min(1/30,Number.isFinite(dt)?dt:0)));
+  const move=Math.min(remaining,Math.max(0,Math.min(1/30,Number.isFinite(dt)?dt:0))*sailingRate(s));
   j.elapsed+=move;if(j.phase==='outbound'){j.progress+=move;j.distance=j.progress;}else j.progress-=move;
   // No automatic arrival/visit: the player explicitly confirms disembarkation.
 }

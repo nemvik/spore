@@ -1,3 +1,4 @@
+import { inCommerce, matureContract } from './commerce';
 import { atSea } from './maritime';
 import type { GameState } from './types';
 import { cityAt, cityProgression, type City } from './cities';
@@ -9,15 +10,16 @@ import { stateCities } from './states';
 import type { CityEconomy } from './city-economy';
 import { CITY_LEDGER_LIMIT } from './city-economy';
 
-export interface TradeTransfer {
-  method:'trade'; version:1; id:string; from:City['owner']; to:City['owner']; turn:number;
+interface TradeTransferBase {
+  method:'trade'; id:string; from:City['owner']; to:City['owner']; turn:number;
   economy:CityEconomy|null;
   price:number;
   payment:{source:'home';recipient:string;before:number;after:number;receivedBefore:number;receivedAfter:number};
   decision:{cities:number;reserve:number;tradeReserve:number};
   defenseHealth:number|null; fortification:number;
 }
-export interface TradeOffer {cityId:string;sellerId:string;revision:number;conversionEvents?:number;cycle:number;price:number;reserve:number;tradeReserve:number;cities:number;}
+export type TradeTransfer = TradeTransferBase & ({version:1}|{version:2;contractId:number;credit:60});
+export interface TradeOffer {cityId:string;sellerId:string;revision:number;contractId?:number;commerceRevision?:number;credit?:60;conversionEvents?:number;cycle:number;price:number;reserve:number;tradeReserve:number;cities:number;}
 export interface TradeQuote {offer:TradeOffer|null;available:boolean;reason:string;}
 export const tradeTransfers=(c:City):TradeTransfer[]=>c.transfers?.filter((t):t is TradeTransfer=>t.method==='trade')??[];
 export const tradeReceipts=(s:GameState,id:string)=>s.cities?.entries.flatMap(c=>tradeTransfers(c).filter(t=>t.from.id===id))??[];
@@ -37,25 +39,25 @@ export function enableTrade(s:GameState,origin:'birth'|'legacy-activation'='lega
 export function tradeQuote(s:GameState,c:City|null=cityAt(s)):TradeQuote {
   const deny=(reason:string,offer:TradeOffer|null=null):TradeQuote=>({offer,available:false,reason});
   if(!s.cities||s.cities.version<7||s.states?.version!==4||!c||!s.cities.entries.includes(c))return deny('Obchodní pravidla nebo město nejsou dostupné.');
-  if(atSea(s)||s.stage!==4||!cityProgression(s)||s.deathReason||s.player.health<=0)return deny('Obchod vyžaduje živou linii ve strojové etapě.');
+  if(atSea(s)||inCommerce(s)||s.stage!==4||!cityProgression(s)||s.deathReason||s.player.health<=0)return deny('Obchod vyžaduje živou linii ve strojové etapě.');
   if(navigation(s)?.mode!=='local'||activeField(s)?.id!==c.address.locationId)return deny('Nabídku vyřiď při místní návštěvě tohoto města.');
   if(c.owner.kind!=='state')return deny('Město už patří tvé linii; nová kupní platba není dostupná.');
   const r=s.states.entries.find(r=>r.id===c.owner.id),m=activeMachines(s);
   if(!r||!m)return deny('Chybí prodávající stát nebo domácí účet.');
-  const cities=stateCities(s,r).length,price=tradePrice(c.economy,cities===1);
-  const offer:TradeOffer={cityId:c.id,sellerId:r.id,revision:cityCommandRevision(c),...(s.cities!.version>=8?{conversionEvents:c.conversion!.events.length}:{}),cycle:c.economy?.cycle??0,price,reserve:r.reserve,tradeReserve:r.tradeReserve!,cities};
+  const cities=stateCities(s,r).length,price=tradePrice(c.economy,cities===1),contract=matureContract(s,c);
+  const offer:TradeOffer={cityId:c.id,sellerId:r.id,revision:cityCommandRevision(c),...(contract?{contractId:contract.id,commerceRevision:s.commerce!.revision,credit:60 as const}:{}),...(s.cities!.version>=8?{conversionEvents:c.conversion!.events.length}:{}),cycle:c.economy?.cycle??0,price,reserve:r.reserve,tradeReserve:r.tradeReserve!,cities};
   if(!m.springs.some(p=>p.owner==='player'))return deny('Chybí vlastní původní pramen jako zdroj domácího jantaru.',offer);
-  if(!landRoute(s,c))return deny('Město nemá pevninskou cestu od domova.',offer);
+  if(!contract&&!landRoute(s,c))return deny('Město nemá pevninskou cestu od domova.',offer);
   if(s.military?.deployment)return deny('Nejprve vrať nasazený tank domů, včetně dokončení ústupu a přepravy.',offer);
   if(raids(s).some(v=>v.stateId===r.id&&!['destroyed','returned','withdrawn'].includes(v.phase)))return deny('Stát odmítá jednat během přípravy výpadu, cesty, boje, okupace nebo ústupu.',offer);
   if(c.transfers!.length>=TRANSFER_LIMIT||c.economy&&c.economy.revision>=1e9||r.tradeReserve!>CITY_LEDGER_LIMIT-price)return deny('Dosažen limit historie nebo účetnictví; prodej není možný.',offer);
-  if(s.cities!.entries.some(c=>c.transfers!.some(t=>t.method==='conversion'&&t.from.id===r.id&&t.turn===s.states!.clock.turn)))return deny('V tomto tahu stát dokončil konverzní převod; nabídku vyžádej v dalším aktivním tahu.',offer);
-  if(cities===1&&(r.reserve!==0||r.tradeReserve!==0))return deny('Stát odmítá prodat poslední město, dokud má vlastní rezervy.',offer);
-  if(cities>1&&r.reserve+r.tradeReserve!>40)return deny('Stát má dostatečné rezervy a odmítá prodat území.',offer);
-  if(!Number.isFinite(m.resource)||m.resource<price)return deny(`Stát souhlasí, ale doma chybí ${Math.ceil(price-m.resource)} z ceny ${price} jantaru. Vrať se k vlastním pramenům. Městské pokladny nejsou zdroj nákupu.`,offer);
-  return {offer,available:true,reason:cities===1?'Stát bez rezerv přijímá prodej posledního města a ukončení své územní správy.':'Stát s nízkými rezervami přijímá prodej pro financování zbývajícího města.'};
+  if(s.cities!.entries.some(c=>c.transfers!.some(t=>(t.method==='conversion'||t.method==='trade')&&t.from.id===r.id&&t.turn===s.states!.clock.turn)))return deny('V tomto tahu stát dokončil obchodní nebo konverzní převod; nabídku vyžádej v dalším aktivním tahu.',offer);
+  if(!contract&&cities===1&&(r.reserve!==0||r.tradeReserve!==0))return deny('Stát odmítá prodat poslední město, dokud má vlastní rezervy.',offer);
+  if(!contract&&cities>1&&r.reserve+r.tradeReserve!>40)return deny('Stát má dostatečné rezervy a odmítá prodat území.',offer);
+  if(!Number.isFinite(m.resource)||m.resource<price-(contract?60:0))return deny(`Stát souhlasí, ale doma chybí ${Math.ceil(price-(contract?60:0)-m.resource)} z ceny ${price} jantaru. Vrať se k vlastním pramenům. Městské pokladny nejsou zdroj nákupu.`,offer);
+  return {offer,available:true,reason:contract?'Tři doručené zásilky vytvořily důvěru. Stát přijímá sjednocení; 60 jantaru z úschovy se započte do ceny.':cities===1?'Stát bez rezerv přijímá prodej posledního města a ukončení své územní správy.':'Stát s nízkými rezervami přijímá prodej pro financování zbývajícího města.'};
 }
-const offerMatches=(a:TradeOffer,b:TradeOffer)=>a.cityId===b.cityId&&a.sellerId===b.sellerId&&a.revision===b.revision&&a.conversionEvents===b.conversionEvents&&a.cycle===b.cycle&&a.price===b.price&&a.reserve===b.reserve&&a.tradeReserve===b.tradeReserve&&a.cities===b.cities;
+const offerMatches=(a:TradeOffer,b:TradeOffer)=>a.cityId===b.cityId&&a.sellerId===b.sellerId&&a.revision===b.revision&&a.contractId===b.contractId&&a.commerceRevision===b.commerceRevision&&a.credit===b.credit&&a.conversionEvents===b.conversionEvents&&a.cycle===b.cycle&&a.price===b.price&&a.reserve===b.reserve&&a.tradeReserve===b.tradeReserve&&a.cities===b.cities;
 /** One synchronous settlement after all checks; an offer itself has no side effects. */
 export function acceptTrade(s:GameState,offer:TradeOffer):boolean {
   const nav=navigation(s),c=s.cities?.entries.find(c=>c.id===offer.cityId),q=tradeQuote(s,c??null);
@@ -63,9 +65,11 @@ export function acceptTrade(s:GameState,offer:TradeOffer):boolean {
   if(!q.offer||!offerMatches(offer,q.offer))return fail('Nabídka je zastaralá: změnil se vlastník, hospodářství, cena nebo situace státu. Vyžádej novou nabídku.');
   if(!q.available)return fail(q.reason);
   const r=s.states!.entries.find(r=>r.id===offer.sellerId)!,m=activeMachines(s)!,to={kind:'lineage' as const,id:s.homePlanet!.id};
-  const receipt:TradeTransfer={method:'trade',version:1,id:`${c!.id}:trade-${c!.transfers!.length+1}`,from:{...c!.owner},to,turn:s.states!.clock.turn,economy:c!.economy?structuredClone(c!.economy):null,price:q.offer.price,
-    payment:{source:'home',recipient:r.id,before:m.resource,after:m.resource-q.offer.price,receivedBefore:r.tradeReserve!,receivedAfter:r.tradeReserve!+q.offer.price},
+  const contract=offer.contractId?s.commerce!.contracts.find(c=>c.id===offer.contractId)!:null;
+  const receipt:TradeTransfer={method:'trade',...(contract?{version:2 as const,contractId:contract.id,credit:60 as const}:{version:1 as const}),id:`${c!.id}:trade-${c!.transfers!.length+1}`,from:{...c!.owner},to,turn:s.states!.clock.turn,economy:c!.economy?structuredClone(c!.economy):null,price:q.offer.price,
+    payment:{source:'home',recipient:r.id,before:m.resource,after:m.resource-(q.offer.price-(contract?60:0)),receivedBefore:r.tradeReserve!,receivedAfter:r.tradeReserve!+q.offer.price},
     decision:{cities:q.offer.cities,reserve:r.reserve,tradeReserve:r.tradeReserve!},defenseHealth:c!.defense?.health??null,fortification:c!.fortification!};
+  if(contract){contract.status='settled';contract.receiptId=receipt.id;s.commerce!.revision++;}
   m.resource=receipt.payment.after;r.tradeReserve=receipt.payment.receivedAfter;
   c!.transfers!.push(receipt);c!.owner={...to};if(c!.economy)c!.economy.revision++;
   nav!.notice=`Koupeno ${c!.name} za ${receipt.price} jantaru z domova. Prodávající přijal cenu na civilní účet. ${receipt.decision.cities===1?'Poslední město: stát je poražen a jeho prostředky zůstávají zmrazené.':'Jeho vojenský rozpočet se nezvýšil.'}`;

@@ -14,12 +14,14 @@ import http from 'node:http';
 import path from 'node:path';
 
 const out = path.resolve(process.env.FRESH_OUTPUT ?? 'evidence/era-p3/fresh-organism');
+const campaignUrl = new URL(process.env.LUMAVORA_URL ?? 'http://127.0.0.1:5181');
+const campaignSeed = Number(process.env.FRESH_SEED ?? 8675309);
 const controlPort = Number(process.env.FRESH_CONTROL_PORT ?? 9225), cdpPort = Number(process.env.FRESH_CDP_PORT ?? 9223);
 const command = process.argv[2] ?? 'status';
 if (command !== 'launch') {
   if (command === 'drive' || command === 'press') {
     const args = JSON.parse(process.argv[3] ?? '{}'), { chromium } = await import('playwright'), existing = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
-    const current = existing.contexts().flatMap(c => c.pages()).find(p => p.url().includes(':5181')), state = () => current.evaluate(() => JSON.parse(window.render_game_to_text()));
+    const current = existing.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith(campaignUrl.origin)), state = () => current.evaluate(() => JSON.parse(window.render_game_to_text()));
     const started = Date.now(); let s = await state(), held = new Set(), success = false;
     if (s.mode === 'pause') await current.keyboard.press('Escape');
     try {
@@ -55,7 +57,7 @@ if (command !== 'launch') {
   }
   if (command === 'view' || command === 'hud') {
     const args = JSON.parse(process.argv[3] ?? '{}'), { chromium } = await import('playwright'), existing = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
-    const current = existing.contexts().flatMap(c => c.pages()).find(p => p.url().includes(':5181'));
+    const current = existing.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith(campaignUrl.origin));
     if (await current.locator('[data-action="close"]').count()) await current.locator('[data-action="close"]').first().click();
     const filename = path.join(out, `scene-${args.name ?? Date.now()}`), text = await current.locator('body').innerText();
     if (command === 'view') { await current.screenshot({ path: filename + '.png' }); await writeFile(filename + '.json', await current.evaluate(() => window.render_game_to_text())); }
@@ -66,7 +68,7 @@ if (command !== 'launch') {
   // continuing a native session whose controller predates this locator fix.
   if (['move', 'burst', 'tap', 'edit'].includes(command)) {
     const { chromium } = await import('playwright'); const existing = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
-    const current = existing.contexts().flatMap(c => c.pages()).find(p => p.url().includes(':5181'));
+    const current = existing.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith(campaignUrl.origin));
     if (current && await current.locator('[data-action="close"]').count()) await current.locator('[data-action="close"]').first().click();
   }
   const response = await fetch(`http://127.0.0.1:${controlPort}`, { method: 'POST', body: JSON.stringify({ command, args: JSON.parse(process.argv[3] ?? '{}') }) });
@@ -79,7 +81,7 @@ if (command !== 'launch') {
 if (process.env.PLAYWRIGHT_BROWSERS_PATH === undefined && existsSync('/private/tmp/lumavora-p0-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/private/tmp/lumavora-p0-browsers';
 const { chromium } = await import('playwright');
 await mkdir(out, { recursive: true });
-const browser = await chromium.launch({ headless: true, args: [`--remote-debugging-port=${cdpPort}`, ...(process.platform === 'darwin' ? ['--use-gl=angle', '--use-angle=metal'] : [])] });
+const browser = await chromium.launch({ headless: true, ...(process.env.LUMAVORA_BROWSER_CHANNEL ? { channel: process.env.LUMAVORA_BROWSER_CHANNEL } : {}), args: [`--remote-debugging-port=${cdpPort}`, ...(process.platform === 'darwin' ? ['--use-gl=angle', '--use-angle=metal'] : [])] });
 const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, deviceScaleFactor: 1, acceptDownloads: true });
 const tracingEnabled = process.env.LUMAVORA_TRACE === '1';
 let tracingActive = tracingEnabled;
@@ -88,10 +90,10 @@ const page = await context.newPage(), errors = [], timeline = [], started = new 
 page.setDefaultTimeout(12000);
 page.on('pageerror', error => errors.push({ kind: 'pageerror', text: error.message }));
 page.on('console', message => { if (message.type() === 'error') errors.push({ kind: 'console', text: message.text() }); });
-const url = new URL(process.env.LUMAVORA_URL ?? 'http://127.0.0.1:5181'); assert.equal(url.searchParams.has('test'), false);
+const url = campaignUrl; assert.equal(url.searchParams.has('test'), false);
 const source = {};
 for (const name of ['src/main.ts', 'src/game/simulation.ts', 'src/game/journey.ts', 'src/game/reef-body.ts']) source[name] = createHash('sha256').update(await readFile(name)).digest('hex');
-await writeFile(path.join(out, 'provenance.json'), JSON.stringify({ url: url.href, seed: 8675309, start: 'normal new-lineage UI', sourceAtLaunch: source, nativeRAF: true, advanceTime: false, imports: false, stateWrites: false, readOnlyDiagnostics: true, firstHumanPlaytest: false, tracingEnabled, cdpPort, controlPort }, null, 2));
+const provenance = { url: url.href, seed: campaignSeed, start: 'normal new-lineage UI', sourceAtLaunch: source, nativeRAF: true, advanceTime: false, imports: false, stateWrites: false, readOnlyDiagnostics: true, firstHumanPlaytest: false, tracingEnabled, cdpPort, controlPort };
 const read = () => page.evaluate(() => JSON.parse(window.render_game_to_text()));
 function dist(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
 async function pause() { if ((await read()).mode === 'game') await page.locator('[data-action="pause"]').click(); }
@@ -171,6 +173,7 @@ async function tap({ key = 'KeyT', count = 1, wait = 1000 } = {}) {
 }
 async function edit({ add = [], remove = [], fields = {}, parts = [], name } = {}) {
   await resume(); await page.keyboard.press('Tab'); assert.equal((await read()).mode, 'editor');
+  await page.locator('[data-action="category:all"]').click();
   for (const kind of remove) {
     const p = (await read()).editor.draft.parts.find(p => p.kind === kind); if (p) { await page.locator(`[data-action="select:${p.id}"]`).click(); await page.locator('[data-action="remove"]').click(); }
   }
@@ -180,7 +183,10 @@ async function edit({ add = [], remove = [], fields = {}, parts = [], name } = {
     await input.focus(); const end = value > (min + max) / 2; await input.press(end ? 'End' : 'Home');
     for (let i = 0; i < Math.round(Math.abs(value - (end ? max : min)) / step); i++) await input.press(end ? 'ArrowLeft' : 'ArrowRight'); await input.press('Tab');
   };
-  for (const [field, value] of Object.entries(fields)) await range(`[data-genome="${field}"]`, value);
+  for (const [field, value] of Object.entries(fields)) {
+    if (field === 'pattern') await page.locator('[data-genome="pattern"]').selectOption(String(value));
+    else await range(`[data-genome="${field}"]`, value);
+  }
   for (const change of parts) {
     const p = (await read()).editor.draft.parts.find(p => p.kind === change.kind); assert.ok(p); await page.locator(`[data-action="select:${p.id}"]`).click();
     for (const [field, value] of Object.entries(change)) if (field !== 'kind') {
@@ -191,7 +197,16 @@ async function edit({ add = [], remove = [], fields = {}, parts = [], name } = {
   await capture('editor'); assert.equal(await page.locator('[data-action="confirm-editor"]').isDisabled(), false, await page.locator('.editor-validation').innerText());
   const draft = (await read()).editor.draft; await page.locator('[data-action="confirm-editor"]').click(); await pause(); assert.deepEqual((await read()).player.genome, draft); await log('paid-UI-evolution'); return status();
 }
-await page.goto(url.href, { waitUntil: 'networkidle' }); await page.locator('#seed').fill('8675309'); await page.locator('#start-btn').click(); await pause(); await capture('fresh-birth');
+await page.goto(url.href, { waitUntil: 'networkidle' });
+if (process.env.LUMAVORA_PRODUCTION === '1') assert.equal(await page.evaluate(() => typeof window.advanceTime), 'undefined');
+const servedAssets = await page.locator('script[src],link[rel="stylesheet"]').evaluateAll(nodes => nodes.map(n => n.getAttribute('src') ?? n.getAttribute('href')));
+const assetHashes = {};
+for (const asset of servedAssets) {
+  const resolved = new URL(asset, url);
+  if (resolved.origin === url.origin && resolved.pathname.startsWith('/assets/')) assetHashes[asset] = createHash('sha256').update(await readFile(path.join('dist', resolved.pathname))).digest('hex');
+}
+await writeFile(path.join(out, 'provenance.json'), JSON.stringify({ ...provenance, servedAssets, assetHashes }, null, 2));
+await page.locator('#seed').fill(String(campaignSeed)); await page.locator('#start-btn').click(); await pause(); await capture('fresh-birth');
 const initial = await exportGame('fresh-birth'); assert.equal(initial.stage, 0); assert.equal(initial.journey.legacy, false); assert.equal(initial.journey.reefEvolution.version, 1); assert.equal(initial.journey.ecology.version, 1);
 let busy = false;
 const server = http.createServer(async (request, response) => {
@@ -205,6 +220,13 @@ const server = http.createServer(async (request, response) => {
     else if (command === 'burst') result = await burst(args);
     else if (command === 'tap') result = await tap(args);
     else if (command === 'edit') result = await edit(args);
+    else if (command === 'action') {
+      if (args.resume !== false && (await read()).mode === 'pause') await resume();
+      await page.locator(`[data-action=${JSON.stringify(args.name)}]`).first().click();
+      assert.ok((args.wait ?? 150) >= 0 && (args.wait ?? 150) <= 60000);
+      await page.waitForTimeout(args.wait ?? 150); await pause();
+      await log('UI-action', { action: args.name }); result = await status();
+    }
     else if (command === 'capture') result = await capture(args.name);
     else if (command === 'export') result = await exportGame(args.name);
     else if (command === 'stop-trace') { if (tracingActive) { await context.tracing.stop(); tracingActive = false; } result = { tracingActive }; }

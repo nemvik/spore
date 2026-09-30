@@ -3,7 +3,7 @@ import { defaultBuildingAppearance } from './building-design';
 import type { GameState, Vec3 } from './types';
 import { locationAddress, type LocationAddress } from './home-planet';
 import { addressGeography } from './planet-geography';
-import { activeField, navigation, enablePlanetTravel, enterField, selectAddress, FIELD_LIMIT, fieldGround, type FieldLocation } from './planet-travel';
+import { activeField, navigation, enablePlanetTravel, enterField, selectAddress, FIELD_STORAGE_LIMIT, fieldGround, type FieldLocation } from './planet-travel';
 import { activeMachines } from './machines';
 import { tribeReady, activeTribe } from './tribe';
 import { bodyCollisionRadius } from './body-shape';
@@ -91,7 +91,7 @@ export function foundingAvailability(s: GameState): { available: boolean; reason
   else if (!m!.springs.some(p=>p.owner==='player')) reason = 'Nejprve strojem obsaď jantarový pramen u domovské základny.';
   else if (!f || nav.mode !== 'local' || !address) reason = 'Vstup do vzdálené pevninské lokality a vyber místo chůzí.';
   else if (cityAt(s)) reason = 'V této lokalitě už město stojí. Další platba se neprovede.';
-  else if (s.cities.entries.length>=FIELD_LIMIT) reason = 'Registr obsahuje 64 měst; existující města zůstávají dostupná.';
+  else if (s.cities.entries.length>=FIELD_STORAGE_LIMIT) reason = 'Registr měst je plný; existující města zůstávají dostupná.';
   else if (f.world.patches.some(p=>!p.discovered)) reason = 'Nejprve fyzicky změř všechna tři stanoviště této lokality (E).';
   else if (!Number.isFinite(m!.resource) || m!.resource<CITY_COST) reason = `Založení stojí ${CITY_COST} jantaru z domovské strojové zásoby. Vrať se vydělat chybějící jantar.`;
   else reason = citySite(s,address);

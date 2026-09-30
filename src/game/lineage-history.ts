@@ -1,4 +1,4 @@
-import type { FoodKind, GameState, Stage } from './types';
+import type { FoodKind, GameState, Genome, Stage } from './types';
 import { completeNeighbourRoster, requiredNeighbours } from './tribe-roster';
 
 export const HISTORY_FOODS: readonly FoodKind[] = ['algae', 'mineral', 'nectar', 'meat', 'detritus'];
@@ -16,7 +16,31 @@ export interface StageHistory {
   facts: HistoryFact[];
   closed: { outcome: HistoryOutcome; source: 'action' | 'saved'; at: HistoryStamp | null } | null;
 }
-export interface LineageHistory { version: 1; stages: StageHistory[] }
+export type CellAdaptation = 'spines' | 'antenna';
+export type InheritanceUse = 'cell' | 'creature' | 'civilization';
+export interface LineageHistory {
+  version: 1; stages: StageHistory[];
+  /** Absent in historical saves: unknown, never inferred from the current body. */
+  cellAdaptation?: { part: CellAdaptation; at: HistoryStamp };
+  usedEffects?: InheritanceUse[];
+}
+export const CELL_ADAPTATIONS = {
+  spines: { name: 'Ostražitost', now: 'Ostny odrážejí při kontaktu; mohou plašit býložravce.', later: 'V útesu X odežene blízké lovce bez zranění: 6 energie, obnova 8 s.' },
+  antenna: { name: 'Zvídavost', now: 'Tykadla rozšíří vnímání potravy a života.', later: 'V útesu X odhalí okolí i za úkrytem: 3 energie, obnova 4 s.' },
+} as const;
+export function canChooseCellAdaptation(s: GameState, genome: Genome, part: CellAdaptation): boolean {
+  return s.stage === 0 && !!s.lineageHistory && !s.lineageHistory.cellAdaptation && !!s.cellGrowth?.parts.some(p => p.part === part) && genome.parts.some(p => p.kind === part);
+}
+export const activeCellAdaptation = (s: GameState) => s.stage === 1 ? s.lineageHistory?.cellAdaptation?.part ?? null : null;
+/** A presentation receipt, never an accumulated bonus or a rewritten body. */
+export function firstInheritanceUse(s: GameState, key: InheritanceUse, text: string): boolean {
+  const h = s.lineageHistory;
+  if (!h || h.usedEffects?.includes(key)) return false;
+  (h.usedEffects ??= []).push(key);
+  s.messages.push({ id: Math.max(s.tick, s.messages.at(-1)?.id ?? 0) + 1, text: `Dědictví druhu · ${text}`, time: s.world.time });
+  if (s.messages.length > 6) s.messages.shift();
+  return true;
+}
 const stamp = (s: GameState): HistoryStamp => ({ tick: s.tick, generation: s.player.generation });
 const counts = (): NonNullable<StageHistory['counts']> => ({ meals: { algae: 0, mineral: 0, nectar: 0, meat: 0, detritus: 0 }, hunts: 0 });
 function entry(s: GameState, stage: Stage, coverage: StageHistory['coverage']): StageHistory {

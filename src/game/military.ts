@@ -1,3 +1,4 @@
+import { inCommerce } from './commerce';
 import { atSea } from './maritime';
 import { stepDefense, canOccupy, enemyTarget, entryClear } from './defense';
 import type { GameState, Vec3, World, Input } from './types';
@@ -40,14 +41,14 @@ export function landRoute(s:GameState,city:City,sourceCell?:number):number[]|nul
 }
 export function deploymentQuote(s:GameState,c:City,id:number):string|null {
   const m=activeMachines(s),u=m?.fleet.find(u=>u.id===id);
-  if(atSea(s)||!s.military||s.stage!==4||s.deathReason||s.player.health<=0||navigation(s)?.mode!=='local'||activeField(s)?.id!==c.address.locationId)return 'Nasazení vyžaduje živou strojovou etapu a návštěvu cílového města.';
+  if((atSea(s)||inCommerce(s))||!s.military||s.stage!==4||s.deathReason||s.player.health<=0||navigation(s)?.mode!=='local'||activeField(s)?.id!==c.address.locationId)return 'Nasazení vyžaduje živou strojovou etapu a návštěvu cílového města.';
   if(s.military.deployment)return 'Jeden stroj už je nasazený. Nejprve jej vrať domů.';
   if(s.military.version===1&&(c.owner.kind!=='state'||c.capture))return 'Cílem musí být dosud nepřevzaté město soupeře.';
   if(s.military.version===1&&!c.defense)return 'Stát ještě nezaplatil obranu. Toto město zatím není vojenským cílem.';
   if(!u||u.health<=0||machineDesign(m!,u).carrier!=='tank'||vehicleStats(machineDesign(m!,u)).module!=='cannon')return 'Vyber původní živý pozemní stroj s dělem. Vyrob jej v domovském editoru za jeho skutečnou cenu.';
   if(u.cargo||horizontalDistance(u.pos,machineHome(s))>12)return 'Stroj musí být bez nákladu do 12 jednotek od domácí dílny.';
   if(tankRadius(machineDesign(m!,u))>4)return 'Tato konstrukce je příliš široká pro první městskou výpravu (obal nejvýše 4). Vyrob menší tank.';
-  if(!landRoute(s,c))return 'Do města nevede souvislá pevninská trasa. Lodě nejsou dostupné.';
+  if(!landRoute(s,c))return 'Do města nevede souvislá pevninská trasa. Člun nepřepravuje tanky.';
   if(s.military.version===2&&!entryClear(s,c,false,machineDesign(m!,u)))return 'Příjezd tanku blokuje terén nebo dřívější zástavba. Tato výprava nemůže bezpečně přijet.';
   return null;
 }

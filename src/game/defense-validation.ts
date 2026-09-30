@@ -1,10 +1,11 @@
+import { liveTowers } from './city-defense';
 import { validateConversionTransfer } from './conversion-validation';
 import { validateTradeTransfer } from './trade-validation';
 import { cityGuard } from './cities';
 import type { GameState, Vec3 } from './types';
 import { activeMachines, machineDesign } from './machines';
 import { defenseDesign, landRoute, militaryWorld, tankRadius } from './military';
-import { FORTIFICATION, RAID_PREPARATION, TRANSFER_LIMIT, cityEntry, originalCityOwner, sameOwner } from './defense';
+import { FORTIFICATION, RAID_PREPARATION, TRANSFER_LIMIT, cityEntry, originalCityOwner, sameOwner, raids as allRaids } from './defense';
 import { vehicleStats } from './blueprint';
 import { cityEconomyCheckpointMatches, validateCityEconomy } from './city-economy-validation';
 import { navigation, fieldGround } from './planet-travel';
@@ -18,13 +19,13 @@ const vector=(p:Vec3)=>{shape(p,['x','y','z']);num(p.x,78,-78);num(p.z,78,-78);n
 export function validateDefense(s:GameState):void {
   const w=s.military!;check((s.cities!.version===6&&s.states!.version===3||s.cities!.version>=7&&s.states!.version===4)&&w.version===2&&Array.isArray(w.raids)&&w.raids.length<=2);
   const raids=w.raids!;check(new Set(raids.map(r=>r.stateId)).size===raids.length);
-  for(const r of raids){
+  for(const r of allRaids(s)){
     shape(r,['id','stateId','sourceCityId','cityId','route','blueprint','unit','phase','remaining','elapsed','hold']);
-    const state=s.states!.entries.find(v=>v.id===r.stateId),tx=state?.transactions.find(t=>t.id===r.id),c=s.cities!.entries.find(c=>c.id===r.cityId),source=s.cities!.entries.find(c=>c.id===r.sourceCityId);
-    check(!!state&&!!source&&!!c&&tx?.action.kind==='raid'&&tx.action.cityId===r.cityId&&tx.action.sourceCityId===r.sourceCityId);
+    const state=s.states!.entries.find(v=>v.id===r.stateId),tx=state?.transactions.find(t=>t.id===r.id),purchase=s.mobilization?.purchases.find(p=>p.id===r.id),c=s.cities!.entries.find(c=>c.id===r.cityId),source=s.cities!.entries.find(c=>c.id===r.sourceCityId);
+    check(!!state&&!!source&&!!c&&(tx?.action.kind==='raid'&&tx.action.cityId===r.cityId&&tx.action.sourceCityId===r.sourceCityId||purchase?.cityId===r.cityId&&purchase.sourceCityId===r.sourceCityId&&purchase.stateId===r.stateId));
     // Strategic payment precedes all battles in that turn. Same-turn transfers occur after it.
     const atPayment=(city:typeof c)=>city!.transfers!.filter(t=>t.turn<tx!.turn).at(-1)?.to??originalCityOwner(s,city!);
-    check(sameOwner(atPayment(source),{kind:'state',id:r.stateId})&&sameOwner(atPayment(c),{kind:'lineage',id:s.homePlanet!.id}));
+    if(!purchase)check(sameOwner(atPayment(source),{kind:'state',id:r.stateId})&&sameOwner(atPayment(c),{kind:'lineage',id:s.homePlanet!.id}));
     check(same(r.blueprint,defenseDesign())&&same(r.route,landRoute(s,c!,navigation(s)!.fields.find(f=>f.id===source!.address.locationId)!.cellId)));
     check(['preparing','outbound','waiting','field','occupying','garrison','retreat','returning','returned','withdrawn','destroyed'].includes(r.phase));
     num(r.remaining,Math.max(RAID_PREPARATION,(r.route.length-1)*5));num(r.elapsed);num(r.hold,5);
@@ -37,12 +38,13 @@ export function validateDefense(s:GameState):void {
     else if(r.phase!=='withdrawn'||r.elapsed>0){
       const at=r.phase==='returned'?source!:c!,cell=planetAtlas(s.homePlanet!)!.cells[navigation(s)!.fields.find(f=>f.id===at.address.locationId)!.cellId];
       check(Math.abs(u.pos.y-fieldGround(s.seed,cell,u.pos.x,u.pos.z)-.8)<1e-6);
-      check(militaryWorld(s,at).obstacles.every(o=>Math.hypot(o.pos.x-u.pos.x,o.pos.z-u.pos.z)>=o.radius+tankRadius(r.blueprint)-1e-5));
+      const collisionCity=['field','occupying','garrison','retreat'].includes(r.phase)?at:{...at,economy:null};
+      check(militaryWorld(s,collisionCity).obstacles.every(o=>Math.hypot(o.pos.x-u.pos.x,o.pos.z-u.pos.z)>=o.radius+tankRadius(r.blueprint)-1e-5));
     }
     const d=w.deployment,player=d?.cityId===c!.id&&d.phase==='field'?activeMachines(s)!.fleet.find(v=>v.id===d.unitId):null;
     if(player&&['field','occupying','garrison','retreat'].includes(r.phase))check(Math.hypot(player.pos.x-u.pos.x,player.pos.z-u.pos.z)>=tankRadius(machineDesign(activeMachines(s)!,player))+tankRadius(r.blueprint)-1e-5);
     if(r.phase==='returned')check(same(u.pos,cityEntry(s,source!,true)));
-    if(r.hold>0)check(r.phase==='occupying'&&c!.owner.kind==='lineage'&&c!.fortification===0&&Math.hypot(u.pos.x-c!.address.position.x,u.pos.z-c!.address.position.z)<=2.86);
+    if(r.hold>0)check(r.phase==='occupying'&&liveTowers(c!).length===0&&c!.owner.kind==='lineage'&&c!.fortification===0&&Math.hypot(u.pos.x-c!.address.position.x,u.pos.z-c!.address.position.z)<=2.86);
     if(r.phase==='garrison')check(c!.owner.id===r.stateId&&c!.transfers!.some(t=>!t.method&&t.raidId===r.id));
   }
   for(const c of s.cities!.entries){
@@ -54,9 +56,9 @@ export function validateDefense(s:GameState):void {
       else shape(t,['from','to','unitId','raidId','turn','elapsed','economy']);
       shape(t.from,['kind','id']);shape(t.to,['kind','id']);
       check(sameOwner(t.from,owner)&&!sameOwner(t.to,owner));integer(t.turn,s.states!.clock.turn,turn);turn=t.turn;
-      if(!t.method){num(t.elapsed,1e9,5);
+      if(!t.method){num(t.elapsed,1e9,5);check(!t.economy?.buildings.some(b=>b.kind==='tower'&&b.defense!.health>0));
       if(t.to.kind==='lineage'){check(t.to.id===s.homePlanet!.id&&t.raidId===null);integer(t.unitId,activeMachines(s)!.nextId-1,1);}
-      else{const r=raids.find(r=>r.id===t.raidId);check(t.to.kind==='state'&&r?.stateId===t.to.id&&r.cityId===c.id&&t.unitId===1&&r.elapsed>=t.elapsed&&s.states!.entries.find(v=>v.id===r.stateId)!.transactions.find(v=>v.id===r.id)!.turn<=t.turn&&r.phase!=='preparing'&&r.phase!=='outbound'&&r.phase!=='waiting');
+      else{const r=allRaids(s).find(r=>r.id===t.raidId);check(t.to.kind==='state'&&r?.stateId===t.to.id&&r.cityId===c.id&&t.unitId===1&&r.elapsed>=t.elapsed&&(s.mobilization?.purchases.find(p=>p.id===r.id)?.turn??s.states!.entries.find(v=>v.id===r.stateId)!.transactions.find(v=>v.id===r.id)!.turn)<=t.turn&&r.phase!=='preparing'&&r.phase!=='outbound'&&r.phase!=='waiting');
         check(c.transfers!.filter(v=>!v.method&&v.raidId===t.raidId).length===1);}
       }
       const archived={...c,economy:t.economy};validateCityEconomy(s,archived);check(cityEconomyCheckpointMatches(archived,previous));
@@ -74,5 +76,5 @@ const phaseRank={preparing:0,outbound:1,waiting:2,field:3,occupying:3,garrison:4
 export function defenseCheckpointMatches(live:GameState,cp:GameState):boolean {
   if(live.military?.version!==cp.military?.version)return false;
   if(live.military?.version!==2)return true;
-  return cp.cities!.entries.every(c=>{const l=live.cities!.entries.find(v=>v.id===c.id)!;return l&&l.fortification!<=c.fortification!&&c.transfers!.every((t,i)=>same(t,l.transfers![i]));})&&cp.military!.raids!.every(r=>{const l=live.military!.raids!.find(v=>v.id===r.id);return l&&phaseRank[r.phase]<=phaseRank[l.phase]&&(!['returned','withdrawn','destroyed'].includes(r.phase)||r.phase===l.phase)&&(r.phase!==l.phase||!['preparing','outbound','returning'].includes(r.phase)||l.remaining<=r.remaining+1e-7)&&same([r.stateId,r.sourceCityId,r.cityId,r.route,r.blueprint],[l.stateId,l.sourceCityId,l.cityId,l.route,l.blueprint])&&r.unit.health>=l.unit.health&&r.elapsed<=l.elapsed;});
+  return cp.cities!.entries.every(c=>{const l=live.cities!.entries.find(v=>v.id===c.id)!;return l&&l.fortification!<=c.fortification!&&c.transfers!.every((t,i)=>same(t,l.transfers![i]));})&&allRaids(cp).every(r=>{const l=allRaids(live).find(v=>v.id===r.id);return l&&phaseRank[r.phase]<=phaseRank[l.phase]&&(!['returned','withdrawn','destroyed'].includes(r.phase)||r.phase===l.phase)&&(r.phase!==l.phase||!['preparing','outbound','returning'].includes(r.phase)||l.remaining<=r.remaining+1e-7)&&same([r.stateId,r.sourceCityId,r.cityId,r.route,r.blueprint],[l.stateId,l.sourceCityId,l.cityId,l.route,l.blueprint])&&r.unit.health>=l.unit.health&&r.elapsed<=l.elapsed;});
 }

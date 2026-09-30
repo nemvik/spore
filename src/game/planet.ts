@@ -1,3 +1,4 @@
+import { civilizationInheritance } from './civilization';
 import { speciesGroundClearance } from './anatomy';
 import { worldSpecies } from './npc-genome';
 import type { GameState, Input, Vec3 } from './types';
@@ -17,7 +18,7 @@ import { PLANET_COPY as C } from './planet-copy.cs';
 export const activePlanet=(s:GameState):ActivePlanetState|null=>s.planet?.version===2?s.planet:null;
 export const planetTScore=(temperature:number,atmosphere:number):TScore=>{const r=Math.hypot(temperature,atmosphere);return r<=.3?3:r<=.65?2:r<=1?1:0;};
 export const planetVehicle=(s:GameState)=>{const p=activePlanet(s),m=activeMachines(s);return p&&m?m.fleet.find(u=>u.id===p.activeMachine&&u.health>0)??null:null;};
-const playable=(s:GameState)=>s.stage===5&&!s.deathReason?activePlanet(s):null;
+const playable=(s:GameState)=>!s.space?.location&&s.stage===5&&!s.deathReason?activePlanet(s):null;
 const fail=(message:string):TribeAction=>({ok:false,message});
 export const atPlanetBase=(s:GameState):boolean=>{const u=planetVehicle(s);return !!u&&horizontalDistance(u.pos,machineHome(s))<=12;};
 export function createPlanet(s:GameState):ActivePlanetState {
@@ -80,18 +81,20 @@ export function introducePlanetLife(s:GameState,biomeId:number,key:string):Tribe
 }
 export function removePlanetLife(s:GameState,id:number):TribeAction {const p=playable(s);if(!p)return fail(C.unavailable);const root=p.stabilizers.find(r=>r.id===id),population=p.populations.find(c=>c.id===id),b=p.biomes.find(b=>b.id===(root?.biome??population?.biome));if(!b)return fail(C.unknown);const blocked=reachable(s,b.pos);if(blocked)return blocked;if(root)s.world.resources=s.world.resources.filter(r=>r.id!==root.site.plantedId);p.stabilizers=p.stabilizers.filter(r=>r.id!==id);p.populations=p.populations.filter(r=>r.id!==id);return {ok:true};}
 function stepLife(s:GameState,p:ActivePlanetState,dt:number):void {
+ const recovery=civilizationInheritance(s).recovery;
  for(const b of p.biomes){const life=biomeLife(s,b),suitable=p.tScore>=b.level;
-  for(const root of life.roots){const r=s.world.resources.find(r=>r.id===root.site.plantedId);root.site.vitality=clamp(root.site.vitality+dt*(r&&suitable?.25:-.6),0,100);if(r)r.amount=clamp(r.amount+dt*.22*livingRootStrength(s,root.site),0,r.max);}
-  for(const c of life.herbs){const spec=worldSpecies(s.world,ecologyTaxon(c.key)!.species!),food=life.roots.map(r=>s.world.resources.find(v=>v.id===r.site.plantedId)).filter(r=>r&&spec.diet.includes(r.kind)&&r.amount>0),need=.025*Math.max(.5,c.abundance)*dt;let eaten=0;for(const r of food){const take=Math.min(r!.amount,need-eaten);r!.amount-=take;eaten+=take;if(eaten>=need)break;}const fed=eaten>=need*.95;c.nutrition=clamp(c.nutrition+dt*(fed?.03:-.055),0,1);c.vitality=clamp(c.vitality+dt*(suitable&&c.nutrition>.2?.12:-.65),0,100);c.abundance=clamp(c.abundance+dt*(c.vitality>=50&&c.nutrition>.35?.012:-.02),0,3);}
-  for(const c of life.predators){const prey=life.herbs.filter(h=>h.vitality>0&&h.abundance>.7),need=.007*Math.max(.5,c.abundance)*dt;let eaten=0;for(const h of prey){const take=Math.min(Math.max(0,h.abundance-.7),need-eaten);h.abundance-=take;eaten+=take;if(eaten>=need)break;}const fed=eaten>=need*.95;c.nutrition=clamp(c.nutrition+dt*(fed?.03:-.055),0,1);c.vitality=clamp(c.vitality+dt*(suitable&&c.nutrition>.2?.12:-.65),0,100);c.abundance=clamp(c.abundance+dt*(c.vitality>=50&&c.nutrition>.35?.004:-.02),0,1.5);}
+  for(const root of life.roots){const r=s.world.resources.find(r=>r.id===root.site.plantedId);root.site.vitality=clamp(root.site.vitality+dt*(r&&suitable?.25*recovery:-.6),0,100);if(r)r.amount=clamp(r.amount+dt*.22*livingRootStrength(s,root.site),0,r.max);}
+  for(const c of life.herbs){const spec=worldSpecies(s.world,ecologyTaxon(c.key)!.species!),food=life.roots.map(r=>s.world.resources.find(v=>v.id===r.site.plantedId)).filter(r=>r&&spec.diet.includes(r.kind)&&r.amount>0),need=.025*Math.max(.5,c.abundance)*dt;let eaten=0;for(const r of food){const take=Math.min(r!.amount,need-eaten);r!.amount-=take;eaten+=take;if(eaten>=need)break;}const fed=eaten>=need*.95;c.nutrition=clamp(c.nutrition+dt*(fed?.03:-.055),0,1);c.vitality=clamp(c.vitality+dt*(suitable&&c.nutrition>.2?.12*recovery:-.65),0,100);c.abundance=clamp(c.abundance+dt*(c.vitality>=50&&c.nutrition>.35?.012:-.02),0,3);}
+  for(const c of life.predators){const prey=life.herbs.filter(h=>h.vitality>0&&h.abundance>.7),need=.007*Math.max(.5,c.abundance)*dt;let eaten=0;for(const h of prey){const take=Math.min(Math.max(0,h.abundance-.7),need-eaten);h.abundance-=take;eaten+=take;if(eaten>=need)break;}const fed=eaten>=need*.95;c.nutrition=clamp(c.nutrition+dt*(fed?.03:-.055),0,1);c.vitality=clamp(c.vitality+dt*(suitable&&c.nutrition>.2?.12*recovery:-.65),0,100);c.abundance=clamp(c.abundance+dt*(c.vitality>=50&&c.nutrition>.35?.004:-.02),0,1.5);}
  }
 }
 export function stepPlanet(s:GameState,input:Input,dt:number):string[]{
  const p=activePlanet(s),m=activeMachines(s),u=planetVehicle(s);if(!p||!m||!u)return [];p.elapsed+=dt;m.resource=Math.min(1e9,m.resource+machineIncome(m)*dt);const g=machineDesign(m,u),stats=vehicleStats(g),length=Math.hypot(input.x,input.z),norm=Math.max(1,length),previous={...u.pos};
  const pos={x:clamp(u.pos.x+input.x/norm*stats.speed*dt,-76,76),y:u.pos.y,z:clamp(u.pos.z+input.z/norm*stats.speed*dt,-76,76)};
  u.pos=g.carrier==='air'?pos:resolveObstacleMotion(s.world,u.pos,pos,1.1);u.pos.y=groundHeight(u.pos.x,u.pos.z,2)+(g.carrier==='air'?15:0);if(length>.01)u.heading=Math.atan2(input.x,input.z);u.intent=horizontalDistance(previous,u.pos)>.0001?'move':'rest';
+ const inherited=civilizationInheritance(s),toolCost=.25*inherited.consumption,power=stats.power*inherited.power;
  const support=planetSupport(s),target=[.88,.60,.36,.10][support];p.temperature=clamp(p.temperature+(target-p.temperature)*dt*.035,-1,1);p.atmosphere=clamp(p.atmosphere+(-target-p.atmosphere)*dt*.035,-1,1);
- if(p.toolOn){if(m.resource<dt*.25||!['drill','seeder'].includes(stats.module??''))p.toolOn=false;else{m.resource-=dt*.25;u.intent='work';if(stats.module==='drill'){p.atmosphere=Math.min(0,p.atmosphere+stats.power*.009*dt);p.temperature=clamp(p.temperature+stats.power*.0008*dt,-1,1);}else{p.temperature=Math.max(0,p.temperature-stats.power*.008*dt);p.atmosphere=Math.min(0,p.atmosphere+stats.power*.0025*dt);}}}
+ if(p.toolOn){if(m.resource<dt*toolCost||!['drill','seeder'].includes(stats.module??''))p.toolOn=false;else{m.resource-=dt*toolCost;u.intent='work';if(stats.module==='drill'){p.atmosphere=Math.min(0,p.atmosphere+power*.009*dt);p.temperature=clamp(p.temperature+power*.0008*dt,-1,1);}else{p.temperature=Math.max(0,p.temperature-power*.008*dt);p.atmosphere=Math.min(0,p.atmosphere+power*.0025*dt);}}}
  p.tScore=planetTScore(p.temperature,p.atmosphere);stepLife(s,p,dt);s.campaign.drought=clamp(-p.atmosphere/.88,0,1);
  p.stableTime=p.tScore===3&&planetSupport(s)===3&&!p.toolOn?Math.min(30,p.stableTime+dt):0;
  if(!p.completed&&p.stableTime>=30){p.completed=true;return [C.ready];}return [];

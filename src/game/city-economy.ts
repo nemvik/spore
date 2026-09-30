@@ -1,3 +1,6 @@
+import { activateArmyEconomy, rivalAdvanced, enrollArmyCity } from './mobilization';
+import { activateDefenseEconomy, TOWER_HEALTH, TOWER_REPAIR, type TowerDefense } from './city-defense';
+import { fieldRaid } from './defense';
 import { atSea } from './maritime';
 import { cityCommandRevision } from './defense';
 import { defaultBuildingAppearance, validateBuildingAppearance, appearanceName, type BuildingAppearance } from './building-design';
@@ -16,25 +19,26 @@ export const CITY_BUILDINGS = {
   house: { name:'Obydlí', cost:20, upkeep:1, workers:0, radius:2, color:'#e9d5a8', short:'D', effect:'4 místa pro obyvatele' },
   garden: { name:'Pěstírna', cost:16, upkeep:1, workers:2, radius:2.5, color:'#8fc997', short:'P', effect:'6 porcí / cyklus · 2 pracovníci' },
   workshop: { name:'Dílna', cost:24, upkeep:2, workers:2, radius:2.5, color:'#e6a15c', short:'V', effect:'až 8 jantaru / cyklus · 2 pracovníci' },
+  tower: { name:'Strážní věž', cost:40, upkeep:1, workers:0, radius:2.5, color:'#a6cbd8', short:'O', effect:'Dostřel 24 · 100 odolnosti · začne střílet po placeném cyklu' },
   park: { name:'Zahrada odpočinku', cost:18, upkeep:1, workers:1, radius:2.5, color:'#b5a2d6', short:'Z', effect:'+15 nálady do 20 jednotek · 1 pracovník' },
 } as const;
 export type CityBuildingKind = keyof typeof CITY_BUILDINGS;
-export interface CityBuilding { id:number; kind:CityBuildingKind; lot:number; enabled:boolean; paidAmber:number; appearance?:BuildingAppearance; }
+export interface CityBuilding { id:number; kind:CityBuildingKind; lot:number; enabled:boolean; paidAmber:number; appearance?:BuildingAppearance; defense?:TowerDefense; }
 export interface CityResident { id:number; source:'invited'; cycle:number; paidAmber:4; }
 export interface CityCycle {
   cycle:number; income:number; upkeep:number; produced:number; consumed:number; discarded:number;
   happiness:number; workers:number; hungry:number; funded:boolean;
 }
 export interface CityEconomy {
-  version:1|2|3;
+  version:1|2|3|4|5;
   opened:{source:'player'; tick:number; transferredAmber:80}|{source:'state';tick:number;transferredAmber:80;transactionId:string};
   revision:number; nextId:number; elapsed:number; cycle:number;
   treasury:number; food:number;
   buildings:CityBuilding[]; residents:CityResident[];
-  ledger:{transfers:number; construction:number; immigration:number; supplies:number; income:number; upkeep:number; produced:number; consumed:number; discarded:number};
+  ledger:{transfers:number; construction:number; immigration:number; supplies:number; income:number; upkeep:number; produced:number; consumed:number; discarded:number;repairs?:number;military?:number};
   last:CityCycle|null;
 }
-export type CityOrder = {kind:'open'} | {kind:'fund'} | {kind:'invite'} | {kind:'supplies'} | {kind:'build'; building:CityBuildingKind; lot:number; appearance?:BuildingAppearance} | {kind:'enable'; id:number; enabled:boolean} | {kind:'demolish'; id:number} | {kind:'appearance';id:number;appearance:BuildingAppearance};
+export type CityOrder = {kind:'open'} | {kind:'fund'} | {kind:'invite'} | {kind:'supplies'} | {kind:'build'; building:CityBuildingKind; lot:number; appearance?:BuildingAppearance} | {kind:'enable'; id:number; enabled:boolean} | {kind:'demolish'; id:number} | {kind:'repair';id:number} | {kind:'appearance';id:number;appearance:BuildingAppearance};
 export const cityCapacity=(e:CityEconomy)=>e.buildings.filter(b=>b.kind==='house').length*4;
 export const isBuildingKind=(v:unknown):v is CityBuildingKind=>typeof v==='string'&&Object.hasOwn(CITY_BUILDINGS,v);
 
@@ -90,6 +94,7 @@ export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:nu
     if(e.food+20>CITY_FOOD_CAPACITY)return reject('Ve skladu není místo na 20 porcí (kapacita 120).');
     cost=10;reason='Koupit 20 porcí za 10 jantaru z místní pokladny.';
   } else if(order.kind==='build') {
+    if(order.building==='tower'&&e.version<4)return reject('Obranu aktivuje nové načtení kampaně.');
     if(!isBuildingKind(order.building))return reject('Neznámý druh provozu.');
     if(e.buildings.length>=CITY_BUILDING_LIMIT)return reject('Město má nejvýše 16 budov; lze zbourat nepotřebný provoz.');
     if(order.appearance){try{validateBuildingAppearance(order.appearance,order.building);}catch(error){return reject((error as Error).message);}if(e.version<2)return reject('Nejprve aktivuj novou verzi měst načtením kampaně.');}
@@ -99,7 +104,11 @@ export function cityOrderQuote(s:GameState,city:City,order:CityOrder,revision:nu
   } else {
     const b=e.buildings.find(b=>b.id===order.id);
     if(!b)return reject('Tato stavba už neexistuje.');
-    if(order.kind==='appearance') {
+    if(order.kind==='repair') {
+      if(b.kind!=='tower'||!b.defense||b.defense.health>=TOWER_HEALTH)return reject('Opravu potřebuje pouze poškozená strážní věž.');
+      if(fieldRaid(s,city)||s.military?.deployment?.cityId===city.id)return reject('Věž oprav mimo střet, po návratu nasazených jednotek.');
+      cost=10;reason=`Opravit věž za 10 jantaru z městské pokladny, nejvýše +${TOWER_REPAIR} odolnosti. Pro střelbu musí mít zaplacený provoz.`;
+    } else if(order.kind==='appearance') {
       if(e.version<2)return reject('Vzhled vyžaduje novou verzi měst.');
       try{validateBuildingAppearance(order.appearance,b.kind);}catch(error){return reject((error as Error).message);}
       if(JSON.stringify(b.appearance)===JSON.stringify(order.appearance))return reject('Budova už tento vzhled má.');
@@ -127,13 +136,15 @@ export function applyCityOrder(s:GameState,cityId:string,order:CityOrder,revisio
     s.machines!.resource-=80;
     city.economy={version:s.cities!.version>=3?2:1,opened:{source:'player',tick:s.tick,transferredAmber:80},revision:1,nextId:1,elapsed:0,cycle:0,treasury:80,food:0,buildings:[],residents:[],
       ledger:{transfers:80,construction:0,immigration:0,supplies:0,income:0,upkeep:0,produced:0,consumed:0,discarded:0},last:null};
+    activateDefenseEconomy(s,city.economy);activateArmyEconomy(s,city.economy);
   } else {
     const e=city.economy!;
     if(order.kind==='fund'){s.machines!.resource-=20;e.treasury+=20;e.ledger.transfers+=20;}
-    else if(order.kind==='build'){e.treasury-=q.cost;e.ledger.construction+=q.cost;e.buildings.push({id:e.nextId++,kind:order.building,lot:order.lot,enabled:true,paidAmber:q.cost,...(e.version>=2?{appearance:structuredClone(order.appearance??defaultBuildingAppearance())}:{})});}
+    else if(order.kind==='build'){e.treasury-=q.cost;e.ledger.construction+=q.cost;e.buildings.push({id:e.nextId++,kind:order.building,lot:order.lot,enabled:true,paidAmber:q.cost,...(order.building==='tower'?{defense:{health:TOWER_HEALTH,cooldown:0,repaired:0,builtCycle:e.cycle,maintained:null}}:{}),...(e.version>=2?{appearance:structuredClone(order.appearance??defaultBuildingAppearance())}:{})});if(order.building==='tower'){const r=fieldRaid(s,city);if(r){r.hold=0;if(r.phase==='occupying')r.phase='field';}}}
     else if(order.kind==='invite'){e.treasury-=q.cost;e.ledger.immigration+=q.cost;e.food+=4;for(let i=0;i<2;i++)e.residents.push({id:e.nextId++,source:'invited',cycle:e.cycle,paidAmber:4});}
     else if(order.kind==='supplies'){e.treasury-=q.cost;e.ledger.supplies+=q.cost;e.food+=20;}
     else if(order.kind==='enable')e.buildings.find(b=>b.id===order.id)!.enabled=order.enabled;
+    else if(order.kind==='repair'){const b=e.buildings.find(b=>b.id===order.id)!;e.treasury-=10;e.ledger.repairs!+=10;b.defense!.repaired+=10;b.defense!.health=Math.min(TOWER_HEALTH,b.defense!.health+TOWER_REPAIR);}
     else if(order.kind==='appearance')e.buildings.find(b=>b.id===order.id)!.appearance=structuredClone(order.appearance);
     else e.buildings=e.buildings.filter(b=>b.id!==order.id);
     e.revision++;
@@ -146,6 +157,13 @@ export function applyCityOrder(s:GameState,cityId:string,order:CityOrder,revisio
 export function stepCityEconomy(s:GameState,dt:number):void {
   const city=cityAt(s),e=city?.economy;
   if(!e||!city||!activeField(s)||navigation(s)?.mode!=='local'||s.deathReason||s.player.health<=0||!Number.isFinite(dt)||dt<=0)return;
+  if(rivalAdvanced(s,city))return;
+  enrollArmyCity(s,city);
+  advanceCityEconomy(city,dt);
+}
+/** Shared local cycle; the caller owns scheduling, so remote visits never double-tick. */
+export function advanceCityEconomy(city:City,dt:number):void {
+  const e=city.economy;if(!e||!Number.isFinite(dt)||dt<=0)return;
   if(e.cycle>=CITY_CYCLE_LIMIT||Object.values(e.ledger).some(v=>v>CITY_LEDGER_LIMIT-100))return;
   e.elapsed+=Math.min(1/30,dt);
   if(e.elapsed+1e-9<CITY_CYCLE_SECONDS)return;
@@ -155,5 +173,6 @@ export function stepCityEconomy(s:GameState,dt:number):void {
   e.food+=result.produced-result.consumed-result.discarded;
   for(const key of ['income','upkeep','produced','consumed','discarded'] as const)e.ledger[key]+=result[key];
   e.cycle++;
+  for(const b of e.buildings)if(b.kind==='tower')b.defense!.maintained=result.funded&&b.enabled?e.cycle:null;
   e.last={cycle:e.cycle,income:result.income,upkeep:result.upkeep,produced:result.produced,consumed:result.consumed,discarded:result.discarded,happiness:result.happiness,workers:result.workers,hungry:result.hungry,funded:result.funded};
 }

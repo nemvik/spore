@@ -80,7 +80,7 @@ export function validateStates(s:GameState):void {
         established.push(c.id);reserve-=60;
       }else if(a.kind==='open'){
         check(t.cost===80&&t.account==='reserve'&&reserve>=80&&established.includes(c.id)&&!opened.has(c.id));
-        check(c.economy?.version===3&&c.economy.opened.source==='state'&&c.economy.opened.transactionId===t.id);
+        check((c.economy?.version===3||c.economy?.version===4&&!!s.civilization||c.economy?.version===5&&!!s.mobilization)&&c.economy.opened.source==='state'&&c.economy.opened.transactionId===t.id);
         opened.add(c.id);records.set(c.id,{builds:[],invites:0,funds:0,nextId:1});reserve-=80;
       }else if(a.kind==='defend'){check(states!.version>=2&&t.account==='reserve'&&t.cost===DEFENSE_COST&&reserve>=DEFENSE_COST&&c.defense?.transactionId===t.id&&established.includes(c.id));reserve-=DEFENSE_COST;}else if(a.kind==='fund'){const record=records.get(c.id);check(!!record&&t.cost===20);if(t.account==='trade'){check(states!.version===4&&reserve<20&&sales.filter(v=>v.turn<t.turn).reduce((n,v)=>n+v.price,0)-civilSpent>=20);civilSpent+=20;}else{check(t.account==='reserve'&&reserve>=20);reserve-=20;}record!.funds++;}
       else{
@@ -103,12 +103,12 @@ export function validateStates(s:GameState):void {
         const pristine=createField(s.seed,s.homePlanet!.id,atlas.cells[field.cellId]);
         check(s.homePlanet!.currentLocationId!==field.id&&field.world.time===0&&field.world.patches.every(p=>!p.discovered));
         check(field.position.x===pristine.position.x&&field.position.y===pristine.position.y&&field.position.z===pristine.position.z&&field.heading===pristine.heading);
-        check(!c.economy||c.economy.cycle===0&&c.economy.elapsed===0);
+        check(!c.economy||c.economy.version===5&&!!s.mobilization||c.economy.cycle===0&&c.economy.elapsed===0);
       }
       check((!!c.economy)===opened.has(c.id));
       if(!c.economy)continue;
       const record=records.get(c.id)!,e=c.economy;
-      check(e.nextId===record.nextId&&e.revision===1+record.builds.length+record.invites+record.funds&&e.buildings.length===record.builds.length&&e.residents.length===record.invites*2);
+      check(e.nextId===record.nextId&&e.revision===1+record.builds.length+record.invites+record.funds+(e.ledger.military??0)/40&&e.buildings.length===record.builds.length&&e.residents.length===record.invites*2);
       check(e.ledger.transfers===80+record.funds*20&&e.ledger.supplies===0&&e.ledger.construction===record.builds.reduce((sum,b)=>sum+CITY_BUILDINGS[b.building].cost,0)&&e.ledger.immigration===record.invites*8);
     }
     if(states!.clock.turn===0){check(r.last===null&&r.transactions.length===0);continue;}

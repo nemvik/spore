@@ -1,4 +1,5 @@
-import { activeCell, CELL_THRESHOLDS, cellTier } from '../game/cell-growth';
+import { activeCell, CELL_THRESHOLDS, cellTier, cellOpeningReady } from '../game/cell-growth';
+import { journeyRequirements } from '../game/journey';
 import { getAdaptation } from '../game/adaptation-catalog';
 import { targetLocation } from './journey-guide';
 import type { GameState } from '../game/types';
@@ -7,10 +8,11 @@ export function cellGuide(s: GameState) {
   const cell=activeCell(s);if(!cell)return null;
   const tier=cellTier(s),unused=cell.parts.find(p=>p.usedGeneration===null),site=cell.sites.map((site,i)=>({...site,requiredTier:i+1})).find(site=>!site.collected),home=s.world.landmarks.find(l=>l.kind==='nest')!;
   const progress=`Růst ${tier} / 3 · ${cell.nutrition} / ${CELL_THRESHOLDS[Math.min(3,tier+1)]} soust`;
-  if(unused)return {title:'Přestav se',step:progress,instruction:`Objeveno: ${getAdaptation(unused.part).name}. Vrať se do kolébky ◇, otevři Tab a přidej část. DNA platí stavbu, objev zůstává.`,target:home.pos,location:targetLocation(s.player.pos,home.pos),done:'Potvrzením přestavby začne další generace.'};
-  if(site&&tier>=site.requiredTier)return {title:'Objev část',step:progress,instruction:'Doplavej k zářící schránce ✧. Zblízka stiskni T a odhal novou část.',target:site.pos,location:targetLocation(s.player.pos,site.pos),done:'Objev se dědí do dalších etap.'};
-  if(tier<3)return {title:'Sním → vyrostu',step:progress,instruction:`WASD · plav. Mezerník · jez malé řasy nebo detrit. ${tier===0?'Tři sousta zvětší tělo i rozhled.':'Větší tělo zvládá i velká sousta.'}`,target:null,location:'✧ schránky · ◇ kolébka a editor',done:'Pak prozkoumej ✧ a přestav se v kolébce (Tab).'};
-  return null;
+  if(cellOpeningReady(s)||journeyRequirements(s).every(r=>r.met)){const gate=s.world.landmarks.find(l=>l.kind==='gate')!;return {title:'Útes je otevřený',step:progress,instruction:'Doplavej k severnímu odtoku ◇ a stiskni G. Další schránky a porosty jsou dobrovolné.',target:gate.pos,location:targetLocation(s.player.pos,gate.pos),done:'Růst a první přestavba jsou hotové.'};}
+  if(unused&&!cell.parts.some(p=>p.usedGeneration!==null))return {title:'Přestav se',step:progress,instruction:`Objeveno: ${getAdaptation(unused.part).name}. Vrať se do kolébky ◇, otevři Tab a přidej část. DNA platí stavbu, objev zůstává.`,target:home.pos,location:targetLocation(s.player.pos,home.pos),done:'Potvrzením přestavby začne další generace.'};
+  if(site&&tier>=site.requiredTier&&!cell.parts.some(p=>p.usedGeneration!==null))return {title:'Objev část',step:progress,instruction:'Doplavej k zářící schránce ✧. Zblízka stiskni T a odhal novou část.',target:site.pos,location:targetLocation(s.player.pos,site.pos),done:'Objev se dědí do dalších etap.'};
+  if(tier<3)return {title:'Sním → vyrostu',step:progress,instruction:`WASD · plav. Mezerník · jez malé řasy nebo detrit. ${tier===0?'Dvě sousta zvětší tělo i rozhled.':'Větší tělo zvládá i velká sousta.'}`,target:null,location:'✧ schránky · ◇ kolébka a editor',done:'Pak prozkoumej ✧ a přestav se v kolébce (Tab).'};
+  return {title:'První přestavba',step:progress,instruction:'V kolébce otevři Tab a přidej objevenou část. Zvol její dědictví pro útes; současné tělo půjde měnit dál.',target:home.pos,location:targetLocation(s.player.pos,home.pos),done:'Stačí jedna přestavba s objevenou částí.'};
 }
 export function cellHud(s:GameState) {
   const guide=cellGuide(s);if(!guide)return null;

@@ -27,6 +27,11 @@ export function createBuilding(kind:CityBuildingKind,appearance?:BuildingAppeara
       mesh(new THREE.CylinderGeometry(1.7,2.2,.7,8),'#3b6871',0,2.8,0);
       mesh(new THREE.CylinderGeometry(.5,.7,2.2,8),'#807b72',.8,3.6,0);
       mesh(new THREE.TorusGeometry(.8,.2,6,12),'#ffe1a1',0,1.5,2);
+    } else if(kind==='tower') {
+      mesh(new THREE.CylinderGeometry(1.5,2.2,4.6,8),def.color,0,2.5,0);
+      mesh(new THREE.CylinderGeometry(2,1.6,.7,8),'#365563',0,5,0);
+      mesh(new THREE.OctahedronGeometry(1.1),'#f4d191',0,6,0);
+      for(const x of [-1.3,1.3])mesh(new THREE.CylinderGeometry(.2,.2,1.4,6),'#263f4a',x,5.7,0);
     } else {
       mesh(new THREE.CylinderGeometry(2,2.3,.5,12),def.color,0,.5,0);
       mesh(new THREE.CylinderGeometry(.2,.3,2,8),'#586b60',0,1.5,0);
@@ -45,6 +50,7 @@ export function createBuilding(kind:CityBuildingKind,appearance?:BuildingAppeara
     if(kind==='house'){mesh(new THREE.BoxGeometry(.24,.42,.06),'#243f48',0,1.07,z+.09);const roof=mesh(new THREE.ConeGeometry(.3,.22,3),'#243f48',0,1.4,z+.09);roof.rotation.y=Math.PI;}
     else if(kind==='workshop')mesh(new THREE.TorusGeometry(.24,.085,6,10),'#243f48',0,1.12,z+.1);
     else if(kind==='garden'){for(const dx of [-.22,0,.22])mesh(new THREE.ConeGeometry(.13,.45,6),'#243f48',dx,1.13,z+.1);}
+    else if(kind==='tower'){mesh(new THREE.BoxGeometry(.45,.5,.06),'#243f48',0,1.1,z+.1);mesh(new THREE.BoxGeometry(.65,.12,.06),'#243f48',0,1.4,z+.1);}
     else {mesh(new THREE.BoxGeometry(.07,.5,.06),'#243f48',0,1.07,z+.1);mesh(new THREE.SphereGeometry(.19,8,6),'#243f48',0,1.28,z+.1);}
   }
   return group;

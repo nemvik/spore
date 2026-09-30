@@ -1,3 +1,7 @@
+import { validateSpace, spaceCheckpointMatches } from './space-validation';
+import { validateMobilization, mobilizationCheckpointMatches } from './mobilization-validation';
+import { validateCivilization, civilizationCheckpointMatches } from './civilization-validation';
+import { validateCommerce, commerceCheckpointMatches } from './commerce-validation';
 import { validateMaritime, maritimeCheckpointMatches } from './maritime-validation';
 import { validateConversion, conversionCheckpointMatches } from './conversion-validation';
 import { validateMilitary, militaryCheckpointMatches } from './military-validation';
@@ -5,7 +9,7 @@ import { validateStates, statesCheckpointMatches } from './states-validation';
 import { cityId, cityNameValid, cityProgression, citySite, CITY_COST, type City } from './cities';
 import { cityPositionClear } from './city-spatial';
 import { validateCityEconomy, cityEconomyCheckpointMatches } from './city-economy-validation';
-import { bindActiveWorld, createField, fieldGround, fieldId, FIELD_LIMIT, campaignWorld, activeField } from './planet-travel';
+import { bindActiveWorld, createField, fieldGround, fieldId, FIELD_LIMIT, FIELD_STORAGE_LIMIT, campaignWorld, activeField } from './planet-travel';
 import { planetAtlas } from './planet-geography';
 import { LOCATION_KINDS, locationId, type HomePlanet } from './home-planet';
 import { FIVE_NEIGHBOURS, HISTORIC_NEIGHBOURS } from './tribe-roster';
@@ -117,7 +121,7 @@ function validateNavigation(s: GameState): void {
   const camera = object(nav.camera, at + '.camera', ['x', 'y', 'zoom']);
   number(camera.x, at, 0, 720); number(camera.y, at, 0, 360); number(camera.zoom, at, 1, 8);
   const atlas = planetAtlas(planet)!, ids: string[] = [];
-  for (const raw of array(nav.fields, at + '.fields', FIELD_LIMIT)) {
+  for (const raw of array(nav.fields, at + '.fields', FIELD_STORAGE_LIMIT)) {
     const f = object(raw, at + '.field', ['id', 'kind', 'cellId', 'world', 'position', 'heading']);
     const cellId = number(f.cellId, at, 0, 2591, true), cell = atlas.cells[cellId];
     if (s.stage < 2 || cell.surface !== 'land' || atlas.anchors.some(a => a.cellId === cellId) || f.id !== fieldId(planet.id, cellId) || f.kind !== 'field') invalid(at, SAVE_ERRORS.unknownValue);
@@ -135,10 +139,13 @@ function validateNavigation(s: GameState): void {
     number(f.heading, at + '.heading', -1e9, 1e9);
   }
   if (new Set(ids).size !== ids.length) invalid(at, SAVE_ERRORS.duplicateIds);
+  // Only appended, paid state-city fields use the reserve. validateStates below
+  // independently checks their founding receipts in this live state/checkpoint.
+  if (ids.slice(FIELD_LIMIT).some(id => !(Array.isArray(s.cities?.entries) && s.cities.entries.some(c => c?.address?.locationId === id && c?.founded?.source === 'state')))) invalid(at + '.fields', SAVE_ERRORS.invalidCount);
   const home = locationId(planet.id, worldStageFor(s.stage));
   if (planet.currentLocationId !== home && !ids.includes(planet.currentLocationId)) invalid(at, SAVE_ERRORS.activeWorldMismatch);
   const visits: string[] = [];
-  for (const raw of array(nav.visits, at + '.visits', FIELD_LIMIT + 3)) {
+  for (const raw of array(nav.visits, at + '.visits', FIELD_STORAGE_LIMIT + 3)) {
     const visit = object(raw, at + '.visit', ['locationId', 'tick']);
     if (!ids.includes(visit.locationId as string) && !planet.locations.some(l => l.id === visit.locationId)) invalid(at, SAVE_ERRORS.unknownValue);
     number(visit.tick, at + '.tick', 0, s.tick, true); visits.push(visit.locationId as string);
@@ -155,7 +162,7 @@ function validateCities(s: GameState): void {
   oneOf(registry.version,[1,2,3,4,5,6,7,8],at+'.version');
   if(s.homePlanet?.version!==3)invalid(at,SAVE_ERRORS.unknownValue);
   const ids:string[]=[];
-  for(const raw of array(registry.entries,at+'.entries',FIELD_LIMIT)) {
+  for(const raw of array(registry.entries,at+'.entries',FIELD_STORAGE_LIMIT)) {
     const row=object(raw,at+'.city',['id','name','owner','address','founded','local',...(Number(registry.version)>=2?['economy']:[]),...(Number(registry.version)>=5?['foundingOwner','defense','capture']:[]),...(Number(registry.version)>=6?['transfers','fortification']:[]),...(Number(registry.version)>=8?['conversion']:[])]);
     string(row.id,at+'.id',140);string(row.name,at+'.name',40);
     if(!cityNameValid(row.name))invalid(at+'.name',SAVE_ERRORS.invalidText);
@@ -912,7 +919,8 @@ function validatePlanet(value: unknown): void {
 }
 
 function validateLineageHistory(value: unknown, state: GameState): void {
-  const path = 'state.lineageHistory', h = object(value, path, ['version', 'stages']);
+  const optional = ['cellAdaptation', 'usedEffects'].filter(k => !!value && Object.hasOwn(value as object, k));
+  const path = 'state.lineageHistory', h = object(value, path, ['version', 'stages', ...optional]);
   oneOf(h.version, [1], `${path}.version`);
   const stamp = (value: unknown, at: string) => {
     const t = object(value, at, ['tick', 'generation']);
@@ -920,6 +928,21 @@ function validateLineageHistory(value: unknown, state: GameState): void {
     number(t.generation, `${at}.generation`, 1, state.player.generation, true);
     return t as unknown as { tick: number; generation: number };
   };
+  if (optional.includes('cellAdaptation')) {
+    const at = `${path}.cellAdaptation`, choice = object(h.cellAdaptation, at, ['part', 'at']);
+    oneOf(choice.part, ['spines', 'antenna'], at + '.part');
+    const time = stamp(choice.at, at + '.at');
+    const found = state.cellGrowth?.parts.find(p => p.part === choice.part);
+    if (!found || found.usedGeneration === null || found.usedGeneration > time.generation || found.tick > time.tick || !state.lineage.some(l => l.stage === 0 && l.generation === time.generation && l.parts.includes(choice.part as 'spines' | 'antenna') && Math.abs(l.time * 60 - time.tick) < .001)) invalid(at, SAVE_ERRORS.unknownValue);
+  }
+  if (optional.includes('usedEffects')) {
+    const uses = array(h.usedEffects, `${path}.usedEffects`, 3);
+    for (const use of uses) {
+      oneOf(use, ['cell', 'creature', 'civilization'], `${path}.usedEffects`);
+      if (state.stage < (use === 'cell' ? 1 : use === 'creature' ? 3 : 5) || use === 'cell' && !h.cellAdaptation) invalid(path, SAVE_ERRORS.unknownValue);
+    }
+    if (new Set(uses).size !== uses.length) invalid(path, SAVE_ERRORS.duplicateIds);
+  }
   let totalMeals = 0, totalHunts = 0;
   array(h.stages, `${path}.stages`, state.stage + 1, state.stage + 1).forEach((value, index) => {
     const at = `${path}.stages[${index}]`, row = object(value, at, ['stage', 'coverage', 'started', 'counts', 'facts', 'closed']);
@@ -982,6 +1005,10 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   if ((version !== 1 && version !== 2 && version !== 3) || (expectedVersion !== undefined && version !== expectedVersion)) invalid('state.version', SAVE_ERRORS.unsupportedStateVersion);
   const sliceKeys = (['tribe', 'machines', 'planet'] as const).filter(key => version === 3 && Object.prototype.hasOwnProperty.call(value, key));
   const hasLineageHistory = version === 3 && Object.hasOwn(value, 'lineageHistory');
+  const hasSpace = version === 3 && Object.hasOwn(value, 'space');
+  const hasMobilization = version === 3 && Object.hasOwn(value,'mobilization');
+  const hasCivilization = version === 3 && Object.hasOwn(value,'civilization');
+  const hasCommerce = version === 3 && Object.hasOwn(value,'commerce');
   const hasMaritime = version === 3 && Object.hasOwn(value,'maritime');
   const hasMilitary = version === 3 && Object.hasOwn(value,'military');
   const hasStates = version === 3 && Object.hasOwn(value, 'states');
@@ -989,7 +1016,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   const hasHomePlanet = version === 3 && Object.hasOwn(value, 'homePlanet');
   const hasCellGrowth = version === 3 && Object.hasOwn(value, 'cellGrowth');
   const hasCreatureStage = version === 3 && Object.prototype.hasOwnProperty.call(value, 'creatureStage');
-  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasMaritime?['maritime']:[]), ...(hasMilitary?['military']:[]), ...(hasStates ? ['states'] : []), ...(hasCities ? ['cities'] : []), ...(hasHomePlanet ? ['homePlanet'] : []), ...(hasLineageHistory ? ['lineageHistory'] : []), ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
+  const s = object(value, 'state', ['version', 'id', 'seed', 'stage', 'tick', 'rng', 'player', 'worlds', 'world', 'campaign', 'lineage', 'checkpoint', 'messages', 'deathReason', ...(version >= 2 ? ['journey'] : []), ...sliceKeys, ...(hasSpace?['space']:[]), ...(hasMobilization?['mobilization']:[]), ...(hasCivilization?['civilization']:[]), ...(hasCommerce?['commerce']:[]), ...(hasMaritime?['maritime']:[]), ...(hasMilitary?['military']:[]), ...(hasStates ? ['states'] : []), ...(hasCities ? ['cities'] : []), ...(hasHomePlanet ? ['homePlanet'] : []), ...(hasLineageHistory ? ['lineageHistory'] : []), ...(hasCellGrowth ? ['cellGrowth'] : []), ...(hasCreatureStage ? ['creatureStage'] : [])]);
   gameId(s.id, 'state.id'); const seed = number(s.seed, 'state.seed', 0, UINT32, true);
   oneOf(s.stage, version === 3 ? [0, 1, 2, 3, 4, 5] : [0, 1, 2], 'state.stage'); const stage = s.stage as Stage;
   const worldStage = worldStageFor(stage);
@@ -1059,7 +1086,7 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     p.abilityRecharge = Math.min(Number(p.cooldown), has(genome, 'toxin') ? 7 : 4);
     if (Number(p.cooldown) > 2) p.cooldown = .25;
   }
-  number(p.abilityRecharge, 'player.abilityRecharge', 0, 7);
+  number(p.abilityRecharge, 'player.abilityRecharge', 0, 8);
   number(p.scan, 'player.scan', 0, 5);
   const bonds = array(p.bonds, 'player.bonds', 2);
   if (bonds.length && !has(genome, 'symbiote')) invalid('player.bonds', SAVE_ERRORS.symbioteRequired);
@@ -1147,6 +1174,10 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
   if(hasStates || (s as unknown as GameState).cities?.version===4||((s as unknown as GameState).cities?.version??0)>=5) validateStates(s as unknown as GameState);
   validateConversion(s as unknown as GameState);
   validateMaritime(s as unknown as GameState);
+  validateCommerce(s as unknown as GameState);
+  validateCivilization(s as unknown as GameState);
+  validateMobilization(s as unknown as GameState);
+  validateSpace(s as unknown as GameState);
   if (s.checkpoint !== null) {
     if (nestedCheckpoint) invalid('checkpoint', SAVE_ERRORS.nestedCheckpoint);
     const checkpoint = string(s.checkpoint, 'checkpoint', MAX_BYTES);
@@ -1165,6 +1196,10 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     }
     if (restored.machines?.version !== (s.machines as GameState['machines'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.planet?.version !== (s.planet as GameState['planet'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    if(!spaceCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.space',SAVE_ERRORS.checkpointMismatch);
+    if(!mobilizationCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.mobilization',SAVE_ERRORS.checkpointMismatch);
+    if(!civilizationCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.civilization',SAVE_ERRORS.checkpointMismatch);
+    if(!commerceCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.commerce',SAVE_ERRORS.checkpointMismatch);
     if(!maritimeCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.maritime',SAVE_ERRORS.checkpointMismatch);
     if(!conversionCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.conversion',SAVE_ERRORS.checkpointMismatch);
     if(!militaryCheckpointMatches(s as unknown as GameState,restored))invalid('checkpoint.military',SAVE_ERRORS.checkpointMismatch);
@@ -1182,6 +1217,9 @@ function validateState(value: unknown, nestedCheckpoint = false, expectedVersion
     // The rule marker is fixed at birth; the earlier filter opening may differ.
     if (restored.journey.reefEvolution?.version !== journey.reefEvolution?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
     if (restored.lineageHistory?.version !== (s.lineageHistory as GameState['lineageHistory'])?.version) invalid('checkpoint', SAVE_ERRORS.checkpointMismatch);
+    const oldChoice = restored.lineageHistory?.cellAdaptation, liveHistory = (s.lineageHistory as GameState['lineageHistory']);
+    if (oldChoice && (oldChoice.part !== liveHistory?.cellAdaptation?.part || oldChoice.at.tick !== liveHistory.cellAdaptation.at.tick || oldChoice.at.generation !== liveHistory.cellAdaptation.at.generation)) invalid('checkpoint.cellAdaptation', SAVE_ERRORS.checkpointMismatch);
+    if (restored.lineageHistory?.usedEffects?.some(use => !liveHistory?.usedEffects?.includes(use))) invalid('checkpoint.usedEffects', SAVE_ERRORS.checkpointMismatch);
     for (const prior of restored.lineageHistory?.stages ?? []) {
       const current = (s.lineageHistory as GameState['lineageHistory'])!.stages[prior.stage];
       if (prior.closed && (prior.stage === 3 || prior.closed.source === 'action' || current.closed?.source === 'action') && historyRowSignature(prior) !== historyRowSignature(current)) invalid('checkpoint.lineageHistory', SAVE_ERRORS.checkpointMismatch);
