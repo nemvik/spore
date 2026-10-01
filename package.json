@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:browser": "node scripts/browser-test.mjs",
+    "test:interface": "node scripts/interface-browser.mjs",
     "test:era": "node scripts/era-browser.mjs",
     "test:tribe": "node scripts/tribe-browser.mjs",
     "test:tribe-society": "node scripts/tribe-society-browser.mjs",

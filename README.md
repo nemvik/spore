@@ -109,6 +109,7 @@ Následující tabulka platí pro první tři etapy; ovládání kmene, strojů 
 | **E** | Položení nesené potravy 2 m za tělem; světlý pupen ukazuje skutečné místo |
 | **X** | Aktivní toxinový nebo sonarový pulz podle vybavení |
 | **Tab** | Editor těla v blízkosti kolébky linie |
+| **F6** | Přepnutí mezi světem a bočními panely; uvnitř panelů prochází Tab, mezerník nebo Enter rozbaluje |
 | **G** | Přechod u proudu; na souši vysvětlení podmínek závěru, který nastane po jejich splnění |
 | **J** | Deník, niky a druhy |
 | **Esc** | Pauza |
@@ -118,7 +119,9 @@ Následující tabulka platí pro první tři etapy; ovládání kmene, strojů 
 
 Nedaleký mateřský porost má vlastní malý popisek ve světě. T se u něj objeví jako připravené až při skutečném dosahu; mimo něj může T vzít obyčejnou potravu. Neúspěšné sázení výslovně oznámí, že vzorek stále neseš. Vybraný cíl myší platí pro mezerník; samostatná řádka T ukazuje aktuální péči.
 
-Pauza zpřístupňuje nastavení kvality, citlivosti kamery, omezení pohybu, celkové hlasitosti, atmosféry, efektů a vypnutí zvuku. Primárním ovládáním je klávesnice a myš; responzivní rozhraní samo o sobě nedokládá podporu telefonu.
+Boční panely sbalíš kliknutím na jejich záhlaví. Hlavní cíl ukazuje nejbližší krok; úplné podmínky jsou pod **Podrobnosti**. Pauza nabízí **Velikost textu** 100, 115 nebo 130 %. Velikost i sbalení panelů si prohlížeč pamatuje napříč liniemi a načtením hry.
+
+Pauza zpřístupňuje také nastavení kvality, citlivosti kamery, omezení pohybu, celkové hlasitosti, atmosféry, efektů a vypnutí zvuku. Primárním ovládáním je klávesnice a myš; responzivní rozhraní samo o sobě nedokládá podporu telefonu.
 
 ## Editor a první adaptace
 
@@ -150,6 +153,7 @@ pnpm test
 pnpm build
 pnpm exec playwright install chromium
 pnpm test:browser
+pnpm test:interface
 pnpm test:era
 pnpm test:tribe
 pnpm test:machines
@@ -163,6 +167,8 @@ pnpm test:performance
 ```
 
 Produkční kontrolu spusť po `pnpm build` při běžícím `pnpm preview`: `pnpm test:production`.
+
+`pnpm test:interface` ověřuje sbalování panelů, klávesnici a zapamatování velikosti textu v izolovaném prohlížeči. Používá novou linii a připravené pozice napříč érami, včetně okna 1024 × 640 s textem 130 %. Spouští vlastní server na portu 5261; lze použít `LUMAVORA_URL`, `CHROME_PATH` a výstupní adresář `LUMAVORA_EVIDENCE`. Uchovává tři snímky a stručný výsledek v `evidence/interface-comfort/`, bez videa či trasování.
 
 Nutné uložené testovací vstupy jsou verzované v `tests/fixtures/saves/`; jejich původ a SHA256 uvádí přiložený manifest. Čistý checkout nepotřebuje lokální archiv `evidence/`.
 

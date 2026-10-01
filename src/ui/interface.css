@@ -1,0 +1,58 @@
+/* The world keeps its viewport; only interface text changes size. */
+#ui { font-size: calc(14px * var(--ui-text-scale, 1)); }
+#ui summary { pointer-events: auto; }
+summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+.hud-panel { min-width: 0; overflow-wrap: anywhere; }
+.hud-panel > .hud-panel-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 32px; padding: 3px 0; margin: 0;
+  list-style: none; cursor: pointer; color: var(--mint);
+  font: 600 calc(12px * var(--ui-text-scale, 1))/1.4 var(--sans);
+}
+.hud-panel-toggle::-webkit-details-marker { display: none; }
+.hud-panel-chevron { color: var(--gold); font-size: 18px; flex: 0 0 auto; }
+.hud-panel[open] > .hud-panel-toggle { margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.hud-panel[open] > .hud-panel-toggle .hud-panel-chevron { transform: rotate(180deg); }
+.hud-panel:not([open]) { padding-block: 8px; overflow: visible; }
+.planet-vehicle.hud-panel:not([open]), .planet-community.hud-panel:not([open]), .sea-panel.hud-panel:not([open]) { bottom: auto; }
+.hud-panel.hud-goal-details { border-top: 1px solid var(--line); margin-top: 14px; }
+.hud-goal-details > .hud-panel-toggle { color: var(--muted); }
+.hud-goal-details[open] > .hud-panel-toggle { border: 0; margin-bottom: 4px; }
+#objective-next p { font-size: calc(12px * var(--ui-text-scale, 1)); line-height: 1.6; color: var(--ink); margin: 8px 0; }
+#objective-next .quest-location { font-size: calc(11px * var(--ui-text-scale, 1)); margin-top: 10px; }
+.objective > .hud-panel-toggle { font: 400 calc(20px * var(--ui-text-scale, 1))/1.2 var(--serif); color: var(--ink); }
+.objective .quest-next .eyebrow { text-transform: none; letter-spacing: 0; }
+.objective .hud-goal-details #requirements { margin-top: 8px; }
+.vitals { max-height: calc(100vh - 265px); overflow-y: auto; overscroll-behavior: contain; }
+.vitals-name { gap: 8px; flex-wrap: wrap; }
+.vitals-name strong { overflow-wrap: anywhere; }
+.settings-row { gap: 16px; }
+.settings-row select { min-width: 0; width: 100%; max-width: 100%; }
+.pause-actions { flex-wrap: wrap; }
+.tribe-building-options { flex-wrap: wrap; }
+.tribe-status { max-width: calc(100vw - 370px); flex-wrap: wrap; row-gap: 8px; }
+.tribe-selection, .domestication, .chief-panel, .music-encounter { max-height: calc(100vh - 345px * var(--ui-text-scale, 1)); }
+.tribe-alert { left: 50%; transform: translateX(-50%); width: min(330px, 30vw); max-height: 180px; overflow-y: auto; }
+.tribe-building-options > .secondary { min-width: 90px; }
+.tribe-command-hint { flex-wrap: wrap; gap: 8px; }
+.tribe-member-stats, .tribe-tools { flex-wrap: wrap; }
+.space-heading > .row, .field-topbar .toolbar { flex-wrap: wrap; }
+.space-instruments.hud-panel, .space-navigation.hud-panel { width: 260px; }
+@media (max-width: 1200px) {
+  .tribe-status { max-width: calc(100vw - 299px); }
+}
+@media (max-height: 780px) {
+  .tribe-selection, .domestication, .chief-panel, .music-encounter { max-height: calc(100vh - 315px * var(--ui-text-scale, 1)); }
+  .tribe-alert { top: calc(172px * var(--ui-text-scale, 1)); }
+}
+@media (max-width: 1100px) {
+  .chapter-pill span { letter-spacing: .03em; }
+  .objective { width: 240px; right: 18px; }
+  .vitals { width: 225px; left: 18px; }
+  .space-instruments.hud-panel, .space-navigation.hud-panel { width: 240px; }
+}
+@media (max-width: 760px) {
+  .objective { width: 210px; right: 12px; }
+  .vitals { width: 200px; left: 12px; }
+  .space-instruments.hud-panel, .space-navigation.hud-panel { width: 210px; }
+}
